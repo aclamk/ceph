@@ -54,6 +54,7 @@ using std::fstream;
 #include "osdc/ObjectCacher.h"
 
 #include "InodeRef.h"
+#include "UserGroups.h"
 
 class MDSMap;
 class MonClient;
@@ -752,7 +753,39 @@ private:
     MAY_READ = 4,
   };
 
+  class RequestUserGroups : public UserGroups {
+    Client *client;
+    uid_t uid;
+    gid_t gid;
+    int sgid_count;
+    gid_t *sgids;
+    void init() {
+      sgid_count = client->_getgrouplist(&sgids, uid, gid);
+    }
+    public:
+    RequestUserGroups(Client *c, uid_t u, gid_t g) :
+      client(c), uid(u), gid(g), sgid_count(-1), sgids(NULL) {}
+    ~RequestUserGroups() {
+      free(sgids);
+    }
+    bool is_in(gid_t id) {
+      if (id == gid)
+	return true;
+      if (sgid_count < 0)
+	init();
+      for (int i = 0; i < sgid_count; ++i) {
+	if (id == sgids[i])
+	  return true;
+      }
+      return false;
+    }
+    gid_t get_gid() {
+      return gid;
+    }
+  };
+
   int check_permissions(Inode *in, int flags, int uid, int gid);
+  int _getgrouplist(gid_t **sgids, int uid=-1, int gid=-1);
 
   int check_data_pool_exist(string name, string value, const OSDMap *osdmap);
 
@@ -816,8 +849,7 @@ private:
 
   int _posix_acl_create(Inode *dir, mode_t *mode, bufferlist& xattrs_bl, int uid, int gid);
   int _posix_acl_chmod(Inode *in, mode_t mode, int uid, int gid);
-  int _posix_acl_permission(Inode *in, int uid, int gid,
-			    gid_t *sgids, int sgid_count, unsigned want);
+  int _posix_acl_permission(Inode *in, uid_t uid, UserGroups& groups, unsigned want);
 public:
   int mount(const std::string &mount_root, bool require_mds=false);
   void unmount();
