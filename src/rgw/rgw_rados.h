@@ -153,7 +153,9 @@ public:
   /**
    * Allows to extend fetch range of RGW object. Used by RGWGetObjFilter.
    */
-  virtual void fixup_range(off_t& bl_ofs, off_t& bl_end) {}
+  virtual int fixup_range(off_t& bl_ofs, off_t& bl_end) {
+    return 0;
+  }
 };
 
 class RGWAccessListFilter {
@@ -523,6 +525,11 @@ public:
     /* current ofs relative to start of rgw object */
     uint64_t get_ofs() const {
       return ofs;
+    }
+
+    /* stripe number */
+    int get_cur_stripe() const {
+      return cur_stripe;
     }
 
     /* current stripe size */
