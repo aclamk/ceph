@@ -1228,6 +1228,7 @@ void RGWGetObj::execute()
     }
     return;
   }
+
   attr_iter = attrs.find(RGW_ATTR_SLO_MANIFEST);
   if (attr_iter != attrs.end()) {
     is_slo = true;
@@ -1260,8 +1261,8 @@ void RGWGetObj::execute()
     goto done_err;
 
   perfcounter->inc(l_rgw_get_b, end - ofs);
-
-  op_ret = this->get_decrypt_filter(&decrypt, cb);
+  attr_iter = attrs.find(RGW_ATTR_MANIFEST);
+  op_ret = this->get_decrypt_filter(&decrypt, cb, attr_iter != attrs.end() ? &(attr_iter->second) : nullptr);
   if (op_ret < 0) {
     goto done_err;
   }
@@ -2220,7 +2221,6 @@ int RGWPutObjProcessor_Multipart::prepare(RGWRados *store, string *oid_rand)
   head_obj = manifest_gen.get_cur_obj();
   head_obj.index_hash_source = obj_str;
   cur_obj = head_obj;
-
   return 0;
 }
 
@@ -2245,7 +2245,6 @@ int RGWPutObjProcessor_Multipart::do_complete(string& etag, real_time *mtime, re
   head_obj_op.meta.mtime = mtime;
   head_obj_op.meta.owner = s->owner.get_id();
   head_obj_op.meta.delete_at = delete_at;
-
   int r = head_obj_op.write_meta(s->obj_size, attrs);
   if (r < 0)
     return r;
@@ -2334,7 +2333,6 @@ void RGWPutObj::execute()
   bool multipart;
 
   bool need_calc_md5 = (dlo_manifest == NULL) && (slo_info == NULL);
-
   perfcounter->inc(l_rgw_put);
   op_ret = -EINVAL;
   if (s->object.empty()) {
@@ -2446,10 +2444,6 @@ void RGWPutObj::execute()
         delete encrypt;
       }
       processor = select_processor(*static_cast<RGWObjectCtx *>(s->obj_ctx), &multipart);
-      op_ret = get_encrypt_filter(&encrypt, processor);
-      if (op_ret < 0) {
-        goto done;
-      }
 
       string oid_rand;
       char buf[33];
@@ -2460,6 +2454,10 @@ void RGWPutObj::execute()
       if (op_ret < 0) {
         ldout(s->cct, 0) << "ERROR: processor->prepare() returned "
 			 << op_ret << dendl;
+        goto done;
+      }
+      op_ret = get_encrypt_filter(&encrypt, processor);
+      if (op_ret < 0) {
         goto done;
       }
 
@@ -2624,7 +2622,6 @@ void RGWPostObj::execute()
   MD5 hash;
   buffer::list bl, aclbl;
   int len = 0;
-
   // read in the data from the POST form
   op_ret = get_params();
   if (op_ret < 0)
@@ -2709,7 +2706,6 @@ void RGWPostObj::execute()
     ct_bl.append(content_type.c_str(), content_type.size() + 1);
     emplace_attr(RGW_ATTR_CONTENT_TYPE, std::move(ct_bl));
   }
-
   op_ret = processor->complete(etag, NULL, real_time(), attrs, delete_at);
 
 done:
@@ -3700,8 +3696,21 @@ void RGWInitMultipart::execute()
     return;
 
   policy.encode(aclbl);
-
   attrs[RGW_ATTR_ACL] = aclbl;
+
+  /* select encryption mode */
+  if (s->cct->_conf->rgw_crypt_default_encryption_key != "")
+  {
+    bufferlist mode;
+    ::encode("RGW-AUTO",mode);
+    attrs.emplace(RGW_ATTR_CRYPT_MODE, std::move(mode));
+
+    std::string key_selector("abcdefghijabcdefghijabcdefghijab"); //todo MAKE ME RANDOM
+    bufferlist sel;
+    ::encode(key_selector,sel);
+    //emplace_attr
+    attrs.emplace(RGW_ATTR_CRYPT_KEY, std::move(sel));
+  }
 
   for (iter = s->generic_attrs.begin(); iter != s->generic_attrs.end(); ++iter) {
     bufferlist& attrbl = attrs[iter->first];
@@ -3912,7 +3921,6 @@ void RGWCompleteMultipart::execute()
   op_ret = get_params();
   if (op_ret < 0)
     return;
-
   op_ret = get_system_versioning_params(s, &olh_epoch, &version_id);
   if (op_ret < 0) {
     return;
@@ -3967,6 +3975,7 @@ void RGWCompleteMultipart::execute()
   meta_obj.index_hash_source = s->object.name;
 
   op_ret = get_obj_attrs(store, s, meta_obj, attrs);
+
   if (op_ret < 0) {
     ldout(s->cct, 0) << "ERROR: failed to get obj attrs, obj=" << meta_obj
 		     << " ret=" << op_ret << dendl;
