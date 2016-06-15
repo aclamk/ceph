@@ -107,5 +107,8 @@ public:
 std::string create_random_key_selector();
 int get_actual_key_from_kms(CephContext *cct, const std::string& key_id, const std::string& key_selector, std::string& actual_key);
 
+int s3_prepare_encrypt(struct req_state* s, map<string, bufferlist>& attrs, BlockCrypt** block_crypt, std::string& crypt_http_responses);
+int s3_prepare_decrypt(struct req_state* s, map<string, bufferlist>& attrs, BlockCrypt** block_crypt, std::string& crypt_http_responses);
+
 
 #endif
