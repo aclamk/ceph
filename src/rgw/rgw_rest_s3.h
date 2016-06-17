@@ -15,6 +15,7 @@
 #include "rgw_keystone.h"
 #include "rgw_rest_conn.h"
 #include "rgw_ldap.h"
+#include "rgw_rest.h"
 
 #define RGW_AUTH_GRACE_MINS 15
 
