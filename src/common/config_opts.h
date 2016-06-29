@@ -1315,6 +1315,7 @@ OPTION(rgw_keystone_verify_ssl, OPT_BOOL, true) // should we try to verify keyst
 OPTION(rgw_keystone_implicit_tenants, OPT_BOOL, false)  // create new users in their own tenants of the same name
 OPTION(rgw_s3_auth_use_rados, OPT_BOOL, true)  // should we try to use the internal credentials for s3?
 OPTION(rgw_s3_auth_use_keystone, OPT_BOOL, false)  // should we try to use keystone for s3?
+OPTION(rgw_barbican_url, OPT_STR, "")  // url for barbican server
 
 /* OpenLDAP-style LDAP parameter strings */
 /* rgw_ldap_uri  space-separated list of LDAP servers in URI format */
