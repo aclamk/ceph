@@ -2670,7 +2670,7 @@ void RGWPutObj::execute()
     if (!len)
       break;
     if (need_calc_md5) {
-      hash.Update((const byte *)data.c_str(), data.length());
+      hash.Update((const byte *)data_in.c_str(), data_in.length());
     }
 
     bufferlist &data = data_in;

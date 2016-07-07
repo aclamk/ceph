@@ -1359,6 +1359,7 @@ if(${WITH_RADOSGW})
     rgw/rgw_common.cc
     rgw/rgw_cors.cc
     rgw/rgw_cors_s3.cc
+    rgw/rgw_crypt.cc
     rgw/rgw_dencoder.cc
     rgw/rgw_env.cc
     rgw/rgw_fcgi.cc
