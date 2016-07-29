@@ -472,6 +472,7 @@ set(libcommon_files
   ${arch_files}
   ${auth_files}
   $<TARGET_OBJECTS:compressor_objs>
+  $<TARGET_OBJECTS:isal_crypto_plugin_objs>
   ${mds_files})
 set(mon_common_files
   auth/AuthSessionHandler.cc
@@ -919,6 +920,7 @@ if(HAVE_LIBAIO)
     DESTINATION bin)
 endif()
 add_dependencies(os compressor_plugins)
+add_dependencies(os ceph_crypto_isal)
 
 set(cls_references_files objclass/class_api.cc)
 add_library(cls_references_objs OBJECT ${cls_references_files})
@@ -1044,6 +1046,7 @@ set_target_properties(cephfstool PROPERTIES OUTPUT_NAME cephfs)
 install(TARGETS cephfstool DESTINATION bin)
 
 add_subdirectory(compressor)
+add_subdirectory(isa-l_crypto_plugin)
 
 add_executable(ceph-client-debug tools/ceph-client-debug.cc)
 target_link_libraries(ceph-client-debug cephfs librados global common)
