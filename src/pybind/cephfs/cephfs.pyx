@@ -108,6 +108,8 @@ cdef extern from "cephfs/libcephfs.h" nogil:
     int ceph_conf_set(ceph_mount_info *cmount, const char *option, const char *value)
 
     int ceph_mount(ceph_mount_info *cmount, const char *root)
+    int ceph_unmount(ceph_mount_info *cmount)
+    int ceph_fstat(ceph_mount_info *cmount, int fd, stat *stbuf)
     int ceph_stat(ceph_mount_info *cmount, const char *path, stat *stbuf)
     int ceph_statfs(ceph_mount_info *cmount, const char *path, statvfs *stbuf)
 
@@ -115,6 +117,7 @@ cdef extern from "cephfs/libcephfs.h" nogil:
                          const char *inbuf, size_t inbuflen, char **outbuf, size_t *outbuflen,
                          char **outs, size_t *outslen)
     int ceph_rename(ceph_mount_info *cmount, const char *from_, const char *to)
+    int ceph_link(ceph_mount_info *cmount, const char *existing, const char *newname)
     int ceph_unlink(ceph_mount_info *cmount, const char *path)
     int ceph_symlink(ceph_mount_info *cmount, const char *existing, const char *newname)
     int ceph_setxattr(ceph_mount_info *cmount, const char *path, const char *name,
@@ -135,6 +138,7 @@ cdef extern from "cephfs/libcephfs.h" nogil:
     int ceph_rmdir(ceph_mount_info *cmount, const char *path)
     const char* ceph_getcwd(ceph_mount_info *cmount)
     int ceph_sync_fs(ceph_mount_info *cmount)
+    int ceph_fsync(ceph_mount_info *cmount, int fd, int syncdataonly)
     int ceph_conf_parse_argv(ceph_mount_info *cmount, int argc, const char **argv)
     void ceph_buffer_free(char *buf)
 
@@ -433,11 +437,11 @@ cdef class LibCephFS(object):
                 ret_buf = <char *>realloc_chk(ret_buf, length)
                 with nogil:
                     ret = ceph_conf_get(self.cluster, _option, ret_buf, length)
-                if (ret == 0):
+                if ret == 0:
                     return decode_cstr(ret_buf)
-                elif (ret == -errno.ENAMETOOLONG):
+                elif ret == -errno.ENAMETOOLONG:
                     length = length * 2
-                elif (ret == -errno.ENOENT):
+                elif ret == -errno.ENOENT:
                     return None
                 else:
                     raise make_ex(ret, "error calling conf_get")
@@ -455,7 +459,7 @@ cdef class LibCephFS(object):
 
         with nogil:
             ret = ceph_conf_set(self.cluster, _option, _val)
-        if (ret != 0):
+        if ret != 0:
             raise make_ex(ret, "error calling conf_set")
 
     def init(self):
@@ -475,6 +479,14 @@ cdef class LibCephFS(object):
         if ret != 0:
             raise make_ex(ret, "error calling ceph_mount")
         self.state = "mounted"
+
+    def unmount(self):
+        self.require_state("mounted")
+        with nogil:
+            ret = ceph_unmount(self.cluster)
+        if ret != 0:
+            raise make_ex(ret, "error calling ceph_unmount")
+        self.state = "initialized"
 
     def statfs(self, path):
         self.require_state("mounted")
@@ -505,6 +517,13 @@ cdef class LibCephFS(object):
             ret = ceph_sync_fs(self.cluster)
         if ret < 0:
             raise make_ex(ret, "sync_fs failed")
+
+    def fsync(self, int fd, int syncdataonly):
+        self.require_state("mounted")
+        with nogil:
+            ret = ceph_fsync(self.cluster, fd, syncdataonly)
+        if ret < 0:
+            raise make_ex(ret, "fsync failed")
 
     def getcwd(self):
         self.require_state("mounted")
@@ -599,25 +618,29 @@ cdef class LibCephFS(object):
 
     def open(self, path, flags, mode=0):
         self.require_state("mounted")
-
         path = cstr(path, 'path')
-        flags = cstr(flags, 'flags')
+
         if not isinstance(mode, int):
             raise TypeError('mode must be an int')
-        cephfs_flags = 0
-        if flags == '':
-            cephfs_flags = os.O_RDONLY
+        if isinstance(flags, str):
+            cephfs_flags = 0
+            if flags == '':
+                cephfs_flags = os.O_RDONLY
+            else:
+                for c in flags:
+                    if c == 'r':
+                        cephfs_flags |= os.O_RDONLY
+                    elif c == 'w':
+                        cephfs_flags |= os.O_WRONLY | os.O_TRUNC | os.O_CREAT
+                    elif c == '+':
+                        cephfs_flags |= os.O_RDWR
+                    else:
+                        raise OperationNotSupported(
+                            "open flags doesn't support %s" % c)
+        elif isinstance(flags, int):
+            cephfs_flags = flags
         else:
-            for c in flags:
-                if c == 'r':
-                    cephfs_flags |= os.O_RDONLY
-                elif c == 'w':
-                    cephfs_flags |= os.O_WRONLY | os.O_TRUNC | os.O_CREAT
-                elif c == '+':
-                    cephfs_flags |= os.O_RDWR
-                else:
-                    raise OperationNotSupported(
-                        "open flags doesn't support %s" % c)
+            raise TypeError("flags must be a string or an integer")
 
         cdef:
             char* _path = path
@@ -786,6 +809,29 @@ cdef class LibCephFS(object):
                           st_mtime=datetime.fromtimestamp(statbuf.st_mtime),
                           st_ctime=datetime.fromtimestamp(statbuf.st_ctime))
 
+    def fstat(self, fd):
+        self.require_state("mounted")
+        if not isinstance(fd, int):
+            raise TypeError('fd must be an int')
+
+        cdef:
+            int _fd = fd
+            stat statbuf
+
+        with nogil:
+            ret = ceph_fstat(self.cluster, _fd, &statbuf)
+        if ret < 0:
+            raise make_ex(ret, "error in fsat")
+        return StatResult(st_dev=statbuf.st_dev, st_ino=statbuf.st_ino,
+                          st_mode=statbuf.st_mode, st_nlink=statbuf.st_nlink,
+                          st_uid=statbuf.st_uid, st_gid=statbuf.st_gid,
+                          st_rdev=statbuf.st_rdev, st_size=statbuf.st_size,
+                          st_blksize=statbuf.st_blksize,
+                          st_blocks=statbuf.st_blocks,
+                          st_atime=datetime.fromtimestamp(statbuf.st_atime),
+                          st_mtime=datetime.fromtimestamp(statbuf.st_mtime),
+                          st_ctime=datetime.fromtimestamp(statbuf.st_ctime))
+
     def symlink(self, existing, newname):
         self.require_state("mounted")
         existing = cstr(existing, 'existing')
@@ -798,6 +844,19 @@ cdef class LibCephFS(object):
             ret = ceph_symlink(self.cluster, _existing, _newname)
         if ret < 0:
             raise make_ex(ret, "error in symlink")
+    
+    def link(self, existing, newname):
+        self.require_state("mounted")
+        existing = cstr(existing, 'existing')
+        newname = cstr(newname, 'newname')
+        cdef:
+            char* _existing = existing
+            char* _newname = newname
+        
+        with nogil:
+            ret = ceph_link(self.cluster, _existing, _newname)
+        if ret < 0:
+            raise make_ex(ret, "error in link")    
 
     def unlink(self, path):
         self.require_state("mounted")

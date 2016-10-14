@@ -26,6 +26,7 @@ using std::set;
 #include "include/interval_set.h"
 #include "mdstypes.h"
 #include "mds/MDSAuthCaps.h"
+#include "common/perf_counters.h"
 
 class CInode;
 struct MDRequestImpl;
@@ -34,6 +35,13 @@ struct MDRequestImpl;
 #include "Capability.h"
 #include "msg/Message.h"
 
+enum {
+  l_mdssm_first = 5500,
+  l_mdssm_session_count,
+  l_mdssm_session_add,
+  l_mdssm_session_remove,
+  l_mdssm_last,
+};
 
 /* 
  * session
@@ -86,7 +94,7 @@ private:
   void _update_human_name();
   std::string human_name;
 
-  // Versions in this this session was projected: used to verify
+  // Versions in this session was projected: used to verify
   // that appropriate mark_dirty calls follow.
   std::deque<version_t> projected;
 
@@ -186,7 +194,7 @@ public:
     ++importing_count;
   }
   void dec_importing() {
-    assert(importing_count);
+    assert(importing_count > 0);
     --importing_count;
   }
   bool is_importing() { return importing_count > 0; }
@@ -376,8 +384,9 @@ class MDSRank;
 class SessionMapStore {
 protected:
   version_t version;
-public:
   ceph::unordered_map<entity_name_t, Session*> session_map;
+  PerfCounters *logger;
+public:
   mds_rank_t rank;
 
   version_t get_version() const {return version;}
@@ -401,6 +410,10 @@ public:
       s = session_map[i.name] = new Session;
       s->info.inst = i;
       s->last_cap_renew = ceph_clock_now(g_ceph_context);
+      if (logger) {
+        logger->set(l_mdssm_session_count, session_map.size());
+        logger->inc(l_mdssm_session_add);
+      }
     }
 
     return s;
@@ -413,7 +426,7 @@ public:
     session_map.clear();
   }
 
-  SessionMapStore() : version(0), rank(MDS_RANK_NONE) {}
+  SessionMapStore() : version(0), logger(nullptr), rank(MDS_RANK_NONE) {}
   virtual ~SessionMapStore() {};
 };
 
@@ -432,6 +445,20 @@ public:
 		       projected(0), committing(0), committed(0),
                        loaded_legacy(false)
   { }
+
+  ~SessionMap()
+  {
+    for (auto p : by_state)
+      delete p.second;
+
+    if (logger) {
+      g_ceph_context->get_perfcounters_collection()->remove(logger);
+    }
+
+    delete logger;
+  }
+
+  void register_perfcounters();
 
   void set_version(const version_t v)
   {
@@ -455,34 +482,33 @@ public:
 
   version_t get_committing() const
   {
-    return committed;
+    return committing;
   }
 
   // sessions
   void decode_legacy(bufferlist::iterator& blp);
-  bool empty() { return session_map.empty(); }
+  bool empty() const { return session_map.empty(); }
   const ceph::unordered_map<entity_name_t, Session*> &get_sessions() const
   {
     return session_map;
   }
 
-  bool is_any_state(int state) {
-    map<int,xlist<Session*>* >::iterator p = by_state.find(state);
+  bool is_any_state(int state) const {
+    map<int,xlist<Session*>* >::const_iterator p = by_state.find(state);
     if (p == by_state.end() || p->second->empty())
       return false;
     return true;
   }
 
-  bool have_unclosed_sessions() {
+  bool have_unclosed_sessions() const {
     return
-      is_any_state(Session::STATE_OPENING) ||
       is_any_state(Session::STATE_OPENING) ||
       is_any_state(Session::STATE_OPEN) ||
       is_any_state(Session::STATE_CLOSING) ||
       is_any_state(Session::STATE_STALE) ||
       is_any_state(Session::STATE_KILLING);
   }
-  bool have_session(entity_name_t w) {
+  bool have_session(entity_name_t w) const {
     return session_map.count(w);
   }
   Session* get_session(entity_name_t w) {

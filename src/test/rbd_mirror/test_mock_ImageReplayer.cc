@@ -6,35 +6,43 @@
 #include "tools/rbd_mirror/ImageReplayer.h"
 #include "tools/rbd_mirror/image_replayer/BootstrapRequest.h"
 #include "tools/rbd_mirror/image_replayer/CloseImageRequest.h"
-#include "tools/rbd_mirror/image_replayer/OpenLocalImageRequest.h"
+#include "tools/rbd_mirror/image_replayer/EventPreprocessor.h"
+#include "tools/rbd_mirror/ImageSyncThrottler.h"
+#include "test/journal/mock/MockJournaler.h"
 #include "test/librbd/mock/MockImageCtx.h"
 #include "test/librbd/mock/MockJournal.h"
-#include "test/rbd_mirror/mock/MockJournaler.h"
 
 namespace librbd {
 
-struct MockImageReplayerJournal;
+namespace {
 
-struct MockImageReplayerImageCtx : public MockImageCtx {
-  MockImageReplayerJournal *journal = nullptr;
+struct MockTestJournal;
+
+struct MockTestImageCtx : public MockImageCtx {
+  MockTestJournal *journal = nullptr;
 };
 
-struct MockImageReplayerJournal : public MockJournal {
-  MOCK_METHOD1(start_external_replay, int(journal::Replay<MockImageReplayerImageCtx> **));
+struct MockTestJournal : public MockJournal {
+  MOCK_METHOD3(start_external_replay, void(journal::Replay<MockTestImageCtx> **,
+                                           Context *on_finish,
+                                           Context *on_close_request));
   MOCK_METHOD0(stop_external_replay, void());
 };
+
+} // anonymous namespace
 
 namespace journal {
 
 template<>
-struct Replay<MockImageReplayerImageCtx> {
-  MOCK_METHOD3(process, void(bufferlist::iterator *, Context *, Context *));
+struct Replay<MockTestImageCtx> {
+  MOCK_METHOD2(decode, int(bufferlist::iterator *, EventEntry *));
+  MOCK_METHOD3(process, void(const EventEntry &, Context *, Context *));
   MOCK_METHOD1(flush, void(Context*));
   MOCK_METHOD2(shut_down, void(bool, Context*));
 };
 
 template <>
-struct TypeTraits<MockImageReplayerImageCtx> {
+struct TypeTraits<MockTestImageCtx> {
   typedef ::journal::MockJournalerProxy Journaler;
   typedef ::journal::MockReplayEntryProxy ReplayEntry;
 };
@@ -49,23 +57,25 @@ namespace mirror {
 namespace image_replayer {
 
 template<>
-struct BootstrapRequest<librbd::MockImageReplayerImageCtx> {
+struct BootstrapRequest<librbd::MockTestImageCtx> {
   static BootstrapRequest* s_instance;
   Context *on_finish = nullptr;
 
   static BootstrapRequest* create(librados::IoCtx &local_io_ctx,
-                                  librados::IoCtx &remote_io_ctx,
-                                  librbd::MockImageReplayerImageCtx **local_image_ctx,
-                                  const std::string &local_image_name,
-                                  const std::string &remote_image_id,
-                                  const std::string &global_image_id,
-                                  ContextWQ *work_queue, SafeTimer *timer,
-                                  Mutex *timer_lock,
-                                  const std::string &local_mirror_uuid,
-                                  const std::string &remote_mirror_uuid,
-                                  ::journal::MockJournalerProxy *journaler,
-                                  librbd::journal::MirrorPeerClientMeta *client_meta,
-                                  Context *on_finish) {
+        librados::IoCtx &remote_io_ctx,
+        rbd::mirror::ImageSyncThrottlerRef<librbd::MockTestImageCtx> image_sync_throttler,
+        librbd::MockTestImageCtx **local_image_ctx,
+        const std::string &local_image_name,
+        const std::string &remote_image_id,
+        const std::string &global_image_id,
+        ContextWQ *work_queue, SafeTimer *timer,
+        Mutex *timer_lock,
+        const std::string &local_mirror_uuid,
+        const std::string &remote_mirror_uuid,
+        ::journal::MockJournalerProxy *journaler,
+        librbd::journal::MirrorPeerClientMeta *client_meta,
+        Context *on_finish,
+        rbd::mirror::ProgressContext *progress_ctx = nullptr) {
     assert(s_instance != nullptr);
     s_instance->on_finish = on_finish;
     return s_instance;
@@ -76,15 +86,22 @@ struct BootstrapRequest<librbd::MockImageReplayerImageCtx> {
     s_instance = this;
   }
 
+  void put() {
+  }
+
+  void get() {
+  }
+
   MOCK_METHOD0(send, void());
+  MOCK_METHOD0(cancel, void());
 };
 
 template<>
-struct CloseImageRequest<librbd::MockImageReplayerImageCtx> {
+struct CloseImageRequest<librbd::MockTestImageCtx> {
   static CloseImageRequest* s_instance;
   Context *on_finish = nullptr;
 
-  static CloseImageRequest* create(librbd::MockImageReplayerImageCtx **image_ctx,
+  static CloseImageRequest* create(librbd::MockTestImageCtx **image_ctx,
                                    ContextWQ *work_queue, bool destroy_only,
                                    Context *on_finish) {
     assert(s_instance != nullptr);
@@ -101,32 +118,49 @@ struct CloseImageRequest<librbd::MockImageReplayerImageCtx> {
 };
 
 template<>
-struct OpenLocalImageRequest<librbd::MockImageReplayerImageCtx> {
-  static OpenLocalImageRequest* s_instance;
-  Context *on_finish = nullptr;
+struct EventPreprocessor<librbd::MockTestImageCtx> {
+  static EventPreprocessor *s_instance;
 
-  static OpenLocalImageRequest* create(librados::IoCtx &local_io_ctx,
-                                       librbd::MockImageReplayerImageCtx **local_image_ctx,
-                                       const std::string &local_image_name,
-                                       const std::string &local_image_id,
-                                       ContextWQ *work_queue,
-                                       Context *on_finish) {
+  static EventPreprocessor *create(librbd::MockTestImageCtx &local_image_ctx,
+                                   ::journal::MockJournalerProxy &remote_journaler,
+                                   const std::string &local_mirror_uuid,
+                                   librbd::journal::MirrorPeerClientMeta *client_meta,
+                                   ContextWQ *work_queue) {
     assert(s_instance != nullptr);
-    s_instance->on_finish = on_finish;
     return s_instance;
   }
 
-  OpenLocalImageRequest() {
+  EventPreprocessor() {
     assert(s_instance == nullptr);
     s_instance = this;
   }
 
-  MOCK_METHOD0(send, void());
+  MOCK_METHOD1(is_required, bool(const librbd::journal::EventEntry &));
+  MOCK_METHOD2(preprocess, void(librbd::journal::EventEntry *, Context *));
 };
 
-BootstrapRequest<librbd::MockImageReplayerImageCtx>* BootstrapRequest<librbd::MockImageReplayerImageCtx>::s_instance = nullptr;
-CloseImageRequest<librbd::MockImageReplayerImageCtx>* CloseImageRequest<librbd::MockImageReplayerImageCtx>::s_instance = nullptr;
-OpenLocalImageRequest<librbd::MockImageReplayerImageCtx>* OpenLocalImageRequest<librbd::MockImageReplayerImageCtx>::s_instance = nullptr;
+template<>
+struct ReplayStatusFormatter<librbd::MockTestImageCtx> {
+  static ReplayStatusFormatter* s_instance;
+
+  static ReplayStatusFormatter* create(::journal::MockJournalerProxy *journaler,
+				       const std::string &mirror_uuid) {
+    assert(s_instance != nullptr);
+    return s_instance;
+  }
+
+  ReplayStatusFormatter() {
+    assert(s_instance == nullptr);
+    s_instance = this;
+  }
+
+  MOCK_METHOD2(get_or_send_update, bool(std::string *description, Context *on_finish));
+};
+
+BootstrapRequest<librbd::MockTestImageCtx>* BootstrapRequest<librbd::MockTestImageCtx>::s_instance = nullptr;
+CloseImageRequest<librbd::MockTestImageCtx>* CloseImageRequest<librbd::MockTestImageCtx>::s_instance = nullptr;
+EventPreprocessor<librbd::MockTestImageCtx>* EventPreprocessor<librbd::MockTestImageCtx>::s_instance = nullptr;
+ReplayStatusFormatter<librbd::MockTestImageCtx>* ReplayStatusFormatter<librbd::MockTestImageCtx>::s_instance = nullptr;
 
 } // namespace image_replayer
 } // namespace mirror
@@ -134,14 +168,13 @@ OpenLocalImageRequest<librbd::MockImageReplayerImageCtx>* OpenLocalImageRequest<
 
 // template definitions
 #include "tools/rbd_mirror/ImageReplayer.cc"
-template class rbd::mirror::ImageReplayer<librbd::MockImageReplayerImageCtx>;
 
 namespace rbd {
 namespace mirror {
 
 class TestMockImageReplayer : public TestMockFixture {
 public:
-  typedef ImageReplayer<librbd::MockImageReplayerImageCtx> MockImageReplayer;
+  typedef ImageReplayer<librbd::MockTestImageCtx> MockImageReplayer;
 
   virtual void SetUp() {
     TestMockFixture::SetUp();

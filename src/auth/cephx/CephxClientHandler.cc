@@ -18,9 +18,9 @@
 #include "CephxClientHandler.h"
 #include "CephxProtocol.h"
 
-#include "../KeyRing.h"
-
+#include "auth/KeyRing.h"
 #include "common/config.h"
+#include "common/dout.h"
 
 #define dout_subsys ceph_subsys_auth
 #undef dout_prefix
@@ -44,6 +44,12 @@ int CephxClientHandler::build_request(bufferlist& bl) const
     if (!got) {
       ldout(cct, 20) << "no secret found for entity: " << cct->_conf->name << dendl;
       return -ENOENT;
+    }
+
+    // is the key OK?
+    if (!secret.get_secret().length()) {
+      ldout(cct, 20) << "secret for entity " << cct->_conf->name << " is invalid" << dendl;
+      return -EINVAL;
     }
 
     CephXAuthenticate req;
@@ -167,7 +173,7 @@ int CephxClientHandler::handle_response(int ret, bufferlist::iterator& indata)
 	if (decode_decrypt(cct, secrets, secret_key, indata, error)) {
 	  ldout(cct, 0) << "could not set rotating key: decode_decrypt failed. error:"
 	    << error << dendl;
-	  error.clear();
+	  return -EINVAL;
 	} else {
 	  rotating_secrets->set_secrets(secrets);
 	}

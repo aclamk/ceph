@@ -52,6 +52,8 @@ public:
 private:
   string key;
 
+  class hobject_t_max {};
+
 public:
   const string &get_key() const {
     return key;
@@ -92,7 +94,25 @@ public:
     build_hash_cache();
   }
 
-  hobject_t(object_t oid, const string& key, snapid_t snap, uint64_t hash,
+  hobject_t(const hobject_t &rhs) = default;
+  hobject_t(hobject_t &&rhs) = default;
+  hobject_t(hobject_t_max &&singleon) : hobject_t() {
+    max = true;
+  }
+  hobject_t &operator=(const hobject_t &rhs) = default;
+  hobject_t &operator=(hobject_t &&rhs) = default;
+  hobject_t &operator=(hobject_t_max &&singleton) {
+    *this = hobject_t();
+    max = true;
+    return *this;
+  }
+
+  // maximum sorted value.
+  static hobject_t_max get_max() {
+    return hobject_t_max();
+  }
+
+  hobject_t(object_t oid, const string& key, snapid_t snap, uint32_t hash,
 	    int64_t pool, string nspace)
     : oid(oid), snap(snap), hash(hash), max(false),
       pool(pool), nspace(nspace),
@@ -158,13 +178,8 @@ public:
     set_hash(std::hash<sobject_t>()(o));
   }
 
-  // maximum sorted value.
-  static hobject_t get_max() {
-    hobject_t h;
-    h.max = true;
-    return h;
-  }
   bool is_max() const {
+    assert(!max || (*this == hobject_t(hobject_t::get_max())));
     return max;
   }
   bool is_min() const {
@@ -229,17 +244,18 @@ public:
     return max ? 0x100000000ull : hash_reverse_bits;
   }
 
+  // please remember to update set_bitwise_key_u32() also
+  // once you change build_hash_cache()
   void build_hash_cache() {
     nibblewise_key_cache = _reverse_nibbles(hash);
     hash_reverse_bits = _reverse_bits(hash);
   }
-  void set_nibblewise_key_u32(uint32_t value) {
-    hash = _reverse_nibbles(value);
-    build_hash_cache();
-  }
   void set_bitwise_key_u32(uint32_t value) {
     hash = _reverse_bits(value);
-    build_hash_cache();
+    // below is identical to build_hash_cache() and shall be
+    // updated correspondingly if you change build_hash_cache() 
+    nibblewise_key_cache = _reverse_nibbles(hash);
+    hash_reverse_bits = value;
   }
 
   const string& get_effective_key() const {
@@ -320,6 +336,32 @@ ostream& operator<<(ostream& out, const hobject_t& o);
 
 WRITE_EQ_OPERATORS_7(hobject_t, hash, oid, get_key(), snap, pool, max, nspace)
 
+template <typename T>
+struct always_false {
+  using value = std::false_type;
+};
+
+template <typename T>
+inline bool operator==(const hobject_t &lhs, const T&) {
+  static_assert(always_false<T>::value::value, "Do not compare to get_max()");
+  return lhs.is_max();
+}
+template <typename T>
+inline bool operator==(const T&, const hobject_t &rhs) {
+  static_assert(always_false<T>::value::value, "Do not compare to get_max()");
+  return rhs.is_max();
+}
+template <typename T>
+inline bool operator!=(const hobject_t &lhs, const T&) {
+  static_assert(always_false<T>::value::value, "Do not compare to get_max()");
+  return !lhs.is_max();
+}
+template <typename T>
+inline bool operator!=(const T&, const hobject_t &rhs) {
+  static_assert(always_false<T>::value::value, "Do not compare to get_max()");
+  return !rhs.is_max();
+}
+
 extern int cmp_nibblewise(const hobject_t& l, const hobject_t& r);
 extern int cmp_bitwise(const hobject_t& l, const hobject_t& r);
 static inline int cmp(const hobject_t& l, const hobject_t& r, bool sort_bitwise) {
@@ -328,6 +370,38 @@ static inline int cmp(const hobject_t& l, const hobject_t& r, bool sort_bitwise)
   else
     return cmp_nibblewise(l, r);
 }
+template <typename T>
+static inline int cmp(const hobject_t &l, const T&, bool sort_bitwise) {
+  static_assert(always_false<T>::value::value, "Do not compare to get_max()");
+  return l.is_max() ? 0 : -1;
+}
+template <typename T>
+static inline int cmp(const T&, const hobject_t&r, bool sort_bitwise) {
+  static_assert(always_false<T>::value::value, "Do not compare to get_max()");
+  return r.is_max() ? 0 : 1;
+}
+template <typename T>
+static inline int cmp_nibblewise(const hobject_t &l, const T&, bool sort_bitwise) {
+  static_assert(always_false<T>::value::value, "Do not compare to get_max()");
+  return l.is_max() ? 0 : -1;
+}
+template <typename T>
+static inline int cmp_nibblewise(const T&, const hobject_t&r, bool sort_bitwise) {
+  static_assert(always_false<T>::value::value, "Do not compare to get_max()");
+  return r.is_max() ? 0 : 1;
+}
+template <typename T>
+static inline int cmp_bitwise(const hobject_t &l, const T&, bool sort_bitwise) {
+  static_assert(always_false<T>::value::value, "Do not compare to get_max()");
+  return l.is_max() ? 0 : -1;
+}
+template <typename T>
+static inline int cmp_bitwise(const T&, const hobject_t&r, bool sort_bitwise) {
+  static_assert(always_false<T>::value::value, "Do not compare to get_max()");
+  return r.is_max() ? 0 : 1;
+}
+
+
 
 // these are convenient
 static inline hobject_t MAX_HOBJ(const hobject_t& l, const hobject_t& r, bool bitwise) {

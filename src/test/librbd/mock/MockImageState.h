@@ -14,8 +14,15 @@ struct MockImageState {
   MOCK_CONST_METHOD0(is_refresh_required, bool());
   MOCK_METHOD1(refresh, void(Context*));
 
+  MOCK_METHOD1(open, void(Context*));
+
   MOCK_METHOD0(close, int());
   MOCK_METHOD1(close, void(Context*));
+
+  MOCK_METHOD2(snap_set, void(const std::string &, Context*));
+
+  MOCK_METHOD1(prepare_lock, void(Context*));
+  MOCK_METHOD0(handle_prepare_lock_complete, void());
 };
 
 } // namespace librbd

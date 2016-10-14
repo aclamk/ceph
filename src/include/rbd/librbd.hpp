@@ -60,6 +60,30 @@ namespace librbd {
     bool primary;
   } mirror_image_info_t;
 
+  typedef rbd_mirror_image_status_state_t mirror_image_status_state_t;
+
+  typedef struct {
+    std::string name;
+    mirror_image_info_t info;
+    mirror_image_status_state_t state;
+    std::string description;
+    time_t last_update;
+    bool up;
+  } mirror_image_status_t;
+
+  typedef rbd_group_image_state_t group_image_state_t;
+
+  typedef struct {
+    std::string name;
+    int64_t pool;
+    group_image_state_t state;
+  } group_image_status_t;
+
+  typedef struct {
+    std::string name;
+    int64_t pool;
+  } group_spec_t;
+
   typedef rbd_image_info_t image_info_t;
 
   class CEPH_RBD_API ProgressContext
@@ -132,6 +156,22 @@ public:
                              const std::string &client_name);
   int mirror_peer_set_cluster(IoCtx& io_ctx, const std::string &uuid,
                               const std::string &cluster_name);
+  int mirror_image_status_list(IoCtx& io_ctx, const std::string &start_id,
+      size_t max, std::map<std::string, mirror_image_status_t> *images);
+  int mirror_image_status_summary(IoCtx& io_ctx,
+      std::map<mirror_image_status_state_t, int> *states);
+
+  // RBD consistency groups support functions
+  int group_create(IoCtx& io_ctx, const char *group_name);
+  int group_remove(IoCtx& io_ctx, const char *group_name);
+  int group_list(IoCtx& io_ctx, std::vector<std::string>& names);
+
+  int group_image_add(IoCtx& io_ctx, const char *group_name,
+		      IoCtx& image_io_ctx, const char *image_name);
+  int group_image_remove(IoCtx& io_ctx, const char *group_name,
+			 IoCtx& image_io_ctx, const char *image_name);
+  int group_image_list(IoCtx& io_ctx, const char *group_name,
+		       std::vector<group_image_status_t>& images);
 
 private:
   /* We don't allow assignment or copying */
@@ -149,6 +189,7 @@ public:
   int set(int optname, uint64_t optval);
   int get(int optname, std::string* optval) const;
   int get(int optname, uint64_t* optval) const;
+  int is_set(int optname, bool* is_set);
   int unset(int optname);
   void clear();
   bool empty() const;
@@ -158,6 +199,15 @@ private:
   friend class Image;
 
   rbd_image_options_t opts;
+};
+
+class CEPH_RBD_API UpdateWatchCtx {
+public:
+  virtual ~UpdateWatchCtx() {}
+  /**
+   * Callback activated when we receive a notify event.
+   */
+  virtual void handle_notify() = 0;
 };
 
 class CEPH_RBD_API Image
@@ -170,12 +220,14 @@ public:
   int aio_close(RBD::AioCompletion *c);
 
   int resize(uint64_t size);
+  int resize2(uint64_t size, bool allow_shrink, ProgressContext& pctx);
   int resize_with_progress(uint64_t size, ProgressContext& pctx);
   int stat(image_info_t &info, size_t infosize);
   int parent_info(std::string *parent_poolname, std::string *parent_name,
 		      std::string *parent_snapname);
   int old_format(uint8_t *old);
   int size(uint64_t *size);
+  int get_group(group_spec_t *group_spec);
   int features(uint64_t *features);
   int update_features(uint64_t features, bool enabled);
   int overlap(uint64_t *overlap);
@@ -184,9 +236,13 @@ public:
 
   /* exclusive lock feature */
   int is_exclusive_lock_owner(bool *is_owner);
+  int lock_acquire(rbd_lock_mode_t lock_mode);
+  int lock_release();
 
   /* object map feature */
   int rebuild_object_map(ProgressContext &prog_ctx);
+
+  int check_object_map(ProgressContext &prog_ctx);
 
   int copy(IoCtx& dest_io_ctx, const char *destname);
   int copy2(Image& dest);
@@ -224,6 +280,7 @@ public:
   int snap_exists2(const char *snapname, bool *exists);
   int snap_create(const char *snapname);
   int snap_remove(const char *snapname);
+  int snap_remove2(const char *snapname, uint32_t flags, ProgressContext& pctx);
   int snap_rollback(const char *snap_name);
   int snap_rollback_with_progress(const char *snap_name, ProgressContext& pctx);
   int snap_protect(const char *snap_name);
@@ -231,6 +288,8 @@ public:
   int snap_is_protected(const char *snap_name, bool *is_protected);
   int snap_set(const char *snap_name);
   int snap_rename(const char *srcname, const char *dstname);
+  int snap_get_limit(uint64_t *limit);
+  int snap_set_limit(uint64_t limit);
 
   /* I/O */
   ssize_t read(uint64_t ofs, size_t len, ceph::bufferlist& bl);
@@ -337,6 +396,11 @@ public:
   int mirror_image_resync();
   int mirror_image_get_info(mirror_image_info_t *mirror_image_info,
                             size_t info_size);
+  int mirror_image_get_status(mirror_image_status_t *mirror_image_status,
+			      size_t status_size);
+
+  int update_watch(UpdateWatchCtx *ctx, uint64_t *handle);
+  int update_unwatch(uint64_t handle);
 
 private:
   friend class RBD;

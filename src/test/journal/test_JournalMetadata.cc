@@ -21,9 +21,12 @@ public:
 
   journal::JournalMetadataPtr create_metadata(const std::string &oid,
                                               const std::string &client_id,
-                                              double commit_internal = 0.1) {
+                                              double commit_interval = 0.1,
+					      uint64_t max_fetch_bytes = 0,
+                                              int max_concurrent_object_sets = 0) {
     journal::JournalMetadataPtr metadata = RadosTestFixture::create_metadata(
-      oid, client_id, commit_internal);
+      oid, client_id, commit_interval, max_fetch_bytes,
+      max_concurrent_object_sets);
     m_metadata_list.push_back(metadata);
     metadata->add_listener(&m_listener);
     return metadata;
@@ -110,8 +113,101 @@ TEST_F(TestJournalMetadata, UpdateActiveObject) {
 
   ASSERT_EQ(0U, metadata1->get_active_set());
 
-  metadata1->set_active_set(123);
+  ASSERT_EQ(0, metadata1->set_active_set(123));
   ASSERT_TRUE(wait_for_update(metadata1));
 
   ASSERT_EQ(123U, metadata1->get_active_set());
+}
+
+TEST_F(TestJournalMetadata, DisconnectLaggyClient) {
+  std::string oid = get_temp_oid();
+
+  ASSERT_EQ(0, create(oid));
+  ASSERT_EQ(0, client_register(oid, "client1", ""));
+  ASSERT_EQ(0, client_register(oid, "client2", "laggy"));
+
+  int max_concurrent_object_sets = 100;
+  journal::JournalMetadataPtr metadata =
+    create_metadata(oid, "client1", 0.1, 0, max_concurrent_object_sets);
+  ASSERT_EQ(0, init_metadata(metadata));
+  ASSERT_TRUE(wait_for_update(metadata));
+
+  ASSERT_EQ(0U, metadata->get_active_set());
+
+  journal::JournalMetadata::RegisteredClients clients;
+
+#define ASSERT_CLIENT_STATES(s1, s2)	\
+  ASSERT_EQ(2U, clients.size());	\
+  for (auto &c : clients) {		\
+    if (c.id == "client1") {		\
+      ASSERT_EQ(c.state, s1);		\
+    } else if (c.id == "client2") {	\
+      ASSERT_EQ(c.state, s2);		\
+    } else {				\
+      ASSERT_TRUE(false);		\
+    }					\
+  }
+
+  metadata->get_registered_clients(&clients);
+  ASSERT_CLIENT_STATES(cls::journal::CLIENT_STATE_CONNECTED,
+		       cls::journal::CLIENT_STATE_CONNECTED);
+
+  // client2 is connected when active set <= max_concurrent_object_sets
+  ASSERT_EQ(0, metadata->set_active_set(max_concurrent_object_sets));
+  ASSERT_TRUE(wait_for_update(metadata));
+  uint64_t commit_tid = metadata->allocate_commit_tid(0, 0, 0);
+  C_SaferCond cond1;
+  metadata->committed(commit_tid, [&cond1]() { return &cond1; });
+  ASSERT_EQ(0, cond1.wait());
+  metadata->flush_commit_position();
+  ASSERT_TRUE(wait_for_update(metadata));
+  ASSERT_EQ(100U, metadata->get_active_set());
+  clients.clear();
+  metadata->get_registered_clients(&clients);
+  ASSERT_CLIENT_STATES(cls::journal::CLIENT_STATE_CONNECTED,
+		       cls::journal::CLIENT_STATE_CONNECTED);
+
+  // client2 is disconnected when active set > max_concurrent_object_sets
+  ASSERT_EQ(0, metadata->set_active_set(max_concurrent_object_sets + 1));
+  ASSERT_TRUE(wait_for_update(metadata));
+  commit_tid = metadata->allocate_commit_tid(0, 0, 1);
+  C_SaferCond cond2;
+  metadata->committed(commit_tid, [&cond2]() { return &cond2; });
+  ASSERT_EQ(0, cond2.wait());
+  metadata->flush_commit_position();
+  ASSERT_TRUE(wait_for_update(metadata));
+  ASSERT_EQ(101U, metadata->get_active_set());
+  clients.clear();
+  metadata->get_registered_clients(&clients);
+  ASSERT_CLIENT_STATES(cls::journal::CLIENT_STATE_CONNECTED,
+		       cls::journal::CLIENT_STATE_DISCONNECTED);
+}
+
+TEST_F(TestJournalMetadata, AssertActiveTag) {
+  std::string oid = get_temp_oid();
+
+  ASSERT_EQ(0, create(oid));
+  ASSERT_EQ(0, client_register(oid, "client1", ""));
+
+  journal::JournalMetadataPtr metadata = create_metadata(oid, "client1");
+  ASSERT_EQ(0, init_metadata(metadata));
+  ASSERT_TRUE(wait_for_update(metadata));
+
+  C_SaferCond ctx1;
+  cls::journal::Tag tag1;
+  metadata->allocate_tag(cls::journal::Tag::TAG_CLASS_NEW, {}, &tag1, &ctx1);
+  ASSERT_EQ(0, ctx1.wait());
+
+  C_SaferCond ctx2;
+  metadata->assert_active_tag(tag1.tid, &ctx2);
+  ASSERT_EQ(0, ctx2.wait());
+
+  C_SaferCond ctx3;
+  cls::journal::Tag tag2;
+  metadata->allocate_tag(tag1.tag_class, {}, &tag2, &ctx3);
+  ASSERT_EQ(0, ctx3.wait());
+
+  C_SaferCond ctx4;
+  metadata->assert_active_tag(tag1.tid, &ctx4);
+  ASSERT_EQ(-ESTALE, ctx4.wait());
 }

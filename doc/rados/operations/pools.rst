@@ -26,8 +26,6 @@ pools for storing data. A pool provides you with:
 - **Snapshots**: When you create snapshots with ``ceph osd pool mksnap``, 
   you effectively take a snapshot of a particular pool.
   
-- **Set Ownership**: You can set a user ID as the owner of a pool. 
-
 To organize data into pools, you can list, create, and remove pools. 
 You can also view the utilization statistics for each pool.
 
@@ -179,9 +177,22 @@ To delete a pool, execute::
 
 	
 If you created your own rulesets and rules for a pool you created,  you should
-consider removing them when you no longer need your pool.  If you created users
-with permissions strictly for a pool that no longer exists, you should consider
-deleting those users too.
+consider removing them when you no longer need your pool::
+
+	ceph osd pool get {pool-name} crush_ruleset
+
+If the ruleset was "123", for example, you can check the other pools like so::
+
+	ceph osd dump | grep "^pool" | grep "crush_ruleset 123"
+
+If no other pools use that custom ruleset, then it's safe to delete that
+ruleset from the cluster.
+
+If you created users with permissions strictly for a pool that no longer
+exists, you should consider deleting those users too::
+
+	ceph auth list | grep -C 5 {pool-name}
+	ceph auth del {user}
 
 
 Rename a Pool
@@ -266,12 +277,21 @@ You may set values for the following keys:
               
 :Type: Integer
 
+.. _pg_num:
+
+``pg_num``
+
+:Description: The effective number of placement groups to use when calculating 
+              data placement.
+:Type: Integer
+:Valid Range: Superior to ``pg_num`` current value.
+
 .. _pgp_num:
 
 ``pgp_num``
 
-:Description: The effective number of placement groups to use when calculating 
-              data placement.
+:Description: The effective number of placement groups for placement to use 
+              when calculating data placement.
 
 :Type: Integer
 :Valid Range: Equal to or less than ``pg_num``.
@@ -550,6 +570,12 @@ You may get values for the following keys:
 
 :Description: see crash_replay_interval_
               
+:Type: Integer
+
+``pg_num``
+
+:Description: see pg_num_
+
 :Type: Integer
 
 

@@ -17,7 +17,6 @@
 
 #include "common/Timer.h"
 #include "MonitorDBStore.h"
-#include "MonmapMonitor.h"
 #include "messages/MMonElection.h"
 
 #include "common/config.h"
@@ -127,6 +126,27 @@ void Elector::defer(int who)
 
 void Elector::reset_timer(double plus)
 {
+  /**
+   * This class is used as the callback when the expire_event timer fires up.
+   *
+   * If the expire_event is fired, then it means that we had an election going,
+   * either started by us or by some other participant, but it took too long,
+   * thus expiring.
+   *
+   * When the election expires, we will check if we were the ones who won, and
+   * if so we will declare victory. If that is not the case, then we assume
+   * that the one we defered to didn't declare victory quickly enough (in fact,
+   * as far as we know, we may even be dead); so, just propose ourselves as the
+   * Leader.
+   */
+  class C_ElectionExpire : public Context {
+    Elector *elector;
+  public:
+    explicit C_ElectionExpire(Elector *e) : elector(e) { }
+    void finish(int r) {
+      elector->expire();
+    }
+  };
   // set the timer
   cancel_timer();
   expire_event = new C_ElectionExpire(this);
@@ -430,10 +450,10 @@ void Elector::dispatch(MonOpRequestRef op)
 	return;
       }
 
-      MonMap *peermap = new MonMap;
-      peermap->decode(em->monmap_bl);
-      if (peermap->epoch > mon->monmap->epoch) {
-	dout(0) << em->get_source_inst() << " has newer monmap epoch " << peermap->epoch
+      MonMap peermap;
+      peermap.decode(em->monmap_bl);
+      if (peermap.epoch > mon->monmap->epoch) {
+	dout(0) << em->get_source_inst() << " has newer monmap epoch " << peermap.epoch
 		<< " > my epoch " << mon->monmap->epoch 
 		<< ", taking it"
 		<< dendl;
@@ -445,15 +465,13 @@ void Elector::dispatch(MonOpRequestRef op)
 	//mon->monmon()->paxos->stash_latest(mon->monmap->epoch, em->monmap_bl);
 	cancel_timer();
 	mon->bootstrap();
-	delete peermap;
 	return;
       }
-      if (peermap->epoch < mon->monmap->epoch) {
-	dout(0) << em->get_source_inst() << " has older monmap epoch " << peermap->epoch
+      if (peermap.epoch < mon->monmap->epoch) {
+	dout(0) << em->get_source_inst() << " has older monmap epoch " << peermap.epoch
 		<< " < my epoch " << mon->monmap->epoch 
 		<< dendl;
       } 
-      delete peermap;
 
       switch (em->op) {
       case MMonElection::OP_PROPOSE:

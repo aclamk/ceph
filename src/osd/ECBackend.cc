@@ -12,18 +12,19 @@
  *
  */
 
-#include <boost/variant.hpp>
-#include <boost/optional/optional_io.hpp>
 #include <iostream>
 #include <sstream>
 
-#include "ECUtil.h"
 #include "ECBackend.h"
 #include "messages/MOSDPGPush.h"
 #include "messages/MOSDPGPushReply.h"
-#include "ReplicatedPG.h"
+#include "messages/MOSDECSubOpWrite.h"
+#include "messages/MOSDECSubOpWriteReply.h"
+#include "messages/MOSDECSubOpRead.h"
+#include "messages/MOSDECSubOpReadReply.h"
+#include "ECMsgTypes.h"
 
-class ReplicatedPG;
+#include "ReplicatedPG.h"
 
 #define dout_subsys ceph_subsys_osd
 #define DOUT_PREFIX_ARGS this
@@ -1474,8 +1475,7 @@ int ECBackend::get_min_avail_to_read_shards(
 	   i != miter->second.end();
 	   ++i) {
 	dout(10) << __func__ << ": checking missing_loc " << *i << dendl;
-	boost::optional<const pg_missing_t &> m =
-	  get_parent()->maybe_get_shard_missing(*i);
+	auto m = get_parent()->maybe_get_shard_missing(*i);
 	if (m) {
 	  assert(!(*m).is_missing(hoid));
 	}

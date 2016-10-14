@@ -21,7 +21,6 @@
 #define def_dout_subsys
 #endif
 
-#define SOCKET_BACKLOG 1024
 
 extern void signal_shutdown();
 
@@ -170,8 +169,17 @@ public:
 };
 
 /* process stream request */
-int process_request(RGWRados* store, RGWREST* rest, RGWRequest* req,
-		    RGWStreamIO* client_io, OpsLogSocket* olog);
+extern int process_request(RGWRados* store,
+                           RGWREST* rest,
+                           RGWRequest* req,
+		           RGWStreamIO* client_io,
+                           OpsLogSocket* olog);
+
+extern int rgw_process_authenticated(RGWHandler_REST* handler,
+                                     RGWOp*& op,
+                                     RGWRequest* req,
+                                     req_state* s,
+                                     bool skip_retarget = false);
 
 #if defined(def_dout_subsys)
 #undef def_dout_subsys

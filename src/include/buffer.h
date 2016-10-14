@@ -57,10 +57,8 @@
 
 #if __GNUC__ >= 4
   #define CEPH_BUFFER_API  __attribute__ ((visibility ("default")))
-  #define CEPH_BUFFER_DETAILS __attribute__ ((visibility ("hidden")))
 #else
   #define CEPH_BUFFER_API
-  #define CEPH_BUFFER_DETAILS
 #endif
 
 #if defined(HAVE_XIO)
@@ -153,6 +151,7 @@ namespace buffer CEPH_BUFFER_API {
   raw* create_page_aligned(unsigned len);
   raw* create_zero_copy(unsigned len, int fd, int64_t *offset);
   raw* create_unshareable(unsigned len);
+  raw* create_dummy();
 
 #if defined(HAVE_XIO)
   raw* create_msg(unsigned len, char *buf, XioDispatchHook *m_hook);
@@ -175,10 +174,10 @@ namespace buffer CEPH_BUFFER_API {
     ptr(unsigned l);
     ptr(const char *d, unsigned l);
     ptr(const ptr& p);
-    ptr(ptr&& p);
+    ptr(ptr&& p) noexcept;
     ptr(const ptr& p, unsigned o, unsigned l);
     ptr& operator= (const ptr& p);
-    ptr& operator= (ptr&& p);
+    ptr& operator= (ptr&& p) noexcept;
     ~ptr() {
       release();
     }
@@ -270,7 +269,7 @@ namespace buffer CEPH_BUFFER_API {
 
   private:
     template <bool is_const>
-    class CEPH_BUFFER_DETAILS iterator_impl
+    class CEPH_BUFFER_API iterator_impl
       : public std::iterator<std::forward_iterator_tag, char> {
     protected:
       typedef typename std::conditional<is_const,
@@ -310,8 +309,8 @@ namespace buffer CEPH_BUFFER_API {
 	//return off == bl->length();
       }
 
-      void advance(int o);
-      void seek(unsigned o);
+      void advance(ssize_t o);
+      void seek(size_t o);
       char operator*() const;
       iterator_impl& operator++();
       ptr get_current_ptr() const;
@@ -325,6 +324,14 @@ namespace buffer CEPH_BUFFER_API {
       void copy(unsigned len, list &dest);
       void copy(unsigned len, std::string &dest);
       void copy_all(list &dest);
+
+      // get a pointer to the currenet iterator position, return the
+      // number of bytes we can read from that position (up to want),
+      // and advance the iterator by that amount.
+      size_t get_ptr_and_advance(size_t want, const char **p);
+
+      /// calculate crc from iterator position
+      uint32_t crc32c(size_t length, uint32_t crc);
 
       friend bool operator==(const iterator_impl& lhs,
 			     const iterator_impl& rhs) {
@@ -345,8 +352,8 @@ namespace buffer CEPH_BUFFER_API {
       iterator(bl_t *l, unsigned o=0);
       iterator(bl_t *l, unsigned o, list_iter_t ip, unsigned po);
 
-      void advance(int o);
-      void seek(unsigned o);
+      void advance(ssize_t o);
+      void seek(size_t o);
       char operator*();
       iterator& operator++();
       ptr get_current_ptr();
@@ -380,8 +387,7 @@ namespace buffer CEPH_BUFFER_API {
     list() : _len(0), _memcopy_count(0), last_p(this) {}
     // cppcheck-suppress noExplicitConstructor
     list(unsigned prealloc) : _len(0), _memcopy_count(0), last_p(this) {
-      append_buffer = buffer::create(prealloc);
-      append_buffer.set_length(0);   // unused, so far.
+      reserve(prealloc);
     }
 
     list(const list& other) : _buffers(other._buffers), _len(other._len),
@@ -438,6 +444,8 @@ namespace buffer CEPH_BUFFER_API {
     bool is_page_aligned() const;
     bool is_n_align_sized(unsigned align) const;
     bool is_n_page_sized() const;
+    bool is_aligned_size_and_memory(unsigned align_size,
+				    unsigned align_memory) const;
 
     bool is_zero() const;
 
@@ -447,6 +455,7 @@ namespace buffer CEPH_BUFFER_API {
       _len = 0;
       _memcopy_count = 0;
       last_p = begin();
+      append_buffer = ptr();
     }
     void push_front(ptr& bp) {
       if (bp.length() == 0)
@@ -485,10 +494,17 @@ namespace buffer CEPH_BUFFER_API {
     bool is_contiguous() const;
     void rebuild();
     void rebuild(ptr& nb);
-    void rebuild_aligned(unsigned align);
-    void rebuild_aligned_size_and_memory(unsigned align_size,
+    bool rebuild_aligned(unsigned align);
+    bool rebuild_aligned_size_and_memory(unsigned align_size,
 					 unsigned align_memory);
-    void rebuild_page_aligned();
+    bool rebuild_page_aligned();
+
+    void reserve(size_t prealloc) {
+      if (append_buffer.unused_tail_length() < prealloc) {
+	append_buffer = buffer::create(prealloc);
+	append_buffer.set_length(0);   // unused, so far.
+      }
+    }
 
     // assignment-op with move semantics
     const static unsigned int CLAIM_DEFAULT = 0;
@@ -558,6 +574,8 @@ namespace buffer CEPH_BUFFER_API {
      */
     const char& operator[](unsigned n) const;
     char *c_str();
+    std::string to_str() const;
+
     void substr_of(const list& other, unsigned off, unsigned len);
 
     /// return a pointer to a contiguous extent of the buffer,
@@ -573,7 +591,7 @@ namespace buffer CEPH_BUFFER_API {
     void decode_base64(list& o);
 
     void write_stream(std::ostream &out) const;
-    void hexdump(std::ostream &out) const;
+    void hexdump(std::ostream &out, bool trailing_newline = true) const;
     int read_file(const char *fn, std::string *error);
     ssize_t read_fd(int fd, size_t len);
     int read_fd_zero_copy(int fd, size_t len);

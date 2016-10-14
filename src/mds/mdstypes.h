@@ -35,7 +35,7 @@
 
 #define MDS_REF_SET      // define me for improved debug output, sanity checking
 //#define MDS_AUTHPIN_SET  // define me for debugging auth pin leaks
-//#define MDS_VERIFY_FRAGSTAT    // do do (slow) sanity checking on frags
+//#define MDS_VERIFY_FRAGSTAT    // do (slow) sanity checking on frags
 
 #define MDS_PORT_CACHE   0x200
 #define MDS_PORT_LOCKER  0x300
@@ -169,10 +169,11 @@ struct scatter_info_t {
 struct frag_info_t : public scatter_info_t {
   // this frag
   utime_t mtime;
+  uint64_t change_attr;
   int64_t nfiles;        // files
   int64_t nsubdirs;      // subdirs
 
-  frag_info_t() : nfiles(0), nsubdirs(0) {}
+  frag_info_t() : change_attr(0), nfiles(0), nsubdirs(0) {}
 
   int64_t size() const { return nfiles + nsubdirs; }
 
@@ -181,10 +182,16 @@ struct frag_info_t : public scatter_info_t {
   }
 
   // *this += cur - acc;
-  void add_delta(const frag_info_t &cur, frag_info_t &acc, bool& touched_mtime) {
-    if (!(cur.mtime == acc.mtime)) {
+  void add_delta(const frag_info_t &cur, frag_info_t &acc, bool *touched_mtime=0, bool *touched_chattr=0) {
+    if (cur.mtime > mtime) {
       mtime = cur.mtime;
-      touched_mtime = true;
+      if (touched_mtime)
+	*touched_mtime = true;
+    }
+    if (cur.change_attr > change_attr) {
+      change_attr = cur.change_attr;
+      if (touched_chattr)
+	*touched_chattr = true;
     }
     nfiles += cur.nfiles - acc.nfiles;
     nsubdirs += cur.nsubdirs - acc.nsubdirs;
@@ -193,6 +200,8 @@ struct frag_info_t : public scatter_info_t {
   void add(const frag_info_t& other) {
     if (other.mtime > mtime)
       mtime = other.mtime;
+    if (other.change_attr > change_attr)
+      change_attr = other.change_attr;
     nfiles += other.nfiles;
     nsubdirs += other.nsubdirs;
   }
@@ -470,6 +479,7 @@ struct inode_t {
 
   // affected by any inode change...
   utime_t    ctime;   // inode change time
+  utime_t    btime;   // birth time
 
   // perm (namespace permissions)
   uint32_t   mode;
@@ -492,6 +502,9 @@ struct inode_t {
   utime_t    atime;   // file data access time.
   uint32_t   time_warp_seq;  // count of (potential) mtime/atime timewarps (i.e., utimes())
   inline_data_t inline_data;
+
+  // change attribute
+  uint64_t   change_attr;
 
   std::map<client_t,client_writeable_range_t> client_ranges;  // client(s) can write to these ranges
 
@@ -521,7 +534,7 @@ struct inode_t {
 	      size(0), max_size_ever(0),
 	      truncate_seq(0), truncate_size(0), truncate_from(0),
 	      truncate_pending(0),
-	      time_warp_seq(0),
+	      time_warp_seq(0), change_attr(0),
 	      version(0), file_data_version(0), xattr_version(0),
 	      last_scrub_version(0), backtrace_version(0) {
     clear_layout();
@@ -707,12 +720,12 @@ struct session_info_t {
     completed_flushes.clear();
   }
 
-  void encode(bufferlist& bl) const;
+  void encode(bufferlist& bl, uint64_t features) const;
   void decode(bufferlist::iterator& p);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<session_info_t*>& ls);
 };
-WRITE_CLASS_ENCODER(session_info_t)
+WRITE_CLASS_ENCODER_FEATURES(session_info_t)
 
 
 // =======
@@ -721,8 +734,10 @@ WRITE_CLASS_ENCODER(session_info_t)
 struct dentry_key_t {
   snapid_t snapid;
   const char *name;
-  dentry_key_t() : snapid(0), name(0) {}
-  dentry_key_t(snapid_t s, const char *n) : snapid(s), name(n) {}
+  __u32 hash;
+  dentry_key_t() : snapid(0), name(0), hash(0) {}
+  dentry_key_t(snapid_t s, const char *n, __u32 h=0) :
+    snapid(s), name(n), hash(h) {}
 
   bool is_valid() { return name || snapid; }
 
@@ -774,11 +789,15 @@ inline std::ostream& operator<<(std::ostream& out, const dentry_key_t &k)
 inline bool operator<(const dentry_key_t& k1, const dentry_key_t& k2)
 {
   /*
-   * order by name, then snap
+   * order by hash, name, snap
    */
-  int c = strcmp(k1.name, k2.name);
-  return 
-    c < 0 || (c == 0 && k1.snapid < k2.snapid);
+  int c = ceph_frag_value(k1.hash) - ceph_frag_value(k2.hash);
+  if (c)
+    return c < 0;
+  c = strcmp(k1.name, k2.name);
+  if (c)
+    return c < 0;
+  return k1.snapid < k2.snapid;
 }
 
 
@@ -882,13 +901,15 @@ namespace std {
 struct cap_reconnect_t {
   string path;
   mutable ceph_mds_cap_reconnect capinfo;
+  snapid_t snap_follows;
   bufferlist flockbl;
 
   cap_reconnect_t() {
     memset(&capinfo, 0, sizeof(capinfo));
+    snap_follows = 0;
   }
   cap_reconnect_t(uint64_t cap_id, inodeno_t pino, const string& p, int w, int i,
-		  inodeno_t sr, bufferlist& lb) :
+		  inodeno_t sr, snapid_t sf, bufferlist& lb) :
     path(p) {
     capinfo.cap_id = cap_id;
     capinfo.wanted = w;
@@ -896,6 +917,7 @@ struct cap_reconnect_t {
     capinfo.snaprealm = sr;
     capinfo.pathbase = pino;
     capinfo.flock_len = 0;
+    snap_follows = sf;
     flockbl.claim(lb);
   }
   void encode(bufferlist& bl) const;
@@ -1336,6 +1358,7 @@ class MDSCacheObject {
 
 
   // -- wait --
+  const static uint64_t WAIT_ORDERED	 = (1ull<<61);
   const static uint64_t WAIT_SINGLEAUTH  = (1ull<<60);
   const static uint64_t WAIT_UNFREEZE    = (1ull<<59); // pka AUTHPINNABLE
 
@@ -1544,7 +1567,8 @@ protected:
   // ---------------------------------------------
   // waiting
  protected:
-  compact_multimap<uint64_t, MDSInternalContextBase*>  waiting;
+  compact_multimap<uint64_t, pair<uint64_t, MDSInternalContextBase*> > waiting;
+  static uint64_t last_wait_seq;
 
  public:
   bool is_waiter_for(uint64_t mask, uint64_t min=0) {
@@ -1553,7 +1577,7 @@ protected:
       while (min & (min-1))  // if more than one bit is set
 	min &= min-1;        //  clear LSB
     }
-    for (compact_multimap<uint64_t,MDSInternalContextBase*>::iterator p = waiting.lower_bound(min);
+    for (auto p = waiting.lower_bound(min);
 	 p != waiting.end();
 	 ++p) {
       if (p->first & mask) return true;
@@ -1564,7 +1588,15 @@ protected:
   virtual void add_waiter(uint64_t mask, MDSInternalContextBase *c) {
     if (waiting.empty())
       get(PIN_WAITER);
-    waiting.insert(pair<uint64_t,MDSInternalContextBase*>(mask, c));
+
+    uint64_t seq = 0;
+    if (mask & WAIT_ORDERED) {
+      seq = ++last_wait_seq;
+      mask &= ~WAIT_ORDERED;
+    }
+    waiting.insert(pair<uint64_t, pair<uint64_t, MDSInternalContextBase*> >(
+			    mask,
+			    pair<uint64_t, MDSInternalContextBase*>(seq, c)));
 //    pdout(10,g_conf->debug_mds) << (mdsco_db_line_prefix(this)) 
 //			       << "add_waiter " << hex << mask << dec << " " << c
 //			       << " on " << *this
@@ -1573,10 +1605,18 @@ protected:
   }
   virtual void take_waiting(uint64_t mask, list<MDSInternalContextBase*>& ls) {
     if (waiting.empty()) return;
-    compact_multimap<uint64_t,MDSInternalContextBase*>::iterator it = waiting.begin();
-    while (it != waiting.end()) {
+
+    // process ordered waiters in the same order that they were added.
+    std::map<uint64_t, MDSInternalContextBase*> ordered_waiters;
+
+    for (auto it = waiting.begin();
+	 it != waiting.end(); ) {
       if (it->first & mask) {
-	ls.push_back(it->second);
+
+	if (it->second.first > 0)
+	  ordered_waiters.insert(it->second);
+	else
+	  ls.push_back(it->second.second);
 //	pdout(10,g_conf->debug_mds) << (mdsco_db_line_prefix(this))
 //				   << "take_waiting mask " << hex << mask << dec << " took " << it->second
 //				   << " tag " << hex << it->first << dec
@@ -1590,6 +1630,11 @@ protected:
 //				   << dendl;
 	++it;
       }
+    }
+    for (auto it = ordered_waiters.begin();
+	 it != ordered_waiters.end();
+	 ++it) {
+      ls.push_back(it->second);
     }
     if (waiting.empty())
       put(PIN_WAITER);

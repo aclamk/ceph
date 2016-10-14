@@ -246,7 +246,7 @@ int librados::RadosClient::connect()
 
   // require OSDREPLYMUX feature.  this means we will fail to talk to
   // old servers.  this is necessary because otherwise we won't know
-  // how to decompose the reply data into its consituent pieces.
+  // how to decompose the reply data into its constituent pieces.
   messenger->set_default_policy(Messenger::Policy::lossy_client(0, CEPH_FEATURE_OSDREPLYMUX));
 
   ldout(cct, 1) << "starting msgr at " << messenger->get_myaddr() << dendl;
@@ -478,6 +478,10 @@ void librados::RadosClient::ms_handle_remote_reset(Connection *con)
 {
 }
 
+bool librados::RadosClient::ms_handle_refused(Connection *con)
+{
+  return false;
+}
 
 bool librados::RadosClient::_dispatch(Message *m)
 {
@@ -490,6 +494,7 @@ bool librados::RadosClient::_dispatch(Message *m)
     break;
 
   case CEPH_MSG_MDS_MAP:
+    m->put();
     break;
 
   case MSG_LOG:
@@ -515,7 +520,7 @@ int librados::RadosClient::wait_for_osdmap()
   bool need_map = false;
   objecter->with_osdmap([&](const OSDMap& o) {
       if (o.get_epoch() == 0) {
-	need_map = true;
+        need_map = true;
       }
     });
 
@@ -530,13 +535,17 @@ int librados::RadosClient::wait_for_osdmap()
       ldout(cct, 10) << __func__ << " waiting" << dendl;
       utime_t start = ceph_clock_now(cct);
       while (objecter->with_osdmap(std::mem_fn(&OSDMap::get_epoch)) == 0) {
-	cond.WaitInterval(cct, lock, timeout);
-	utime_t elapsed = ceph_clock_now(cct) - start;
-	if (!timeout.is_zero() && elapsed > timeout) {
-	  lderr(cct) << "timed out waiting for first osdmap from monitors"
-		     << dendl;
-	  return -ETIMEDOUT;
-	}
+        if (timeout.is_zero()) {
+          cond.Wait(lock);
+        } else {
+          cond.WaitInterval(cct, lock, timeout);
+          utime_t elapsed = ceph_clock_now(cct) - start;
+          if (elapsed > timeout) {
+            lderr(cct) << "timed out waiting for first osdmap from monitors"
+                       << dendl;
+            return -ETIMEDOUT;
+          }
+        }
       }
       ldout(cct, 10) << __func__ << " done waiting" << dendl;
     }
@@ -592,6 +601,18 @@ int librados::RadosClient::get_pool_stats(std::list<string>& pools,
     cond.Wait(mylock);
   mylock.Unlock();
 
+  return ret;
+}
+
+bool librados::RadosClient::get_pool_is_selfmanaged_snaps_mode(
+  const std::string& pool)
+{
+  bool ret = false;
+  objecter->with_osdmap([&](const OSDMap& osdmap) {
+      int64_t poolid = osdmap.lookup_pg_pool_name(pool);
+      if (poolid >= 0)
+	ret = osdmap.get_pg_pool(poolid)->is_unmanaged_snaps_mode();
+    });
   return ret;
 }
 
@@ -836,8 +857,7 @@ int librados::RadosClient::osd_command(int osd, vector<string>& cmd,
   int r = objecter->osd_command(osd, cmd, inbl, &tid, poutbl, prs,
 			 new C_SafeCond(&mylock, &cond, &done, &ret));
   lock.Unlock();
-  if (r != 0)
-    return r;
+  assert(r == 0);
   mylock.Lock();
   while (!done)
     cond.Wait(mylock);
@@ -858,8 +878,7 @@ int librados::RadosClient::pg_command(pg_t pgid, vector<string>& cmd,
   int r = objecter->pg_command(pgid, cmd, inbl, &tid, poutbl, prs,
 		        new C_SafeCond(&mylock, &cond, &done, &ret));
   lock.Unlock();
-  if (r != 0)
-    return r;
+  assert(r == 0);
   mylock.Lock();
   while (!done)
     cond.Wait(mylock);

@@ -12,8 +12,6 @@
  * 
  */
 
-#define FUSE_USE_VERSION 30
-
 #include <sys/file.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -35,9 +33,9 @@
 #include "common/config.h"
 #include "include/assert.h"
 
+#include "fuse_ll.h"
 #include <fuse.h>
 #include <fuse_lowlevel.h>
-#include "fuse_ll.h"
 
 #define FINO_INO(x) ((x) & ((1ull<<48)-1ull))
 #define FINO_STAG(x) ((x) >> 48)
@@ -172,8 +170,10 @@ static void fuse_ll_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr,
   if (to_set & FUSE_SET_ATTR_MTIME) mask |= CEPH_SETATTR_MTIME;
   if (to_set & FUSE_SET_ATTR_ATIME) mask |= CEPH_SETATTR_ATIME;
   if (to_set & FUSE_SET_ATTR_SIZE) mask |= CEPH_SETATTR_SIZE;
+#if !defined(DARWIN)
   if (to_set & FUSE_SET_ATTR_MTIME_NOW) mask |= CEPH_SETATTR_MTIME_NOW;
   if (to_set & FUSE_SET_ATTR_ATIME_NOW) mask |= CEPH_SETATTR_ATIME_NOW;
+#endif
 
   int r = cfuse->client->ll_setattr(in, attr, mask, ctx->uid, ctx->gid);
   if (r == 0)
@@ -271,7 +271,7 @@ static void fuse_ll_opendir(fuse_req_t req, fuse_ino_t ino,
   int r = cfuse->client->ll_opendir(in, fi->flags, (dir_result_t **)&dirp,
 				    ctx->uid, ctx->gid);
   if (r >= 0) {
-    fi->fh = (long)dirp;
+    fi->fh = (uint64_t)dirp;
     fuse_reply_open(req, fi);
   } else {
     fuse_reply_err(req, -r);
@@ -340,11 +340,11 @@ static void fuse_ll_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name,
     int err = 0;
     int fd = ::open(cfuse->mountpoint, O_RDONLY | O_DIRECTORY);
     if (fd < 0) {
-      err = -errno;
+      err = errno;
     } else {
       int r = ::syncfs(fd);
       if (r < 0)
-	err = -errno;
+	err = errno;
       ::close(fd);
     }
     if (err) {
@@ -469,9 +469,11 @@ static void fuse_ll_open(fuse_req_t req, fuse_ino_t ino,
 
   int r = cfuse->client->ll_open(in, fi->flags, &fh, ctx->uid, ctx->gid);
   if (r == 0) {
-    fi->fh = (long)fh;
+    fi->fh = (uint64_t)fh;
 #if FUSE_VERSION >= FUSE_MAKE_VERSION(2, 8)
-    if (cfuse->client->cct->_conf->fuse_use_invalidate_cb)
+    if (cfuse->client->cct->_conf->fuse_disable_pagecache)
+      fi->direct_io = 1;
+    else if (cfuse->client->cct->_conf->fuse_use_invalidate_cb)
       fi->keep_cache = 1;
 #endif
     fuse_reply_open(req, fi);
@@ -663,7 +665,7 @@ static void fuse_ll_create(fuse_req_t req, fuse_ino_t parent, const char *name,
   const struct fuse_ctx *ctx = fuse_req_ctx(req);
   Inode *i1 = cfuse->iget(parent), *i2;
   struct fuse_entry_param fe;
-  Fh *fh = NULL;
+  Fh *fh;
 
   memset(&fe, 0, sizeof(fe));
 
@@ -671,8 +673,14 @@ static void fuse_ll_create(fuse_req_t req, fuse_ino_t parent, const char *name,
   int r = cfuse->client->ll_create(i1, name, mode, fi->flags, &fe.attr, &i2,
 				   &fh, ctx->uid, ctx->gid);
   if (r == 0) {
-    fi->fh = (long)fh;
+    fi->fh = (uint64_t)fh;
     fe.ino = cfuse->make_fake_ino(fe.attr.st_ino, fe.attr.st_dev);
+#if FUSE_VERSION >= FUSE_MAKE_VERSION(2, 8)
+    if (cfuse->client->cct->_conf->fuse_disable_pagecache)
+      fi->direct_io = 1;
+    else if (cfuse->client->cct->_conf->fuse_use_invalidate_cb)
+      fi->keep_cache = 1;
+#endif
     fuse_reply_create(req, &fe, fi);
   } else
     fuse_reply_err(req, -r);
@@ -792,6 +800,7 @@ static int getgroups_cb(void *handle, gid_t **sgids)
 #endif
 }
 
+#if !defined(DARWIN)
 static mode_t umask_cb(void *handle)
 {
   CephFuse::Handle *cfuse = (CephFuse::Handle *)handle;
@@ -799,6 +808,7 @@ static mode_t umask_cb(void *handle)
   const struct fuse_ctx *ctx = fuse_req_ctx(req);
   return ctx->umask;
 }
+#endif
 
 static void ino_invalidate_cb(void *handle, vinodeno_t vino, int64_t off,
 			      int64_t len)
@@ -845,12 +855,14 @@ static void do_init(void *data, fuse_conn_info *conn)
   CephFuse::Handle *cfuse = (CephFuse::Handle *)data;
   Client *client = cfuse->client;
 
+#if !defined(DARWIN)
   if (!client->cct->_conf->fuse_default_permissions &&
       client->ll_handle_umask()) {
     // apply umask in userspace if posix acl is enabled
     if(conn->capable & FUSE_CAP_DONT_MASK)
       conn->want |= FUSE_CAP_DONT_MASK;
   }
+#endif
 
   if (cfuse->fd_on_success) {
     //cout << "fuse init signaling on fd " << fd_on_success << std::endl;
@@ -1049,7 +1061,9 @@ int CephFuse::Handle::start()
     remount_cb: remount_cb,
 #endif
     getgroups_cb: getgroups_cb,
+#if !defined(DARWIN)
     umask_cb: umask_cb,
+#endif
   };
   client->ll_register_callbacks(&args);
 

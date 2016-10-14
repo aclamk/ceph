@@ -6,19 +6,17 @@
 
 
 #include "include/types.h"
-#include "msg/msg_types.h"
 #include "include/xlist.h"
 #include "include/filepath.h"
 #include "include/atomic.h"
 #include "mds/mdstypes.h"
 #include "InodeRef.h"
 
-#include "common/Mutex.h"
-
 #include "messages/MClientRequest.h"
 
 class MClientReply;
 class Dentry;
+class dir_result_t;
 
 struct MetaRequest {
 private:
@@ -56,15 +54,7 @@ public:
   bool success;
   
   // readdir result
-  frag_t readdir_frag;
-  string readdir_start;  // starting _after_ this name
-  uint64_t readdir_offset;
-
-  frag_t readdir_reply_frag;
-  vector<pair<string,InodeRef> > readdir_result;
-  bool readdir_end;
-  int readdir_num;
-  string readdir_last_name;
+  dir_result_t *dirp;
 
   //possible responses
   bool got_unsafe;
@@ -93,11 +83,10 @@ public:
     num_fwd(0), retry_attempt(0),
     ref(1), reply(0), 
     kick(false), success(false),
-    readdir_offset(0), readdir_end(false), readdir_num(0),
     got_unsafe(false), item(this), unsafe_item(this),
     unsafe_dir_item(this), unsafe_target_item(this),
     caller_cond(0), dispatch_cond(0) {
-    memset(&head, 0, sizeof(ceph_mds_request_head));
+    memset(&head, 0, sizeof(head));
     head.op = op;
   }
   ~MetaRequest();
@@ -148,7 +137,7 @@ public:
     out->swap(_old_inode);
   }
   void set_other_inode(Inode *in) {
-    _old_inode = in;
+    _other_inode = in;
   }
   Inode *other_inode() {
     return _other_inode.get();

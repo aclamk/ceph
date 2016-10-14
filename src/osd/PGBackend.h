@@ -18,8 +18,6 @@
 #ifndef PGBACKEND_H
 #define PGBACKEND_H
 
-#include "OSDMap.h"
-#include "PGLog.h"
 #include "osd_types.h"
 #include "common/WorkQueue.h"
 #include "include/Context.h"
@@ -31,6 +29,11 @@ namespace Scrub {
   class Store;
 }
 struct shard_info_wrapper;
+
+//forward declaration
+class OSDMap;
+class PGLog;
+typedef ceph::shared_ptr<const OSDMap> OSDMapRef;
 
  /**
   * PGBackend
@@ -128,10 +131,10 @@ struct shard_info_wrapper;
      virtual const map<hobject_t, set<pg_shard_t>, hobject_t::BitwiseComparator> &get_missing_loc_shards()
        const = 0;
 
-     virtual const pg_missing_t &get_local_missing() const = 0;
+     virtual const pg_missing_tracker_t &get_local_missing() const = 0;
      virtual const map<pg_shard_t, pg_missing_t> &get_shard_missing()
        const = 0;
-     virtual boost::optional<const pg_missing_t &> maybe_get_shard_missing(
+     virtual boost::optional<const pg_missing_const_i &> maybe_get_shard_missing(
        pg_shard_t peer) const {
        if (peer == primary_shard()) {
 	 return get_local_missing();
@@ -139,14 +142,14 @@ struct shard_info_wrapper;
 	 map<pg_shard_t, pg_missing_t>::const_iterator i =
 	   get_shard_missing().find(peer);
 	 if (i == get_shard_missing().end()) {
-	   return boost::optional<const pg_missing_t &>();
+	   return boost::optional<const pg_missing_const_i &>();
 	 } else {
 	   return i->second;
 	 }
        }
      }
-     virtual const pg_missing_t &get_shard_missing(pg_shard_t peer) const {
-       boost::optional<const pg_missing_t &> m = maybe_get_shard_missing(peer);
+     virtual const pg_missing_const_i &get_shard_missing(pg_shard_t peer) const {
+       auto m = maybe_get_shard_missing(peer);
        assert(m);
        return *m;
      }
@@ -400,7 +403,8 @@ struct shard_info_wrapper;
      virtual void set_alloc_hint(
        const hobject_t &hoid,
        uint64_t expected_object_size,
-       uint64_t expected_write_size
+       uint64_t expected_write_size,
+       uint32_t flags
        ) = 0;
 
      /// Optional, not supported on ec-pool
@@ -621,30 +625,6 @@ struct shard_info_wrapper;
      ObjectStore::CollectionHandle &ch,
      ObjectStore *store,
      CephContext *cct);
- };
-
-struct PG_SendMessageOnConn: public Context {
-  PGBackend::Listener *pg;
-  Message *reply;
-  ConnectionRef conn;
-  PG_SendMessageOnConn(
-    PGBackend::Listener *pg,
-    Message *reply,
-    ConnectionRef conn) : pg(pg), reply(reply), conn(conn) {}
-  void finish(int) {
-    pg->send_message_osd_cluster(reply, conn.get());
-  }
-};
-
-struct PG_RecoveryQueueAsync : public Context {
-  PGBackend::Listener *pg;
-  GenContext<ThreadPool::TPHandle&> *c;
-  PG_RecoveryQueueAsync(
-    PGBackend::Listener *pg,
-    GenContext<ThreadPool::TPHandle&> *c) : pg(pg), c(c) {}
-  void finish(int) {
-    pg->schedule_recovery_work(c);
-  }
 };
 
 #endif

@@ -6,10 +6,8 @@
 
 #include "include/int_types.h"
 #include "include/buffer.h"
-#include "include/rados/librados.hpp"
 #include "librbd/ImageCtx.h"
 #include "msg/msg_types.h"
-#include <map>
 #include <string>
 
 class Context;
@@ -37,6 +35,9 @@ private:
    * <start>
    *    |
    *    v
+   * PREPARE_LOCK
+   *    |
+   *    v
    * FLUSH_NOTIFIES
    *    |
    *    |     /-----------------------------------------------------------\
@@ -45,27 +46,34 @@ private:
    *    |     |   . . . . . . . . . . . . . . . . . . . . . .             |
    *    |     |   .                                         .             |
    *    |     v   v      (EBUSY)                            .             |
-   *    \--> LOCK_IMAGE * * * * * * * >   GET_LOCKERS . . . .             |
-   *          .   |                         |                             |
-   *    . . . .   |                         |                             |
-   *    .         v                         v                             |
-   *    .     OPEN_OBJECT_MAP             GET_WATCHERS . . .              |
-   *    .         |                         |              .              |
-   *    .         v                         v              .              |
-   *    . . > OPEN_JOURNAL * * * * * *    BLACKLIST        . (blacklist   |
-   *    .         |                  *      |              .  disabled)   |
-   *    .         v                  *      v              .              |
-   *    .     ALLOCATE_JOURNAL_TAG   *    BREAK_LOCK < . . .              |
-   *    .         |            *     *      |                             |
-   *    .         |            *     *      \-----------------------------/
-   *    .         |            v     v
-   *    .         |         CLOSE_JOURNAL
-   *    .         |               |
-   *    .         |               v
-   *    .         |         CLOSE_OBJECT_MAP
-   *    .         |               |
-   *    .         v               |
-   *    . . > <finish> <----------/
+   *    \--> LOCK_IMAGE * * * * * * * * > GET_LOCKERS . . . .             |
+   *              |                         |                             |
+   *              v                         v                             |
+   *         REFRESH (skip if not         GET_WATCHERS                    |
+   *              |   needed)               |                             |
+   *              v                         v                             |
+   *         OPEN_OBJECT_MAP (skip if     BLACKLIST (skip if blacklist    |
+   *              |           disabled)     |        disabled)            |
+   *              v                         v                             |
+   *         OPEN_JOURNAL (skip if        BREAK_LOCK                      |
+   *              |   *     disabled)       |                             |
+   *              |   *                     \-----------------------------/
+   *              |   * * * * * * * *
+   *              v                 *
+   *          ALLOCATE_JOURNAL_TAG  *
+   *              |            *    *
+   *              |            *    *
+   *              |            v    v
+   *              |         CLOSE_JOURNAL
+   *              |               |
+   *              |               v
+   *              |         CLOSE_OBJECT_MAP
+   *              |               |
+   *              |               v
+   *              |         UNLOCK_IMAGE
+   *              |               |
+   *              v               |
+   *          <finish> <----------/
    *
    * @endverbatim
    */
@@ -92,6 +100,10 @@ private:
   uint64_t m_locker_handle;
 
   int m_error_result;
+  bool m_prepare_lock_completed = false;
+
+  void send_prepare_lock();
+  Context *handle_prepare_lock(int *ret_val);
 
   void send_flush_notifies();
   Context *handle_flush_notifies(int *ret_val);
@@ -99,20 +111,26 @@ private:
   void send_lock();
   Context *handle_lock(int *ret_val);
 
+  Context *send_refresh();
+  Context *handle_refresh(int *ret_val);
+
   Context *send_open_journal();
   Context *handle_open_journal(int *ret_val);
 
   void send_allocate_journal_tag();
   Context *handle_allocate_journal_tag(int *ret_val);
 
-  void send_close_journal();
-  Context *handle_close_journal(int *ret_val);
-
   Context *send_open_object_map();
   Context *handle_open_object_map(int *ret_val);
 
-  Context *send_close_object_map(int *ret_val);
+  void send_close_journal();
+  Context *handle_close_journal(int *ret_val);
+
+  void send_close_object_map();
   Context *handle_close_object_map(int *ret_val);
+
+  void send_unlock();
+  Context *handle_unlock(int *ret_val);
 
   void send_get_lockers();
   Context *handle_get_lockers(int *ret_val);

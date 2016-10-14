@@ -18,6 +18,7 @@
 #include <limits.h>
 #include <poll.h>
 
+#include "msg/msg_types.h"
 #include "msg/Message.h"
 
 #include "Accepter.h"
@@ -36,6 +37,18 @@
 /********************************************
  * Accepter
  */
+
+static int set_close_on_exec(int fd)
+{
+  int flags = fcntl(fd, F_GETFD, 0);
+  if (flags < 0) {
+    return errno;
+  }
+  if (fcntl(fd, F_SETFD, flags | FD_CLOEXEC)) {
+    return errno;
+  }
+  return 0;
+}
 
 int Accepter::bind(const entity_addr_t &bind_addr, const set<int>& avoid_ports)
 {
@@ -61,6 +74,11 @@ int Accepter::bind(const entity_addr_t &bind_addr, const set<int>& avoid_ports)
     lderr(msgr->cct) << "accepter.bind unable to create socket: "
 		     << cpp_strerror(errno) << dendl;
     return -errno;
+  }
+
+  if (set_close_on_exec(listen_sd)) {
+    lderr(msgr->cct) << "accepter.bind unable to set_close_exec(): "
+		     << cpp_strerror(errno) << dendl;
   }
 
   // use whatever user specified (if anything)
@@ -91,10 +109,11 @@ int Accepter::bind(const entity_addr_t &bind_addr, const set<int>& avoid_ports)
             continue;
         }
 
-        rc = ::bind(listen_sd, (struct sockaddr *) &listen_addr.ss_addr(), listen_addr.addr_size());
+        rc = ::bind(listen_sd, listen_addr.get_sockaddr(),
+		    listen_addr.get_sockaddr_len());
         if (rc < 0) {
-            lderr(msgr->cct) << "accepter.bind unable to bind to " << listen_addr.ss_addr()
-                             << ": " << cpp_strerror(errno) << dendl;
+            lderr(msgr->cct) << "accepter.bind unable to bind to " << listen_addr
+			     << ": " << cpp_strerror(errno) << dendl;
             r = -errno;
             continue;
         }
@@ -105,12 +124,13 @@ int Accepter::bind(const entity_addr_t &bind_addr, const set<int>& avoid_ports)
                 continue;
 
             listen_addr.set_port(port);
-            rc = ::bind(listen_sd, (struct sockaddr *) &listen_addr.ss_addr(), listen_addr.addr_size());
+            rc = ::bind(listen_sd, listen_addr.get_sockaddr(),
+			listen_addr.get_sockaddr_len());
             if (rc == 0)
                 break;
         }
         if (rc < 0) {
-            lderr(msgr->cct) << "accepter.bind unable to bind to " << listen_addr.ss_addr()
+            lderr(msgr->cct) << "accepter.bind unable to bind to " << listen_addr
                              << " on any port in range " << msgr->cct->_conf->ms_bind_port_min
                              << "-" << msgr->cct->_conf->ms_bind_port_max
                              << ": " << cpp_strerror(errno)
@@ -133,20 +153,22 @@ int Accepter::bind(const entity_addr_t &bind_addr, const set<int>& avoid_ports)
   }
 
   // what port did we get?
-  socklen_t llen = sizeof(listen_addr.ss_addr());
-  rc = getsockname(listen_sd, (sockaddr*)&listen_addr.ss_addr(), &llen);
+  sockaddr_storage ss;
+  socklen_t llen = sizeof(ss);
+  rc = getsockname(listen_sd, (sockaddr*)&ss, &llen);
   if (rc < 0) {
     rc = -errno;
     lderr(msgr->cct) << "accepter.bind failed getsockname: " << cpp_strerror(rc) << dendl;
     return rc;
   }
+  listen_addr.set_sockaddr((sockaddr*)&ss);
   
   if (msgr->cct->_conf->ms_tcp_rcvbuf) {
     int size = msgr->cct->_conf->ms_tcp_rcvbuf;
     rc = ::setsockopt(listen_sd, SOL_SOCKET, SO_RCVBUF, (void*)&size, sizeof(size));
     if (rc < 0)  {
       rc = -errno;
-      lderr(msgr->cct) << "accepter.bind failed to set SO_RCVBUF to " << size << ": " << cpp_strerror(r) << dendl;
+      lderr(msgr->cct) << "accepter.bind failed to set SO_RCVBUF to " << size << ": " << cpp_strerror(rc) << dendl;
       return rc;
     }
   }
@@ -236,10 +258,15 @@ void *Accepter::entry()
     if (done) break;
 
     // accept
-    entity_addr_t addr;
-    socklen_t slen = sizeof(addr.ss_addr());
-    int sd = ::accept(listen_sd, (sockaddr*)&addr.ss_addr(), &slen);
+    sockaddr_storage ss;
+    socklen_t slen = sizeof(ss);
+    int sd = ::accept(listen_sd, (sockaddr*)&ss, &slen);
     if (sd >= 0) {
+      int r = set_close_on_exec(sd);
+      if (r) {
+	ldout(msgr->cct,0) << "accepter set_close_on_exec() failed "
+	      << cpp_strerror(r) << dendl;
+      }
       errors = 0;
       ldout(msgr->cct,10) << "accepted incoming on sd " << sd << dendl;
       

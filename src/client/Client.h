@@ -19,30 +19,21 @@
 #include "include/types.h"
 
 // stl
-#include <functional>
 #include <string>
 #include <memory>
 #include <set>
 #include <map>
 #include <fstream>
-#include <exception>
 using std::set;
 using std::map;
 using std::fstream;
 
 #include "include/unordered_set.h"
 #include "include/unordered_map.h"
-
 #include "include/filepath.h"
 #include "include/interval_set.h"
 #include "include/lru.h"
-
-//#include "barrier.h"
-
 #include "mds/mdstypes.h"
-#include "mds/MDSMap.h"
-
-#include "msg/Message.h"
 #include "msg/Dispatcher.h"
 #include "msg/Messenger.h"
 
@@ -58,6 +49,7 @@ using std::fstream;
 #include "UserGroups.h"
 
 class FSMap;
+class FSMapUser;
 class MonClient;
 
 class CephContext;
@@ -79,6 +71,8 @@ class Objecter;
 class WritebackHandler;
 
 class PerfCounters;
+class MDSMap;
+class Message;
 
 enum {
   l_c_first = 20000,
@@ -161,65 +155,98 @@ struct client_callback_args {
 struct dir_result_t {
   static const int SHIFT = 28;
   static const int64_t MASK = (1 << SHIFT) - 1;
+  static const int64_t HASH = 0xFFULL << (SHIFT + 24); // impossible frag bits
   static const loff_t END = 1ULL << (SHIFT + 32);
 
-  static uint64_t make_fpos(unsigned frag, unsigned off) {
-    return ((uint64_t)frag << SHIFT) | (uint64_t)off;
+  static uint64_t make_fpos(unsigned h, unsigned l, bool hash) {
+    uint64_t v =  ((uint64_t)h<< SHIFT) | (uint64_t)l;
+    if (hash)
+      v |= HASH;
+    else
+      assert((v & HASH) != HASH);
+    return v;
   }
-  static unsigned fpos_frag(uint64_t p) {
-    return (p & ~END) >> SHIFT;
+  static unsigned fpos_high(uint64_t p) {
+    unsigned v = (p & (END-1)) >> SHIFT;
+    if ((p & HASH) == HASH)
+      return ceph_frag_value(v);
+    return v;
   }
-  static unsigned fpos_off(uint64_t p) {
+  static unsigned fpos_low(uint64_t p) {
     return p & MASK;
   }
-
+  static int fpos_cmp(uint64_t l, uint64_t r) {
+    int c = ceph_frag_compare(fpos_high(l), fpos_high(r));
+    if (c)
+      return c;
+    if (fpos_low(l) == fpos_low(r))
+      return 0;
+    return fpos_low(l) < fpos_low(r) ? -1 : 1;
+  }
 
   InodeRef inode;
   int owner_uid;
   int owner_gid;
 
-  int64_t offset;        // high bits: frag_t, low bits: an offset
+  int64_t offset;        // hash order:
+			 //   (0xff << 52) | ((24 bits hash) << 28) |
+			 //   (the nth entry has hash collision);
+			 // frag+name order;
+			 //   ((frag value) << 28) | (the nth entry in frag);
 
-  uint64_t this_offset;  // offset of last chunk, adjusted for . and ..
-  uint64_t next_offset;  // offset of next chunk (last_name's + 1)
+  unsigned next_offset;  // offset of next chunk (last_name's + 1)
   string last_name;      // last entry in previous chunk
 
   uint64_t release_count;
   uint64_t ordered_count;
+  unsigned cache_index;
   int start_shared_gen;  // dir shared_gen at start of readdir
 
   frag_t buffer_frag;
-  vector<pair<string,InodeRef> > *buffer;
 
-  string at_cache_name;  // last entry we successfully returned
+  struct dentry {
+    int64_t offset;
+    string name;
+    InodeRef inode;
+    dentry(int64_t o) : offset(o) {}
+    dentry(int64_t o, const string& n, const InodeRef& in) :
+      offset(o), name(n), inode(in) {}
+  };
+  struct dentry_off_lt {
+    bool operator()(const dentry& d, int64_t off) const {
+      return dir_result_t::fpos_cmp(d.offset, off) < 0;
+    }
+  };
+  vector<dentry> buffer;
 
   explicit dir_result_t(Inode *in);
 
-  frag_t frag() { return frag_t(offset >> SHIFT); }
-  unsigned fragpos() { return offset & MASK; }
+  unsigned offset_high() { return fpos_high(offset); }
+  unsigned offset_low() { return fpos_low(offset); }
 
-  void next_frag() {
-    frag_t fg = offset >> SHIFT;
-    if (fg.is_rightmost())
-      set_end();
-    else 
-      set_frag(fg.next());
-  }
-  void set_frag(frag_t f) {
-    offset = (uint64_t)f << SHIFT;
-    assert(sizeof(offset) == 8);
-  }
   void set_end() { offset |= END; }
   bool at_end() { return (offset & END); }
 
+  void set_hash_order() { offset |= HASH; }
+  bool hash_order() { return (offset & HASH) == HASH; }
+
+  bool is_cached() {
+    if (buffer.empty())
+      return false;
+    if (hash_order()) {
+      return buffer_frag.contains(offset_high());
+    } else {
+      return buffer_frag == frag_t(offset_high());
+    }
+  }
+
   void reset() {
     last_name.clear();
-    at_cache_name.clear();
     next_offset = 2;
-    this_offset = 0;
     offset = 0;
-    delete buffer;
-    buffer = 0;
+    ordered_count = 0;
+    cache_index = 0;
+    buffer.clear();
   }
 };
 
@@ -296,10 +323,12 @@ protected:
   // FSMap, for when using mds_command
   list<Cond*> waiting_for_fsmap;
   FSMap *fsmap;
+  FSMapUser *fsmap_user;
 
   // MDS command state
   std::map<ceph_tid_t, CommandOp> commands;
   void handle_command_reply(MCommandReply *m);
+  int fetch_fsmap(bool user);
   int resolve_mds(
       const std::string &mds_spec,
       std::vector<mds_gid_t> *targets);
@@ -490,11 +519,17 @@ protected:
   // path traversal for high-level interface
   InodeRef cwd;
   int path_walk(const filepath& fp, InodeRef *end, bool followsym=true,
-		int uid=-1, int gid=-1);
+		int mask=0, int uid=-1, int gid=-1);
   int fill_stat(Inode *in, struct stat *st, frag_info_t *dirstat=0, nest_info_t *rstat=0);
   int fill_stat(InodeRef& in, struct stat *st, frag_info_t *dirstat=0, nest_info_t *rstat=0) {
     return fill_stat(in.get(), st, dirstat, rstat);
   }
+
+  void fill_statx(Inode *in, unsigned int mask, struct ceph_statx *stx);
+  void fill_statx(InodeRef& in, unsigned int mask, struct ceph_statx *stx) {
+    return fill_statx(in.get(), mask, stx);
+  }
+
   void touch_dn(Dentry *dn);
 
   // trim cache.
@@ -526,14 +561,12 @@ protected:
   void ms_handle_connect(Connection *con);
   bool ms_handle_reset(Connection *con);
   void ms_handle_remote_reset(Connection *con);
+  bool ms_handle_refused(Connection *con);
   bool ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer, bool force_new);
 
   int authenticate();
 
-  void put_qtree(Inode *in);
-  void invalidate_quota_tree(Inode *in);
   Inode* get_quota_root(Inode *in);
-
   bool check_quota_condition(
       Inode *in,
       std::function<bool (const Inode &)> test);
@@ -541,7 +574,7 @@ protected:
   bool is_quota_bytes_exceeded(Inode *in, int64_t new_bytes);
   bool is_quota_bytes_approaching(Inode *in);
 
-  std::map<int64_t, int> pool_perms;
+  std::map<std::pair<int64_t,std::string>, int> pool_perms;
   list<Cond*> waiting_for_pool_perm;
   int check_pool_perm(Inode *in, int need);
 
@@ -576,6 +609,7 @@ protected:
   // messaging
   void handle_mds_map(class MMDSMap *m);
   void handle_fs_map(class MFSMap *m);
+  void handle_fs_map_user(class MFSMapUser *m);
   void handle_osd_map(class MOSDMap *m);
 
   void handle_lease(MClientLease *m);
@@ -621,7 +655,7 @@ protected:
   void check_caps(Inode *in, bool is_delayed);
   void get_cap_ref(Inode *in, int cap);
   void put_cap_ref(Inode *in, int cap);
-  void flush_snaps(Inode *in, bool all_again=false, CapSnap *again=0);
+  void flush_snaps(Inode *in, bool all_again=false);
   void wait_sync_caps(Inode *in, ceph_tid_t want);
   void wait_sync_caps(ceph_tid_t want);
   void queue_cap_snap(Inode *in, SnapContext &old_snapc);
@@ -630,12 +664,12 @@ protected:
 
   void _schedule_invalidate_dentry_callback(Dentry *dn, bool del);
   void _async_dentry_invalidate(vinodeno_t dirino, vinodeno_t ino, string& name);
-  void _try_to_trim_inode(Inode *in);
+  void _try_to_trim_inode(Inode *in, bool sched_inval);
 
   void _schedule_invalidate_callback(Inode *in, int64_t off, int64_t len);
   void _invalidate_inode_cache(Inode *in);
   void _invalidate_inode_cache(Inode *in, int64_t off, int64_t len);
-  void _async_invalidate(InodeRef& in, int64_t off, int64_t len);
+  void _async_invalidate(vinodeno_t ino, int64_t off, int64_t len);
   bool _release(Inode *in);
   
   /**
@@ -663,13 +697,13 @@ protected:
   // metadata cache
   void update_dir_dist(Inode *in, DirStat *st);
 
+  void clear_dir_complete_and_ordered(Inode *diri, bool complete);
   void insert_readdir_results(MetaRequest *request, MetaSession *session, Inode *diri);
   Inode* insert_trace(MetaRequest *request, MetaSession *session);
-  void update_inode_file_bits(Inode *in,
-			      uint64_t truncate_seq, uint64_t truncate_size, uint64_t size,
-			      uint64_t time_warp_seq, utime_t ctime, utime_t mtime, utime_t atime,
-			      version_t inline_version, bufferlist& inline_data,
-			      int issued);
+  void update_inode_file_bits(Inode *in, uint64_t truncate_seq, uint64_t truncate_size, uint64_t size,
+			      uint64_t change_attr, uint64_t time_warp_seq, utime_t ctime,
+			      utime_t mtime, utime_t atime, version_t inline_version,
+			      bufferlist& inline_data, int issued);
   Inode *add_update_inode(InodeStat *st, utime_t ttl, MetaSession *session);
   Dentry *insert_dentry_inode(Dir *dir, const string& dname, LeaseStat *dlease, 
 			      Inode *in, utime_t from, MetaSession *session,
@@ -713,6 +747,7 @@ private:
     Client *client;
     Fh *f;
     C_Readahead(Client *c, Fh *f);
+    ~C_Readahead();
     void finish(int r);
   };
 
@@ -721,8 +756,8 @@ private:
 
   // internal interface
   //   call these with client_lock held!
-  int _do_lookup(Inode *dir, const string& name, InodeRef *target, int uid, int gid);
-  int _lookup(Inode *dir, const string& dname, InodeRef *target, int uid, int gid);
+  int _do_lookup(Inode *dir, const string& name, int mask, InodeRef *target, int uid, int gid);
+  int _lookup(Inode *dir, const string& dname, int mask, InodeRef *target, int uid, int gid);
 
   int _link(Inode *in, Inode *dir, const char *name, int uid=-1, int gid=-1, InodeRef *inp = 0);
   int _unlink(Inode *dir, const char *name, int uid=-1, int gid=-1);
@@ -731,9 +766,13 @@ private:
   int _rmdir(Inode *dir, const char *name, int uid=-1, int gid=-1);
   int _symlink(Inode *dir, const char *name, const char *target, int uid=-1, int gid=-1, InodeRef *inp = 0);
   int _mknod(Inode *dir, const char *name, mode_t mode, dev_t rdev, int uid=-1, int gid=-1, InodeRef *inp = 0);
-  int _do_setattr(Inode *in, struct stat *attr, int mask, int uid, int gid, InodeRef *inp);
-  int _setattr(Inode *in, struct stat *attr, int mask, int uid=-1, int gid=-1, InodeRef *inp = 0);
+  int _do_setattr(Inode *in, struct ceph_statx *stx, int mask, int uid, int gid, InodeRef *inp);
+  void stat_to_statx(struct stat *st, struct ceph_statx *stx);
+  int __setattrx(Inode *in, struct ceph_statx *stx, int mask, int uid=-1, int gid=-1, InodeRef *inp = 0);
+  int _setattrx(InodeRef &in, struct ceph_statx *stx, int mask);
   int _setattr(InodeRef &in, struct stat *attr, int mask);
+  int _ll_setattrx(Inode *in, struct ceph_statx *stx, int mask, int uid = -1,
+		 int gid = -1, InodeRef *inp = 0);
   int _getattr(Inode *in, int mask, int uid=-1, int gid=-1, bool force=false);
   int _getattr(InodeRef &in, int mask, int uid=-1, int gid=-1, bool force=false) {
     return _getattr(in.get(), mask, uid, gid, force);
@@ -748,6 +787,7 @@ private:
   int _removexattr(Inode *in, const char *nm, int uid=-1, int gid=-1);
   int _removexattr(InodeRef &in, const char *nm);
   int _open(Inode *in, int flags, mode_t mode, Fh **fhp, int uid, int gid);
+  int _renew_caps(Inode *in);
   int _create(Inode *in, const char *name, int flags, mode_t mode, InodeRef *inp, Fh **fhp,
               int stripe_unit, int stripe_count, int object_size, const char *data_pool,
 	      bool *created, int uid, int gid);
@@ -802,7 +842,7 @@ private:
 
   int inode_permission(Inode *in, uid_t uid, UserGroups& groups, unsigned want);
   int xattr_permission(Inode *in, const char *name, unsigned want, int uid=-1, int gid=-1);
-  int may_setattr(Inode *in, struct stat *st, int mask, int uid=-1, int gid=-1);
+  int may_setattr(Inode *in, struct ceph_statx *stx, int mask, int uid=-1, int gid=-1);
   int may_open(Inode *in, int flags, int uid=-1, int gid=-1);
   int may_lookup(Inode *dir, int uid=-1, int gid=-1);
   int may_create(Inode *dir, int uid=-1, int gid=-1);
@@ -878,6 +918,8 @@ private:
 
   mds_rank_t _get_random_up_mds() const;
 
+  int _ll_getattr(Inode *in, int uid, int gid);
+
 public:
   int mount(const std::string &mount_root, bool require_mds=false);
   void unmount();
@@ -947,11 +989,14 @@ public:
   int symlink(const char *existing, const char *newname);
 
   // inode stuff
+  unsigned statx_to_mask(unsigned int flags, unsigned int want);
   int stat(const char *path, struct stat *stbuf, frag_info_t *dirstat=0, int mask=CEPH_STAT_CAP_INODE_ALL);
+  int statx(const char *path, struct ceph_statx *stx, unsigned int want, unsigned int flags);
   int lstat(const char *path, struct stat *stbuf, frag_info_t *dirstat=0, int mask=CEPH_STAT_CAP_INODE_ALL);
   int lstatlite(const char *path, struct statlite *buf);
 
   int setattr(const char *relpath, struct stat *attr, int mask);
+  int setattrx(const char *relpath, struct ceph_statx *stx, int mask, int flags=0);
   int fsetattr(int fd, struct stat *attr, int mask);
   int chmod(const char *path, mode_t mode);
   int fchmod(int fd, mode_t mode);
@@ -981,7 +1026,8 @@ public:
   int fake_write_size(int fd, loff_t size);
   int ftruncate(int fd, loff_t size);
   int fsync(int fd, bool syncdataonly);
-  int fstat(int fd, struct stat *stbuf);
+  int fstat(int fd, struct stat *stbuf, int mask=CEPH_STAT_CAP_INODE_ALL);
+  int fstatx(int fd, struct ceph_statx *stx, unsigned int want, unsigned int flags);
   int fallocate(int fd, int mode, loff_t offset, loff_t length);
 
   // full path xattr ops
@@ -1047,6 +1093,10 @@ public:
   bool ll_forget(Inode *in, int count);
   bool ll_put(Inode *in);
   int ll_getattr(Inode *in, struct stat *st, int uid = -1, int gid = -1);
+  int ll_getattrx(Inode *in, struct ceph_statx *stx, unsigned int want,
+		  unsigned int flags, int uid = -1, int gid = -1);
+  int ll_setattrx(Inode *in, struct ceph_statx *stx, int mask, int uid = -1,
+		 int gid = -1);
   int ll_setattr(Inode *in, struct stat *st, int mask, int uid = -1,
 		 int gid = -1);
   int ll_getxattr(Inode *in, const char *name, void *value, size_t size,

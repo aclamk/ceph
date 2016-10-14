@@ -13,6 +13,8 @@
 #include "common/WorkQueue.h"
 #include "cls/journal/cls_journal_types.h"
 #include "journal/AsyncOpTracker.h"
+#include "journal/JournalMetadataListener.h"
+#include "journal/Settings.h"
 #include <boost/intrusive_ptr.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/optional.hpp>
@@ -41,18 +43,13 @@ public:
   typedef std::set<Client> RegisteredClients;
   typedef std::list<Tag> Tags;
 
-  struct Listener {
-    virtual ~Listener() {};
-    virtual void handle_update(JournalMetadata *) = 0;
-  };
-
   JournalMetadata(ContextWQ *work_queue, SafeTimer *timer, Mutex *timer_lock,
                   librados::IoCtx &ioctx, const std::string &oid,
-                  const std::string &client_id, double commit_interval);
+                  const std::string &client_id, const Settings &settings);
   ~JournalMetadata();
 
   void init(Context *on_init);
-  void shut_down();
+  void shut_down(Context *on_finish);
 
   bool is_initialized() const { return m_initialized; }
 
@@ -62,8 +59,8 @@ public:
   void get_mutable_metadata(uint64_t *minimum_set, uint64_t *active_set,
 			    RegisteredClients *clients, Context *on_finish);
 
-  void add_listener(Listener *listener);
-  void remove_listener(Listener *listener);
+  void add_listener(JournalMetadataListener *listener);
+  void remove_listener(JournalMetadataListener *listener);
 
   void register_client(const bufferlist &data, Context *on_finish);
   void update_client(const bufferlist &data, Context *on_finish);
@@ -77,11 +74,17 @@ public:
   void get_tags(const boost::optional<uint64_t> &tag_class, Tags *tags,
                 Context *on_finish);
 
+  inline const Settings &get_settings() const {
+    return m_settings;
+  }
   inline const std::string &get_client_id() const {
     return m_client_id;
   }
   inline uint8_t get_order() const {
     return m_order;
+  }
+  inline uint64_t get_object_size() const {
+    return 1 << m_order;
   }
   inline uint8_t get_splay_width() const {
     return m_splay_width;
@@ -107,11 +110,14 @@ public:
     return m_minimum_set;
   }
 
-  void set_active_set(uint64_t object_set);
+  int set_active_set(uint64_t object_set);
+  void set_active_set(uint64_t object_set, Context *on_finish);
   inline uint64_t get_active_set() const {
     Mutex::Locker locker(m_lock);
     return m_active_set;
   }
+
+  void assert_active_tag(uint64_t tag_tid, Context *on_finish);
 
   void flush_commit_position();
   void flush_commit_position(Context *on_safe);
@@ -134,6 +140,9 @@ public:
 
   uint64_t allocate_commit_tid(uint64_t object_num, uint64_t tag_tid,
                                uint64_t entry_tid);
+  void overflow_commit_tid(uint64_t commit_tid, uint64_t object_num);
+  void get_commit_entry(uint64_t commit_tid, uint64_t *object_num,
+                        uint64_t *tag_tid, uint64_t *entry_tid);
   void committed(uint64_t commit_tid, const CreateContext &create_context);
 
   void notify_update();
@@ -141,7 +150,7 @@ public:
 
 private:
   typedef std::map<uint64_t, uint64_t> AllocatedEntryTids;
-  typedef std::list<Listener*> Listeners;
+  typedef std::list<JournalMetadataListener*> Listeners;
 
   struct CommitEntry {
     uint64_t object_num;
@@ -282,7 +291,7 @@ private:
   CephContext *m_cct;
   std::string m_oid;
   std::string m_client_id;
-  double m_commit_interval;
+  Settings m_settings;
 
   uint8_t m_order;
   uint8_t m_splay_width;
@@ -334,6 +343,8 @@ private:
   void handle_watch_notify(uint64_t notify_id, uint64_t cookie);
   void handle_watch_error(int err);
   void handle_notified(int r);
+
+  Context *schedule_laggy_clients_disconnect(Context *on_finish);
 
   friend std::ostream &operator<<(std::ostream &os,
 				  const JournalMetadata &journal_metadata);

@@ -9,7 +9,7 @@
 Synopsis
 ========
 
-| **rbd** [ -c *ceph.conf* ] [ -m *monaddr* ] [--cluster *cluster name*]
+| **rbd** [ -c *ceph.conf* ] [ -m *monaddr* ] [--cluster *cluster-name*]
   [ -p | --pool *pool* ] [--size *size* ] [ --object-size *B/K/M* ] [ *command* ... ] 
 
 
@@ -17,7 +17,7 @@ Description
 ===========
 
 **rbd** is a utility for manipulating rados block device (RBD) images,
-used by the Linux rbd driver and the rbd storage driver for Qemu/KVM.
+used by the Linux rbd driver and the rbd storage driver for QEMU/KVM.
 RBD images are simple block devices that are striped over objects and
 stored in a RADOS object store. The size of the objects the image is
 striped over must be a power of two.
@@ -35,7 +35,7 @@ Options
 
    Connect to specified monitor (instead of looking through ceph.conf).
 
-.. option:: --cluster cluster name
+.. option:: --cluster cluster-name
 
    Use different cluster name as compared to default cluster name *ceph*.
 
@@ -54,7 +54,7 @@ Parameters
 
 .. option:: --image-format format-id
 
-   Specifies which object layout to use. The default is 1.
+   Specifies which object layout to use. The default is 2.
 
    * format 1 - (deprecated) Use the original format for a new rbd image. This
      format is understood by all versions of librbd and the kernel rbd module,
@@ -158,6 +158,10 @@ Parameters
    dramatically improve performance since the differences can be computed
    by examining the in-memory object map instead of querying RADOS for each
    object within the image.
+
+.. option:: --limit
+
+   Specifies the limit for the number of snapshots permitted.
 
 Commands
 ========
@@ -291,7 +295,7 @@ Commands
   Rollback image content to snapshot. This will iterate through the entire blocks
   array and update the data head content to the snapshotted version.
 
-:command:`snap rm` *snap-spec*
+:command:`snap rm` [--force] *snap-spec*
   Removes the specified snapshot.
 
 :command:`snap purge` *image-spec*
@@ -312,6 +316,13 @@ Commands
   in different pools than the parent snapshot.)
 
   This requires image format 2.
+
+:command:`snap limit set` [--limit] *limit* *image-spec*
+  Set a limit for the number of snapshots allowed on an image.
+
+:command:`snap limit clear` *image-spec*
+  Remove any previously set limit on the number of snapshots allowed on
+  an image.
 
 :command:`map` [-o | --options *map-options* ] [--read-only] *image-spec* | *snap-spec*
   Maps the specified image to a block device via the rbd kernel module.
@@ -358,10 +369,12 @@ Commands
   Release a lock on an image. The lock id and locker are
   as output by lock ls.
 
-:command:`bench-write` [--io-size *size-in-B/K/M/G/T*] [--io-threads *num-ios-in-flight*] [--io-total *total-size-to-write-in-B/K/M/G/T*] [--io-pattern seq | rand] *image-spec*
-  Generate a series of writes to the image and measure the write throughput and
+:command:`bench` --io-type <read | write> [--io-size *size-in-B/K/M/G/T*] [--io-threads *num-ios-in-flight*] [--io-total *total-size-for-IO-in-B/K/M/G/T*] [--io-pattern seq | rand] *image-spec*
+  Generate a series of IOs to the image and measure the IO throughput and
   latency.  Defaults are: --io-size 4096, --io-threads 16, --io-total 1G,
   --io-pattern seq.
+
+  NOTE: --io-type must be specified.
 
 Image and snap specs
 ====================
@@ -497,9 +510,9 @@ To map an image via the kernel with cephx enabled::
 
        rbd map mypool/myimage --id admin --keyfile secretfile
 
-To map an image via the kernel with different cluster name other than default *ceph*.
+To map an image via the kernel with different cluster name other than default *ceph*::
 
-       rbd map mypool/myimage --cluster *cluster name*
+       rbd map mypool/myimage --cluster cluster-name
 
 To unmap an image::
 

@@ -89,13 +89,17 @@ int FileJournal::_open(bool forwrite, bool create)
 
   if (S_ISBLK(st.st_mode)) {
     ret = _open_block_device();
-  } else {
+  } else if (S_ISREG(st.st_mode)) {
     if (aio && !force_aio) {
       derr << "FileJournal::_open: disabling aio for non-block journal.  Use "
 	   << "journal_force_aio to force use of aio anyway" << dendl;
       aio = false;
     }
     ret = _open_file(st.st_size, st.st_blksize, create);
+  } else {
+    derr << "FileJournal::_open: wrong journal file type: " << st.st_mode
+	 << dendl;
+    ret = -EINVAL;
   }
 
   if (ret)
@@ -106,9 +110,16 @@ int FileJournal::_open(bool forwrite, bool create)
     aio_ctx = 0;
     ret = io_setup(128, &aio_ctx);
     if (ret < 0) {
-      ret = errno;
-      derr << "FileJournal::_open: unable to setup io_context " << cpp_strerror(ret) << dendl;
-      ret = -ret;
+      switch (ret) {
+	// Contrary to naive expectations -EAGIAN means ...
+	case -EAGAIN:
+	  derr << "FileJournal::_open: user's limit of aio events exceeded. "
+	       << "Try increasing /proc/sys/fs/aio-max-nr" << dendl;
+	  break;
+	default:
+	  derr << "FileJournal::_open: unable to setup io_context " << cpp_strerror(-ret) << dendl;
+	  break;
+      }
       goto out_fd;
     }
   }
@@ -127,6 +138,7 @@ int FileJournal::_open(bool forwrite, bool create)
 
  out_fd:
   VOID_TEMP_FAILURE_RETRY(::close(fd));
+  fd = -1;
   return ret;
 }
 
@@ -157,89 +169,8 @@ int FileJournal::_open_block_device()
     discard = block_device_support_discard(fn.c_str());
     dout(10) << fn << " support discard: " << (int)discard << dendl;
   }
-  _check_disk_write_cache();
+
   return 0;
-}
-
-void FileJournal::_check_disk_write_cache() const
-{
-#if !defined(__linux__)
-    dout(10) << "_check_disk_write_cache: not linux, NOT checking disk write "
-      << "cache on raw block device " << fn << dendl;
-    return;
-#else
-  ostringstream hdparm_cmd;
-  FILE *fp = NULL;
-
-  if (geteuid() != 0) {
-    dout(10) << "_check_disk_write_cache: not root, NOT checking disk write "
-      << "cache on raw block device " << fn << dendl;
-    goto done;
-  }
-
-  hdparm_cmd << "/sbin/hdparm -W " << fn;
-  fp = popen(hdparm_cmd.str().c_str(), "r");
-  if (!fp) {
-    dout(10) << "_check_disk_write_cache: failed to run /sbin/hdparm: NOT "
-      << "checking disk write cache on raw block device " << fn << dendl;
-    goto done;
-  }
-
-  while (true) {
-    char buf[256];
-    memset(buf, 0, sizeof(buf));
-    char *line = fgets(buf, sizeof(buf) - 1, fp);
-    if (!line) {
-      if (ferror(fp)) {
-	int ret = -errno;
-	derr << "_check_disk_write_cache: fgets error: " << cpp_strerror(ret)
-	     << dendl;
-	goto close_f;
-      }
-      else {
-	// EOF.
-	break;
-      }
-    }
-
-    int on;
-    if (sscanf(line, " write-caching =  %d", &on) != 1)
-      continue;
-    if (!on) {
-      dout(10) << "_check_disk_write_cache: disk write cache is off (good) on "
-	       << fn << dendl;
-      break;
-    }
-
-    // is our kernel new enough?
-    int ver = get_linux_version();
-    if (ver == 0) {
-      dout(10) << "_check_disk_write_cache: get_linux_version failed" << dendl;
-    } else if (ver >= KERNEL_VERSION(2, 6, 33)) {
-      dout(20) << "_check_disk_write_cache: disk write cache is on, but your "
-	       << "kernel is new enough to handle it correctly. (fn:"
-	       << fn << ")" << dendl;
-      break;
-    }
-    derr << TEXT_RED
-	 << " ** WARNING: disk write cache is ON on " << fn << ".\n"
-	 << "    Journaling will not be reliable on kernels prior to 2.6.33\n"
-	 << "    (recent kernels are safe).  You can disable the write cache with\n"
-	 << "    'hdparm -W 0 " << fn << "'"
-	 << TEXT_NORMAL
-	 << dendl;
-    break;
-  }
-
-close_f:
-  if (pclose(fp)) {
-    int ret = -errno;
-    derr << "_check_disk_write_cache: pclose failed: " << cpp_strerror(ret)
-	 << dendl;
-  }
-done:
-  ;
-#endif // __linux__
 }
 
 int FileJournal::_open_file(int64_t oldsize, blksize_t blksize,
@@ -1058,8 +989,7 @@ int FileJournal::prepare_single_write(write_item &next_write, bufferlist& bl, of
 void FileJournal::align_bl(off64_t pos, bufferlist& bl)
 {
   // make sure list segments are page aligned
-  if (directio && (!bl.is_aligned(block_size) ||
-		   !bl.is_n_align_sized(CEPH_DIRECTIO_ALIGNMENT))) {
+  if (directio && !bl.is_aligned_size_and_memory(block_size, CEPH_DIRECTIO_ALIGNMENT)) {
     assert((bl.length() & (CEPH_DIRECTIO_ALIGNMENT - 1)) == 0);
     assert((pos & (CEPH_DIRECTIO_ALIGNMENT - 1)) == 0);
     assert(0 == "bl was not aligned");
@@ -1537,7 +1467,7 @@ void FileJournal::write_finish_thread_entry()
 	aio_info *ai = (aio_info *)event[i].obj;
 	if (event[i].res != ai->len) {
 	  derr << "aio to " << ai->off << "~" << ai->len
-	       << " wrote " << event[i].res << dendl;
+	       << " returned: " << (int)event[i].res << dendl;
 	  assert(0 == "unexpected aio error");
 	}
 	dout(10) << "write_finish_thread_entry aio " << ai->off
@@ -1604,13 +1534,12 @@ void FileJournal::check_aio_completion()
 
 int FileJournal::prepare_entry(vector<ObjectStore::Transaction>& tls, bufferlist* tbl) {
   dout(10) << "prepare_entry " << tls << dendl;
-  unsigned data_len = 0;
+  int data_len = g_conf->journal_align_min_size - 1;
   int data_align = -1; // -1 indicates that we don't care about the alignment
   bufferlist bl;
   for (vector<ObjectStore::Transaction>::iterator p = tls.begin();
       p != tls.end(); ++p) {
-   if ((*p).get_data_length() > data_len &&
-     (int)(*p).get_data_length() >= g_conf->journal_align_min_size) {
+   if ((int)(*p).get_data_length() > data_len) {
      data_len = (*p).get_data_length();
      data_align = ((*p).get_data_alignment() - bl.length()) & ~CEPH_PAGE_MASK;
     }
@@ -1662,6 +1591,7 @@ void FileJournal::submit_entry(uint64_t seq, bufferlist& e, uint32_t orig_len,
 	  << " len " << e.length()
 	  << " (" << oncommit << ")" << dendl;
   assert(e.length() > 0);
+  assert(e.length() < header.max_size);
 
   if (osd_op)
     osd_op->mark_event("commit_queued_for_journal_write");

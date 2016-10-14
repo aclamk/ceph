@@ -80,8 +80,32 @@ int read_string(int fd, unsigned max, std::string *out) {
 }
 
 int extract_spec(const std::string &spec, std::string *pool_name,
-                 std::string *image_name, std::string *snap_name) {
-  boost::regex pattern("^(?:([^/@]+)/)?([^/@]+)(?:@([^/@]+))?$");
+                 std::string *image_name, std::string *snap_name,
+                 SpecValidation spec_validation) {
+  if (!g_ceph_context->_conf->rbd_validate_names) {
+    spec_validation = SPEC_VALIDATION_NONE;
+  }
+
+  boost::regex pattern;
+  switch (spec_validation) {
+  case SPEC_VALIDATION_FULL:
+    // disallow "/" and "@" in image and snap name
+    pattern = "^(?:([^/@]+)/)?([^/@]+)(?:@([^/@]+))?$";
+    break;
+  case SPEC_VALIDATION_SNAP:
+    // disallow "/" and "@" in snap name
+    pattern = "^(?:([^/]+)/)?([^@]+)(?:@([^/@]+))?$";
+    break;
+  case SPEC_VALIDATION_NONE:
+    // relaxed pattern assumes pool is before first "/" and snap
+    // name is after first "@"
+    pattern = "^(?:([^/]+)/)?([^@]+)(?:@(.+))?$";
+    break;
+  default:
+    assert(false);
+    break;
+  }
+
   boost::smatch match;
   if (!boost::regex_match(spec, match, pattern)) {
     std::cerr << "rbd: invalid spec '" << spec << "'" << std::endl;
@@ -97,6 +121,28 @@ int extract_spec(const std::string &spec, std::string *pool_name,
   if (snap_name != nullptr && match[3].matched) {
     *snap_name = match[3];
   }
+  return 0;
+}
+
+int extract_group_spec(const std::string &spec,
+		       std::string *pool_name,
+		       std::string *group_name) {
+  boost::regex pattern;
+  pattern = "^(?:([^/]+)/)?(.+)?$";
+
+  boost::smatch match;
+  if (!boost::regex_match(spec, match, pattern)) {
+    std::cerr << "rbd: invalid spec '" << spec << "'" << std::endl;
+    return -EINVAL;
+  }
+
+  if (pool_name != nullptr && match[1].matched) {
+    *pool_name = match[1];
+  }
+  if (group_name != nullptr) {
+    *group_name = match[2];
+  }
+
   return 0;
 }
 
@@ -132,6 +178,145 @@ std::string get_pool_name(const po::variables_map &vm,
   return pool_name;
 }
 
+int get_special_pool_group_names(const po::variables_map &vm,
+				 size_t *arg_index,
+				 std::string *group_pool_name,
+				 std::string *group_name) {
+  if (nullptr == group_pool_name) return -EINVAL;
+  if (nullptr == group_name) return -EINVAL;
+  std::string pool_key = at::POOL_NAME;
+
+  std::string group_pool_key = "group-" + at::POOL_NAME;
+  std::string group_key = at::GROUP_NAME;
+
+  if (vm.count(group_pool_key)) {
+    *group_pool_name = vm[group_pool_key].as<std::string>();
+  }
+
+  if (vm.count(group_key)) {
+    *group_name = vm[group_key].as<std::string>();
+  }
+
+  int r;
+  if (group_name->empty()) {
+    std::string spec = utils::get_positional_argument(vm, (*arg_index)++);
+    if (!spec.empty()) {
+      r = utils::extract_group_spec(spec, group_pool_name, group_name);
+      if (r < 0) {
+        return r;
+      }
+    }
+  }
+
+  if (group_pool_name->empty()) {
+    *group_pool_name = vm[pool_key].as<std::string>();
+  }
+
+  if (group_pool_name->empty()) {
+    *group_pool_name = at::DEFAULT_POOL_NAME;
+  }
+
+  if (group_name->empty()) {
+    std::cerr << "rbd: consistency group name was not specified" << std::endl;
+    return -EINVAL;
+  }
+
+  return 0;
+}
+
+int get_special_pool_image_names(const po::variables_map &vm,
+				 size_t *arg_index,
+				 std::string *image_pool_name,
+				 std::string *image_name) {
+  if (nullptr == image_pool_name) return -EINVAL;
+  if (nullptr == image_name) return -EINVAL;
+
+  std::string pool_key = at::POOL_NAME;
+
+  std::string image_pool_key = "image-" + at::POOL_NAME;
+  std::string image_key = at::IMAGE_NAME;
+
+  if (vm.count(image_pool_key)) {
+    *image_pool_name = vm[image_pool_key].as<std::string>();
+  }
+
+  if (vm.count(image_key)) {
+    *image_name = vm[image_key].as<std::string>();
+  }
+
+  int r;
+  if (image_name->empty()) {
+    std::string spec = utils::get_positional_argument(vm, (*arg_index)++);
+    if (!spec.empty()) {
+      r = utils::extract_spec(spec, image_pool_name,
+                              image_name, nullptr,
+			      utils::SPEC_VALIDATION_NONE);
+      if (r < 0) {
+        return r;
+      }
+    }
+  }
+
+  if (image_pool_name->empty()) {
+    *image_pool_name = vm[pool_key].as<std::string>();
+  }
+
+  if (image_pool_name->empty()) {
+    *image_pool_name = at::DEFAULT_POOL_NAME;
+  }
+
+  if (image_name->empty()) {
+    std::cerr << "rbd: image name was not specified" << std::endl;
+    return -EINVAL;
+  }
+
+  return 0;
+}
+
+int get_pool_group_names(const po::variables_map &vm,
+			 at::ArgumentModifier mod,
+			 size_t *spec_arg_index,
+			 std::string *pool_name,
+			 std::string *group_name) {
+  std::string pool_key = (mod == at::ARGUMENT_MODIFIER_DEST ?
+    at::DEST_POOL_NAME : at::POOL_NAME);
+  std::string group_key = (mod == at::ARGUMENT_MODIFIER_DEST ?
+    at::DEST_GROUP_NAME : at::GROUP_NAME);
+
+  if (vm.count(pool_key) && pool_name != nullptr) {
+    *pool_name = vm[pool_key].as<std::string>();
+  }
+  if (vm.count(group_key) && group_name != nullptr) {
+    *group_name = vm[group_key].as<std::string>();
+  }
+
+  int r;
+  if (group_name != nullptr && spec_arg_index != nullptr &&
+      group_name->empty()) {
+    std::string spec = get_positional_argument(vm, (*spec_arg_index)++);
+    if (!spec.empty()) {
+      r = extract_group_spec(spec, pool_name, group_name);
+      if (r < 0) {
+        return r;
+      }
+    }
+  }
+
+  if (pool_name->empty()) {
+    *pool_name = at::DEFAULT_POOL_NAME;
+  }
+
+  if (group_name != nullptr && group_name->empty()) {
+    std::string prefix = at::get_description_prefix(mod);
+    std::cerr << "rbd: "
+              << (mod == at::ARGUMENT_MODIFIER_DEST ? prefix : std::string())
+              << "group name was not specified" << std::endl;
+    return -EINVAL;
+  }
+
+  return 0;
+}
+
 int get_pool_image_snapshot_names(const po::variables_map &vm,
                                   at::ArgumentModifier mod,
                                   size_t *spec_arg_index,
@@ -139,6 +324,7 @@ int get_pool_image_snapshot_names(const po::variables_map &vm,
                                   std::string *image_name,
                                   std::string *snap_name,
                                   SnapshotPresence snapshot_presence,
+                                  SpecValidation spec_validation,
                                   bool image_required) {
   std::string pool_key = (mod == at::ARGUMENT_MODIFIER_DEST ?
     at::DEST_POOL_NAME : at::POOL_NAME);
@@ -156,20 +342,24 @@ int get_pool_image_snapshot_names(const po::variables_map &vm,
   if (vm.count(snap_key) && snap_name != nullptr) {
      *snap_name = vm[snap_key].as<std::string>();
    }
-  
+
+  int r;
   if (image_name != nullptr && !image_name->empty()) {
     // despite the separate pool and snapshot name options,
     // we can also specify them via the image option
     std::string image_name_copy(*image_name);
-    extract_spec(image_name_copy, pool_name, image_name, snap_name);
+    r = extract_spec(image_name_copy, pool_name, image_name, snap_name,
+                     spec_validation);
+    if (r < 0) {
+      return r;
+    }
   }
 
-  int r;
   if (image_name != nullptr && spec_arg_index != nullptr &&
       image_name->empty()) {
     std::string spec = get_positional_argument(vm, (*spec_arg_index)++);
     if (!spec.empty()) {
-      r = extract_spec(spec, pool_name, image_name, snap_name);
+      r = extract_spec(spec, pool_name, image_name, snap_name, spec_validation);
       if (r < 0) {
         return r;
       }
@@ -221,26 +411,35 @@ int get_pool_journal_names(const po::variables_map &vm,
     image_name = vm[image_key].as<std::string>();
   }
 
+  int r;
   if (journal_name != nullptr && !journal_name->empty()) {
     // despite the separate pool option,
     // we can also specify them via the journal option
     std::string journal_name_copy(*journal_name);
-    extract_spec(journal_name_copy, pool_name, journal_name, nullptr);
+    r = extract_spec(journal_name_copy, pool_name, journal_name, nullptr,
+                     SPEC_VALIDATION_FULL);
+    if (r < 0) {
+      return r;
+    }
   }
 
   if (!image_name.empty()) {
     // despite the separate pool option,
     // we can also specify them via the image option
     std::string image_name_copy(image_name);
-    extract_spec(image_name_copy, pool_name, &image_name, nullptr);
+    r = extract_spec(image_name_copy, pool_name, &image_name, nullptr,
+                     SPEC_VALIDATION_NONE);
+    if (r < 0) {
+      return r;
+    }
   }
 
-  int r;
   if (journal_name != nullptr && spec_arg_index != nullptr &&
       journal_name->empty()) {
     std::string spec = get_positional_argument(vm, (*spec_arg_index)++);
     if (!spec.empty()) {
-      r = extract_spec(spec, pool_name, journal_name, nullptr);
+      r = extract_spec(spec, pool_name, journal_name, nullptr,
+                       SPEC_VALIDATION_FULL);
       if (r < 0) {
         return r;
       }
@@ -318,8 +517,13 @@ int validate_snapshot_name(at::ArgumentModifier mod,
 
 int get_image_options(const boost::program_options::variables_map &vm,
 		      bool get_format, librbd::ImageOptions *opts) {
-  uint64_t order, features, stripe_unit, stripe_count, object_size;
+  uint64_t order = 0, stripe_unit = 0, stripe_count = 0, object_size = 0;
+  uint64_t features = 0, features_clear = 0, features_set = 0;
+  bool order_specified = true;
   bool features_specified = false;
+  bool features_clear_specified = false;
+  bool features_set_specified = false;
+  bool stripe_specified = false;
 
   if (vm.count(at::IMAGE_ORDER)) {
     order = vm[at::IMAGE_ORDER].as<uint64_t>();
@@ -329,57 +533,35 @@ int get_image_options(const boost::program_options::variables_map &vm,
     object_size = vm[at::IMAGE_OBJECT_SIZE].as<uint64_t>();
     order = std::round(std::log2(object_size)); 
   } else {
-    order = g_conf->rbd_default_order;
+    order_specified = false;
   }
 
   if (vm.count(at::IMAGE_FEATURES)) {
     features = vm[at::IMAGE_FEATURES].as<uint64_t>();
     features_specified = true;
-  } else {
-    features = g_conf->rbd_default_features;
   }
 
   if (vm.count(at::IMAGE_STRIPE_UNIT)) {
     stripe_unit = vm[at::IMAGE_STRIPE_UNIT].as<uint64_t>();
-  } else {
-    stripe_unit = g_conf->rbd_default_stripe_unit;
+    stripe_specified = true;
   }
 
   if (vm.count(at::IMAGE_STRIPE_COUNT)) {
     stripe_count = vm[at::IMAGE_STRIPE_COUNT].as<uint64_t>();
-  } else {
-    stripe_count = g_conf->rbd_default_stripe_count;
-  }
-
-  if ((stripe_unit != 0 && stripe_count == 0) ||
-      (stripe_unit == 0 && stripe_count != 0)) {
-    std::cerr << "must specify both (or neither) of stripe-unit and stripe-count"
-              << std::endl;
-    return -EINVAL;
-  } else if (stripe_unit || stripe_count) {
-    if ((1ull << order) % stripe_unit || stripe_unit >= (1ull << order)) {
-      std::cerr << "stripe unit is not a factor of the object size" << std::endl;
-      return -EINVAL;
-    }
-    if (stripe_count == 1) {
-      std::cerr << "stripe count not allowed to be 1" << std::endl;
-      return -EINVAL;
-    }
-    features |= RBD_FEATURE_STRIPINGV2;
-  } else {
-    if (features_specified && ((features & RBD_FEATURE_STRIPINGV2) != 0)) {
-      std::cerr << "must specify both of stripe-unit and stripe-count when specify striping features" << std::endl;
-      return -EINVAL;
-    }
-    features &= ~RBD_FEATURE_STRIPINGV2;
+    stripe_specified = true;
   }
 
   if (vm.count(at::IMAGE_SHARED) && vm[at::IMAGE_SHARED].as<bool>()) {
-    features &= ~RBD_FEATURES_SINGLE_CLIENT;
+    if (features_specified) {
+      features &= ~RBD_FEATURES_SINGLE_CLIENT;
+    } else {
+      features_clear |= RBD_FEATURES_SINGLE_CLIENT;
+      features_clear_specified = true;
+    }
   }
 
   if (get_format) {
-    uint64_t format;
+    uint64_t format = 0;
     bool format_specified = false;
     if (vm.count(at::IMAGE_NEW_FORMAT)) {
       format = 2;
@@ -387,8 +569,6 @@ int get_image_options(const boost::program_options::variables_map &vm,
     } else if (vm.count(at::IMAGE_FORMAT)) {
       format = vm[at::IMAGE_FORMAT].as<uint32_t>();
       format_specified = true;
-    } else {
-      format = g_conf->rbd_default_format;
     }
     if (format == 1) {
       std::cerr << "rbd: image format 1 is deprecated" << std::endl;
@@ -413,22 +593,30 @@ int get_image_options(const boost::program_options::variables_map &vm,
         return -EINVAL;
       } else {
         format = 2;
-        format_specified = 2;
+        format_specified = true;
       }
     }
 
     if (format_specified) {
       int r = g_conf->set_val("rbd_default_format", stringify(format));
       assert(r == 0);
+      opts->set(RBD_IMAGE_OPTION_FORMAT, format);
     }
-
-    opts->set(RBD_IMAGE_OPTION_FORMAT, format);
   }
 
-  opts->set(RBD_IMAGE_OPTION_ORDER, order);
-  opts->set(RBD_IMAGE_OPTION_FEATURES, features);
-  opts->set(RBD_IMAGE_OPTION_STRIPE_UNIT, stripe_unit);
-  opts->set(RBD_IMAGE_OPTION_STRIPE_COUNT, stripe_count);
+  if (order_specified)
+    opts->set(RBD_IMAGE_OPTION_ORDER, order);
+  if (features_specified)
+    opts->set(RBD_IMAGE_OPTION_FEATURES, features);
+  if (features_clear_specified) {
+    opts->set(RBD_IMAGE_OPTION_FEATURES_CLEAR, features_clear);
+  }
+  if (features_set_specified)
+    opts->set(RBD_IMAGE_OPTION_FEATURES_SET, features_set);
+  if (stripe_specified) {
+    opts->set(RBD_IMAGE_OPTION_STRIPE_UNIT, stripe_unit);
+    opts->set(RBD_IMAGE_OPTION_STRIPE_COUNT, stripe_count);
+  }
 
   int r = get_journal_options(vm, opts);
   if (r < 0) {
@@ -619,8 +807,8 @@ std::string image_id(librbd::Image& image) {
   return string(prefix + strlen(RBD_DATA_PREFIX));
 }
 
-std::string mirror_image_state(rbd_mirror_image_state_t mirror_image_state) {
-  switch (mirror_image_state) {
+std::string mirror_image_state(librbd::mirror_image_state_t state) {
+  switch (state) {
     case RBD_MIRROR_IMAGE_DISABLING:
       return "disabling";
     case RBD_MIRROR_IMAGE_ENABLED:
@@ -630,6 +818,43 @@ std::string mirror_image_state(rbd_mirror_image_state_t mirror_image_state) {
     default:
       return "unknown";
   }
+}
+
+std::string mirror_image_status_state(librbd::mirror_image_status_state_t state) {
+  switch (state) {
+  case MIRROR_IMAGE_STATUS_STATE_UNKNOWN:
+    return "unknown";
+  case MIRROR_IMAGE_STATUS_STATE_ERROR:
+    return "error";
+  case MIRROR_IMAGE_STATUS_STATE_SYNCING:
+    return "syncing";
+  case MIRROR_IMAGE_STATUS_STATE_STARTING_REPLAY:
+    return "starting_replay";
+  case MIRROR_IMAGE_STATUS_STATE_REPLAYING:
+    return "replaying";
+  case MIRROR_IMAGE_STATUS_STATE_STOPPING_REPLAY:
+    return "stopping_replay";
+  case MIRROR_IMAGE_STATUS_STATE_STOPPED:
+    return "stopped";
+  default:
+    return "unknown (" + stringify(static_cast<uint32_t>(state)) + ")";
+  }
+}
+
+std::string mirror_image_status_state(librbd::mirror_image_status_t status) {
+  return (status.up ? "up+" : "down+") +
+    mirror_image_status_state(status.state);
+}
+
+std::string timestr(time_t t) {
+  struct tm tm;
+
+  localtime_r(&t, &tm);
+
+  char buf[32];
+  strftime(buf, sizeof(buf), "%F %T", &tm);
+
+  return buf;
 }
 
 } // namespace utils

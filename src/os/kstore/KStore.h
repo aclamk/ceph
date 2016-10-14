@@ -260,7 +260,7 @@ public:
     Sequencer *parent;
 
     OpSequencer()
-	//set the qlock to to PTHREAD_MUTEX_RECURSIVE mode
+	//set the qlock to PTHREAD_MUTEX_RECURSIVE mode
       : parent(NULL) {
     }
     ~OpSequencer() {
@@ -366,7 +366,7 @@ private:
   TransContext *_txc_create(OpSequencer *osr);
   void _txc_release(TransContext *txc, uint64_t offset, uint64_t length);
   void _txc_add_transaction(TransContext *txc, Transaction *t);
-  int _txc_finalize(OpSequencer *osr, TransContext *txc);
+  void _txc_finalize(OpSequencer *osr, TransContext *txc);
   void _txc_state_proc(TransContext *txc);
   void _txc_finish_kv(TransContext *txc);
   void _txc_finish(TransContext *txc);
@@ -411,8 +411,9 @@ public:
 
   int fsck();
 
-  unsigned get_max_object_name_length() {
-    return 4096;
+
+  int validate_hobject_key(const hobject_t &obj) const override {
+    return 0;
   }
   unsigned get_max_attr_name_length() {
     return 256;  // arbitrary; there is no real limit internally
@@ -423,7 +424,7 @@ public:
     return 0;
   }
 
-  int statfs(struct statfs *buf);
+  int statfs(struct store_statfs_t *buf) override;
 
   using ObjectStore::exists;
   bool exists(const coll_t& cid, const ghobject_t& oid);
@@ -458,7 +459,7 @@ public:
 
   int list_collections(vector<coll_t>& ls);
   bool collection_exists(const coll_t& c);
-  bool collection_empty(const coll_t& c);
+  int collection_empty(const coll_t& c, bool *empty);
 
   using ObjectStore::collection_list;
   int collection_list(const coll_t& cid, ghobject_t start, ghobject_t end,
@@ -519,6 +520,10 @@ public:
   }
   uuid_d get_fsid() {
     return fsid;
+  }
+
+  uint64_t estimate_objects_overhead(uint64_t num_objects) override {
+    return num_objects * 300; //assuming per-object overhead is 300 bytes
   }
 
   objectstore_perf_stat_t get_cur_stats() {
@@ -609,7 +614,8 @@ private:
 		    CollectionRef& c,
 		    OnodeRef& o,
 		    uint64_t expected_object_size,
-		    uint64_t expected_write_size);
+		    uint64_t expected_write_size,
+		    uint32_t flags);
   int _clone(TransContext *txc,
 	     CollectionRef& c,
 	     OnodeRef& oldo,

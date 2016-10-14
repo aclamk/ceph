@@ -290,7 +290,7 @@ void* AdminSocket::entry()
 void AdminSocket::chown(uid_t uid, gid_t gid)
 {
   if (m_sock_fd >= 0) {
-    int r = ::fchown(m_sock_fd, uid, gid);
+    int r = ::chown(m_path.c_str(), uid, gid);
     if (r < 0) {
       r = -errno;
       lderr(m_cct) << "AdminSocket: failed to chown socket: "
@@ -322,7 +322,7 @@ bool AdminSocket::do_accept()
     if (ret <= 0) {
       lderr(m_cct) << "AdminSocket: error reading request code: "
 		   << cpp_strerror(ret) << dendl;
-      close(connection_fd);
+      VOID_TEMP_FAILURE_RETRY(close(connection_fd));
       return false;
     }
     //ldout(m_cct, 0) << "AdminSocket read byte " << (int)cmd[pos] << " pos " << pos << dendl;
@@ -365,6 +365,7 @@ bool AdminSocket::do_accept()
   cmdvec.push_back(cmd);
   if (!cmdmap_from_json(cmdvec, &cmdmap, errss)) {
     ldout(m_cct, 0) << "AdminSocket: " << errss.rdbuf() << dendl;
+    VOID_TEMP_FAILURE_RETRY(close(connection_fd));
     return false;
   }
   cmd_getval(m_cct, cmdmap, "format", format);

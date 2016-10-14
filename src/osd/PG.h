@@ -31,32 +31,23 @@
 #include "include/types.h"
 #include "include/stringify.h"
 #include "osd_types.h"
-#include "include/buffer_fwd.h"
 #include "include/xlist.h"
-#include "include/atomic.h"
 #include "SnapMapper.h"
 
 #include "PGLog.h"
-#include "OpRequest.h"
 #include "OSDMap.h"
-#include "os/ObjectStore.h"
-#include "msg/Messenger.h"
-#include "messages/MOSDRepScrub.h"
 #include "messages/MOSDPGLog.h"
-#include "common/cmdparse.h"
-#include "common/tracked_int_ptr.hpp"
-#include "common/WorkQueue.h"
-#include "common/ceph_context.h"
 #include "include/str_list.h"
 #include "PGBackend.h"
 
+#include <atomic>
 #include <list>
 #include <memory>
 #include <string>
 using namespace std;
 
-#include "include/unordered_map.h"
-#include "include/unordered_set.h"
+// #include "include/unordered_map.h"
+// #include "include/unordered_set.h"
 
 
 //#define DEBUG_RECOVERY_OIDS   // track set of recovering oids explicitly, to find counting bugs
@@ -71,6 +62,10 @@ class MOSDPGBackfill;
 class MOSDPGInfo;
 
 class PG;
+struct OpRequest;
+typedef OpRequest::Ref OpRequestRef;
+class MOSDPGLog;
+class CephContext;
 
 namespace Scrub {
   class Store;
@@ -80,6 +75,7 @@ void intrusive_ptr_add_ref(PG *pg);
 void intrusive_ptr_release(PG *pg);
 
 #ifdef PG_DEBUG_REFS
+#include "common/tracked_int_ptr.hpp"
   uint64_t get_with_id(PG *pg);
   void put_with_id(PG *pg, uint64_t id);
   typedef TrackedIntPtr<PG> PGRef;
@@ -165,6 +161,7 @@ struct PGRecoveryStats {
 };
 
 struct PGPool {
+  epoch_t cached_epoch;
   int64_t id;
   string name;
   uint64_t auid;
@@ -175,8 +172,17 @@ struct PGPool {
   interval_set<snapid_t> cached_removed_snaps;      // current removed_snaps set
   interval_set<snapid_t> newly_removed_snaps;  // newly removed in the last epoch
 
-  PGPool(int64_t i, const string& _name, uint64_t au)
-    : id(i), name(_name), auid(au) { }
+  PGPool(OSDMapRef map, int64_t i)
+    : cached_epoch(map->get_epoch()),
+      id(i),
+      name(map->get_pool_name(id)),
+      auid(map->get_pg_pool(id)->auid) {
+    const pg_pool_t *pi = map->get_pg_pool(id);
+    assert(pi);
+    info = *pi;
+    snapc = pi->get_snap_context();
+    pi->build_removed_snaps(cached_removed_snaps);
+  }
 
   void update(OSDMapRef map);
 };
@@ -245,7 +251,7 @@ protected:
    * put_unlock() when done with the current pointer (_most common_).
    */  
   mutable Mutex _lock;
-  atomic_t ref;
+  std::atomic_uint ref{0};
 
 #ifdef PG_DEBUG_REFS
   Mutex _ref_id_lock;
@@ -315,7 +321,7 @@ public:
   ghobject_t    pgmeta_oid;
 
   class MissingLoc {
-    map<hobject_t, pg_missing_t::item, hobject_t::BitwiseComparator> needs_recovery_map;
+    map<hobject_t, pg_missing_item, hobject_t::BitwiseComparator> needs_recovery_map;
     map<hobject_t, set<pg_shard_t>, hobject_t::BitwiseComparator > missing_loc;
     set<pg_shard_t> missing_loc_sources;
     PG *pg;
@@ -335,7 +341,7 @@ public:
     bool needs_recovery(
       const hobject_t &hoid,
       eversion_t *v = 0) const {
-      map<hobject_t, pg_missing_t::item, hobject_t::BitwiseComparator>::const_iterator i =
+      map<hobject_t, pg_missing_item, hobject_t::BitwiseComparator>::const_iterator i =
 	needs_recovery_map.find(hoid);
       if (i == needs_recovery_map.end())
 	return false;
@@ -353,7 +359,7 @@ public:
       const set<pg_shard_t> &acting) const;
     uint64_t num_unfound() const {
       uint64_t ret = 0;
-      for (map<hobject_t, pg_missing_t::item, hobject_t::BitwiseComparator>::const_iterator i =
+      for (map<hobject_t, pg_missing_item, hobject_t::BitwiseComparator>::const_iterator i =
 	     needs_recovery_map.begin();
 	   i != needs_recovery_map.end();
 	   ++i) {
@@ -376,11 +382,11 @@ public:
       missing_loc[hoid].erase(location);
     }
     void add_active_missing(const pg_missing_t &missing) {
-      for (map<hobject_t, pg_missing_t::item, hobject_t::BitwiseComparator>::const_iterator i =
-	     missing.missing.begin();
-	   i != missing.missing.end();
+      for (map<hobject_t, pg_missing_item, hobject_t::BitwiseComparator>::const_iterator i =
+	     missing.get_items().begin();
+	   i != missing.get_items().end();
 	   ++i) {
-	map<hobject_t, pg_missing_t::item, hobject_t::BitwiseComparator>::const_iterator j =
+	map<hobject_t, pg_missing_item, hobject_t::BitwiseComparator>::const_iterator j =
 	  needs_recovery_map.find(i->first);
 	if (j == needs_recovery_map.end()) {
 	  needs_recovery_map.insert(*i);
@@ -391,7 +397,7 @@ public:
     }
 
     void add_missing(const hobject_t &hoid, eversion_t need, eversion_t have) {
-      needs_recovery_map[hoid] = pg_missing_t::item(need, have);
+      needs_recovery_map[hoid] = pg_missing_item(need, have);
     }
     void revise_need(const hobject_t &hoid, eversion_t need) {
       assert(needs_recovery(hoid));
@@ -433,10 +439,9 @@ public:
       const map<pg_shard_t, pg_missing_t> &pmissing,
       const map<pg_shard_t, pg_info_t> &pinfo) {
       recovered(hoid);
-      boost::optional<pg_missing_t::item> item;
-      set<pg_shard_t> have;
-      auto miter = missing.missing.find(hoid);
-      if (miter != missing.missing.end()) {
+      boost::optional<pg_missing_item> item;
+      auto miter = missing.get_items().find(hoid);
+      if (miter != missing.get_items().end()) {
 	item = miter->second;
       } else {
 	for (auto &&i: to_recover) {
@@ -444,8 +449,8 @@ public:
 	    continue;
 	  auto pmiter = pmissing.find(i);
 	  assert(pmiter != pmissing.end());
-	  miter = pmiter->second.missing.find(hoid);
-	  if (miter != pmiter->second.missing.end()) {
+	  miter = pmiter->second.get_items().find(hoid);
+	  if (miter != pmiter->second.get_items().end()) {
 	    item = miter->second;
 	    break;
 	  }
@@ -457,7 +462,7 @@ public:
       needs_recovery_map[hoid] = *item;
       auto mliter =
 	missing_loc.insert(make_pair(hoid, set<pg_shard_t>())).first;
-      assert(info.last_backfill == hobject_t::get_max());
+      assert(info.last_backfill.is_max());
       assert(info.last_update >= item->need);
       if (!missing.is_missing(hoid))
 	mliter->second.insert(self);
@@ -478,7 +483,7 @@ public:
     const map<hobject_t, set<pg_shard_t>, hobject_t::BitwiseComparator> &get_missing_locs() const {
       return missing_loc;
     }
-    const map<hobject_t, pg_missing_t::item, hobject_t::BitwiseComparator> &get_needs_recovery() const {
+    const map<hobject_t, pg_missing_item, hobject_t::BitwiseComparator> &get_needs_recovery() const {
       return needs_recovery_map;
     }
   } missing_loc;
@@ -489,9 +494,10 @@ public:
 
   /* You should not use these items without taking their respective queue locks
    * (if they have one) */
-  xlist<PG*>::item recovery_item, stat_queue_item;
+  xlist<PG*>::item stat_queue_item;
   bool snap_trim_queued;
   bool scrub_queued;
+  bool recovery_queued;
 
   int recovery_ops_active;
   set<pg_shard_t> waiting_on_backfill;
@@ -537,7 +543,7 @@ public:
   pg_shard_t pg_whoami;
   pg_shard_t up_primary;
   vector<int> up, acting, want_acting;
-  set<pg_shard_t> actingbackfill, actingset;
+  set<pg_shard_t> actingbackfill, actingset, upset;
   map<pg_shard_t,eversion_t> peer_last_complete_ondisk;
   eversion_t  min_last_complete_ondisk;  // up: min over last_complete_ondisk, peer_last_complete_ondisk
   eversion_t  pg_trim_to;
@@ -1099,8 +1105,9 @@ public:
    * @returns true if any useful work was accomplished; false otherwise
    */
   virtual bool start_recovery_ops(
-    int max, ThreadPool::TPHandle &handle,
-    int *ops_begun) = 0;
+    uint64_t max,
+    ThreadPool::TPHandle &handle,
+    uint64_t *ops_begun) = 0;
 
   void purge_strays();
 
@@ -1324,7 +1331,6 @@ public:
   void sub_op_scrub_reserve(OpRequestRef op);
   void sub_op_scrub_reserve_reply(OpRequestRef op);
   void sub_op_scrub_unreserve(OpRequestRef op);
-  void sub_op_scrub_stop(OpRequestRef op);
 
   void reject_reservation();
   void schedule_backfill_full_retry();
@@ -1482,7 +1488,6 @@ public:
   TrivialEvent(Load)
   TrivialEvent(GotInfo)
   TrivialEvent(NeedUpThru)
-  TrivialEvent(CheckRepops)
   TrivialEvent(NullEvt)
   TrivialEvent(FlushedEvt)
   TrivialEvent(Backfilled)
@@ -2135,7 +2140,15 @@ public:
 	    acting[i],
 	    pool.info.ec_pool() ? shard_id_t(i) : shard_id_t::NO_SHARD));
     }
+    upset.clear();
     up = newup;
+    for (uint8_t i = 0; i < up.size(); ++i) {
+      if (up[i] != CRUSH_ITEM_NONE)
+	upset.insert(
+	  pg_shard_t(
+	    up[i],
+	    pool.info.ec_pool() ? shard_id_t(i) : shard_id_t::NO_SHARD));
+    }
     if (!pool.info.ec_pool()) {
       up_primary = pg_shard_t(new_up_primary, shard_id_t::NO_SHARD);
       primary = pg_shard_t(new_acting_primary, shard_id_t::NO_SHARD);
@@ -2261,6 +2274,7 @@ public:
 
   void queue_snap_trim();
   bool requeue_scrub();
+  void queue_recovery(bool front = false);
   bool queue_scrub();
   unsigned get_scrub_priority();
 
@@ -2268,7 +2282,7 @@ public:
   void share_pg_info();
 
 
-  void append_log_entries_update_missing(
+  bool append_log_entries_update_missing(
     const list<pg_log_entry_t> &entries,
     ObjectStore::Transaction &t);
 

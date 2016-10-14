@@ -29,6 +29,15 @@
 using std::chrono::seconds;
 
 
+class Journaler::C_DelayFlush : public Context {
+  Journaler *journaler;
+  public:
+  C_DelayFlush(Journaler *j) : journaler(j) {}
+  void finish(int r) {
+    journaler->_do_delayed_flush();
+  }
+};
+
 void Journaler::set_readonly()
 {
   lock_guard l(lock);
@@ -89,7 +98,7 @@ void Journaler::_set_layout(file_layout_t const *l)
 
 /***************** HEADER *******************/
 
-ostream& operator<<(ostream& out, Journaler::Header &h)
+ostream& operator<<(ostream &out, const Journaler::Header &h)
 {
   return out << "loghead(trim " << h.trimmed_pos
 	     << ", expire " << h.expire_pos
@@ -1492,7 +1501,7 @@ void Journaler::shutdown()
     f->complete(-EAGAIN);
   }
 
-  finish_contexts(cct, waitfor_recover, 0);
+  finish_contexts(cct, waitfor_recover, -ESHUTDOWN);
 
   std::map<uint64_t, std::list<Context*> >::iterator i;
   for (i = waitfor_safe.begin(); i != waitfor_safe.end(); ++i) {

@@ -15,25 +15,18 @@
 #ifndef CEPH_MONCLIENT_H
 #define CEPH_MONCLIENT_H
 
-#include "msg/Dispatcher.h"
 #include "msg/Messenger.h"
 
 #include "MonMap.h"
 
 #include "common/Timer.h"
 #include "common/Finisher.h"
-
+#include "common/config.h"
 #include "auth/AuthClientHandler.h"
 #include "auth/RotatingKeyRing.h"
-
-#include "messages/MMonSubscribe.h"
-
 #include "common/SimpleRNG.h"
-#include "osd/osd_types.h"
 
-#include <memory>
 
-class MonMap;
 class MMonMap;
 class MMonGetVersion;
 class MMonGetVersionReply;
@@ -47,7 +40,9 @@ class LogClient;
 class AuthSupported;
 class AuthAuthorizeHandlerRegistry;
 class AuthMethodList;
-
+class Messenger;
+// class RotatingKeyRing;
+class KeyRing;
 enum MonClientState {
   MC_STATE_NONE,
   MC_STATE_NEGOTIATING,
@@ -77,7 +72,7 @@ struct MonClientPinger : public Dispatcher {
     int ret = 0;
     while (!done) {
       ret = ping_recvd_cond.WaitUntil(lock, until);
-      if (ret == -ETIMEDOUT)
+      if (ret == ETIMEDOUT)
         break;
     }
     return ret;
@@ -105,6 +100,9 @@ struct MonClientPinger : public Dispatcher {
     return true;
   }
   void ms_handle_remote_reset(Connection *con) {}
+  bool ms_handle_refused(Connection *con) {
+    return false;
+  }
 };
 
 class MonClient : public Dispatcher {
@@ -145,6 +143,7 @@ private:
   bool ms_dispatch(Message *m);
   bool ms_handle_reset(Connection *con);
   void ms_handle_remote_reset(Connection *con) {}
+  bool ms_handle_refused(Connection *con) { return false; }
 
   void handle_monmap(MMonMap *m);
 
@@ -153,13 +152,6 @@ private:
   // monitor session
   bool hunting;
 
-  struct C_Tick : public Context {
-    MonClient *monc;
-    explicit C_Tick(MonClient *m) : monc(m) {}
-    void finish(int r) {
-      monc->tick();
-    }
-  };
   void tick();
   void schedule_tick();
 
@@ -217,7 +209,7 @@ private:
   void _renew_subs();
   void handle_subscribe_ack(MMonSubscribeAck* m);
 
-  bool _sub_want(string what, version_t start, unsigned flags) {
+  bool _sub_want(const string &what, version_t start, unsigned flags) {
     if ((sub_new.count(what) == 0 &&
 	 sub_sent.count(what) &&
 	 sub_sent[what].start == start &&
@@ -230,7 +222,7 @@ private:
     sub_new[what].flags = flags;
     return true;
   }
-  void _sub_got(string what, version_t got) {
+  void _sub_got(const string &what, version_t got) {
     if (sub_new.count(what)) {
       if (sub_new[what].start <= got) {
 	if (sub_new[what].flags & CEPH_SUBSCRIBE_ONETIME)
@@ -247,7 +239,7 @@ private:
       }
     }
   }
-  void _sub_unwant(string what) {
+  void _sub_unwant(const string &what) {
     sub_sent.erase(what);
     sub_new.erase(what);
   }
@@ -302,6 +294,8 @@ public:
 
  public:
   explicit MonClient(CephContext *cct_);
+  MonClient(const MonClient &) = delete;
+  MonClient& operator=(const MonClient &) = delete;
   ~MonClient();
 
   int init();
@@ -387,12 +381,6 @@ public:
       auth->set_want_keys(want | CEPH_ENTITY_TYPE_MON);
   }
 
-  void add_want_keys(uint32_t want) {
-    want_keys |= want;
-    if (auth)
-      auth->add_want_keys(want);
-  }
-
   // admin commands
 private:
   uint64_t last_mon_command_tid;
@@ -414,17 +402,6 @@ private:
     {}
   };
   map<uint64_t,MonCommand*> mon_commands;
-
-  class C_CancelMonCommand : public Context
-  {
-    uint64_t tid;
-    MonClient *monc;
-  public:
-    C_CancelMonCommand(uint64_t tid, MonClient *monc) : tid(tid), monc(monc) {}
-    void finish(int r) {
-      monc->_cancel_mon_command(tid, -ETIMEDOUT);
-    }
-  };
 
   void _send_command(MonCommand *r);
   void _resend_mon_commands();
@@ -470,8 +447,6 @@ private:
   void handle_get_version_reply(MMonGetVersionReply* m);
 
 
-  MonClient(const MonClient &rhs);
-  MonClient& operator=(const MonClient &rhs);
 };
 
 #endif

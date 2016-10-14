@@ -30,7 +30,14 @@ public:
       RWLock::WLocker owner_locker(ictx->owner_lock);
       ictx->exclusive_lock->request_lock(&lock_ctx);
     }
-    return lock_ctx.wait();
+    int r = lock_ctx.wait();
+    if (r < 0) {
+      return r;
+    }
+
+    C_SaferCond refresh_ctx;
+    ictx->state->refresh(&refresh_ctx);
+    return refresh_ctx.wait();
   }
 
   template<typename T>
@@ -40,8 +47,8 @@ public:
     librbd::Journal<>::AioObjectRequests requests;
     {
       RWLock::RLocker owner_locker(ictx->owner_lock);
-      ictx->journal->append_io_event(NULL, std::move(event_entry), requests, 0,
-				     0, true);
+      ictx->journal->append_io_event(std::move(event_entry), requests, 0, 0,
+                                     true);
     }
   }
 
@@ -129,6 +136,7 @@ TEST_F(TestJournalReplay, AioDiscardEvent) {
   // inject a discard operation into the journal
   inject_into_journal(ictx,
                       librbd::journal::AioDiscardEvent(0, payload.size()));
+  close_image(ictx);
 
   // re-open the journal so that it replays the new entry
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
@@ -139,7 +147,11 @@ TEST_F(TestJournalReplay, AioDiscardEvent) {
                                  &read_payload[0], NULL, 0);
   ASSERT_EQ(0, aio_comp->wait_for_complete());
   aio_comp->release();
-  ASSERT_EQ(std::string(read_payload.size(), '\0'), read_payload);
+  if (ictx->cct->_conf->rbd_skip_partial_discard) {
+    ASSERT_EQ(payload, read_payload);
+  } else {
+    ASSERT_EQ(std::string(read_payload.size(), '\0'), read_payload);
+  }
 
   // check the commit position is properly updated
   int64_t current_tag;
@@ -153,6 +165,8 @@ TEST_F(TestJournalReplay, AioDiscardEvent) {
                       librbd::journal::AioDiscardEvent(0, payload.size()));
   inject_into_journal(ictx,
                       librbd::journal::AioDiscardEvent(0, payload.size()));
+  close_image(ictx);
+
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
   ASSERT_EQ(0, when_acquired_lock(ictx));
   get_journal_commit_position(ictx, &current_tag, &current_entry);
@@ -184,6 +198,7 @@ TEST_F(TestJournalReplay, AioWriteEvent) {
   payload_bl.append(payload);
   inject_into_journal(ictx,
       librbd::journal::AioWriteEvent(0, payload.size(), payload_bl));
+  close_image(ictx);
 
   // re-open the journal so that it replays the new entry
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
@@ -209,6 +224,8 @@ TEST_F(TestJournalReplay, AioWriteEvent) {
       librbd::journal::AioWriteEvent(0, payload.size(), payload_bl));
   inject_into_journal(ictx,
       librbd::journal::AioWriteEvent(0, payload.size(), payload_bl));
+  close_image(ictx);
+
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
   ASSERT_EQ(0, when_acquired_lock(ictx));
   get_journal_commit_position(ictx, &current_tag, &current_entry);
@@ -238,35 +255,11 @@ TEST_F(TestJournalReplay, AioFlushEvent) {
 
   // inject a flush operation into the journal
   inject_into_journal(ictx, librbd::journal::AioFlushEvent());
-
-  // start an AIO write op
-  librbd::Journal<> *journal = ictx->journal;
-  ictx->journal = NULL;
-
-  std::string payload(m_image_size, '1');
-  librbd::AioCompletion *aio_comp = new librbd::AioCompletion();
-  {
-    RWLock::RLocker owner_lock(ictx->owner_lock);
-    librbd::AioImageRequest<>::aio_write(ictx, aio_comp, 0, payload.size(),
-                                         payload.c_str(), 0);
-  }
-  ictx->journal = journal;
+  close_image(ictx);
 
   // re-open the journal so that it replays the new entry
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
   ASSERT_EQ(0, when_acquired_lock(ictx));
-
-  ASSERT_TRUE(aio_comp->is_complete());
-  ASSERT_EQ(0, aio_comp->wait_for_complete());
-  aio_comp->release();
-
-  std::string read_payload(m_image_size, '\0');
-  aio_comp = new librbd::AioCompletion();
-  ictx->aio_work_queue->aio_read(aio_comp, 0, read_payload.size(),
-                                 &read_payload[0], NULL, 0);
-  ASSERT_EQ(0, aio_comp->wait_for_complete());
-  aio_comp->release();
-  ASSERT_EQ(payload, read_payload);
 
   // check the commit position is properly updated
   int64_t current_tag;
@@ -278,6 +271,8 @@ TEST_F(TestJournalReplay, AioFlushEvent) {
   // replay several events and check the commit position
   inject_into_journal(ictx, librbd::journal::AioFlushEvent());
   inject_into_journal(ictx, librbd::journal::AioFlushEvent());
+  close_image(ictx);
+
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
   ASSERT_EQ(0, when_acquired_lock(ictx));
   get_journal_commit_position(ictx, &current_tag, &current_entry);
@@ -285,7 +280,7 @@ TEST_F(TestJournalReplay, AioFlushEvent) {
   ASSERT_EQ(1, current_entry);
 
   // verify lock ordering constraints
-  aio_comp = new librbd::AioCompletion();
+  librbd::AioCompletion *aio_comp = new librbd::AioCompletion();
   ictx->aio_work_queue->aio_flush(aio_comp);
   ASSERT_EQ(0, aio_comp->wait_for_complete());
   aio_comp->release();
@@ -307,6 +302,7 @@ TEST_F(TestJournalReplay, SnapCreate) {
   // inject snapshot ops into journal
   inject_into_journal(ictx, librbd::journal::SnapCreateEvent(1, "snap"));
   inject_into_journal(ictx, librbd::journal::OpFinishEvent(1, 0));
+  close_image(ictx);
 
   // replay journal
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
@@ -345,6 +341,7 @@ TEST_F(TestJournalReplay, SnapProtect) {
   // inject snapshot ops into journal
   inject_into_journal(ictx, librbd::journal::SnapProtectEvent(1, "snap"));
   inject_into_journal(ictx, librbd::journal::OpFinishEvent(1, 0));
+  close_image(ictx);
 
   // replay journal
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
@@ -390,6 +387,7 @@ TEST_F(TestJournalReplay, SnapUnprotect) {
   // inject snapshot ops into journal
   inject_into_journal(ictx, librbd::journal::SnapUnprotectEvent(1, "snap"));
   inject_into_journal(ictx, librbd::journal::OpFinishEvent(1, 0));
+  close_image(ictx);
 
   // replay journal
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
@@ -433,8 +431,10 @@ TEST_F(TestJournalReplay, SnapRename) {
   get_journal_commit_position(ictx, &initial_tag, &initial_entry);
 
   // inject snapshot ops into journal
-  inject_into_journal(ictx, librbd::journal::SnapRenameEvent(1, snap_id, "snap2"));
+  inject_into_journal(ictx, librbd::journal::SnapRenameEvent(1, snap_id, "snap",
+                                                             "snap2"));
   inject_into_journal(ictx, librbd::journal::OpFinishEvent(1, 0));
+  close_image(ictx);
 
   // replay journal
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
@@ -475,6 +475,7 @@ TEST_F(TestJournalReplay, SnapRollback) {
   // inject snapshot ops into journal
   inject_into_journal(ictx, librbd::journal::SnapRollbackEvent(1, "snap"));
   inject_into_journal(ictx, librbd::journal::OpFinishEvent(1, 0));
+  close_image(ictx);
 
   // replay journal
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
@@ -509,6 +510,7 @@ TEST_F(TestJournalReplay, SnapRemove) {
   // inject snapshot ops into journal
   inject_into_journal(ictx, librbd::journal::SnapRemoveEvent(1, "snap"));
   inject_into_journal(ictx, librbd::journal::OpFinishEvent(1, 0));
+  close_image(ictx);
 
   // replay journal
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
@@ -548,6 +550,7 @@ TEST_F(TestJournalReplay, Rename) {
   std::string new_image_name(get_temp_image_name());
   inject_into_journal(ictx, librbd::journal::RenameEvent(1, new_image_name));
   inject_into_journal(ictx, librbd::journal::OpFinishEvent(1, 0));
+  close_image(ictx);
 
   // replay journal
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
@@ -580,6 +583,7 @@ TEST_F(TestJournalReplay, Resize) {
   // inject snapshot ops into journal
   inject_into_journal(ictx, librbd::journal::ResizeEvent(1, 16));
   inject_into_journal(ictx, librbd::journal::OpFinishEvent(1, 0));
+  close_image(ictx);
 
   // replay journal
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
@@ -593,7 +597,7 @@ TEST_F(TestJournalReplay, Resize) {
 
   // verify lock ordering constraints
   librbd::NoOpProgressContext no_op_progress;
-  ASSERT_EQ(0, ictx->operations->resize(0, no_op_progress));
+  ASSERT_EQ(0, ictx->operations->resize(0, true, no_op_progress));
 }
 
 TEST_F(TestJournalReplay, Flatten) {
@@ -621,6 +625,7 @@ TEST_F(TestJournalReplay, Flatten) {
   // inject snapshot ops into journal
   inject_into_journal(ictx2, librbd::journal::FlattenEvent(1));
   inject_into_journal(ictx2, librbd::journal::OpFinishEvent(1, 0));
+  close_image(ictx2);
 
   // replay journal
   ASSERT_EQ(0, open_image(clone_name, &ictx2));
@@ -681,6 +686,12 @@ TEST_F(TestJournalReplay, ObjectPosition) {
   ictx->aio_work_queue->aio_flush(aio_comp);
   ASSERT_EQ(0, aio_comp->wait_for_complete());
   aio_comp->release();
+
+  {
+    // user flush requests are ignored when journaling + cache are enabled
+    RWLock::RLocker owner_lock(ictx->owner_lock);
+    ictx->flush();
+  }
 
   // check the commit position updated
   get_journal_commit_position(ictx, &current_tag, &current_entry);

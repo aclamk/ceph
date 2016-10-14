@@ -23,13 +23,10 @@
 using namespace std;
 
 #include "include/types.h"
-#include "msg/Messenger.h"
-
 #include "mds/FSMap.h"
-
+#include "mds/MDSMap.h"
 #include "PaxosService.h"
-#include "Session.h"
-
+#include "msg/Messenger.h"
 #include "messages/MMDSBeacon.h"
 
 class MMonCommand;
@@ -49,24 +46,6 @@ class MDSMonitor : public PaxosService {
 
   // my helpers
   void print_map(FSMap &m, int dbl=7);
-
-  class C_Updated : public Context {
-    MDSMonitor *mm;
-    MonOpRequestRef op;
-  public:
-    C_Updated(MDSMonitor *a, MonOpRequestRef c) :
-      mm(a), op(c) {}
-    void finish(int r) {
-      if (r >= 0)
-	mm->_updated(op);   // success
-      else if (r == -ECANCELED) {
-	mm->mon->no_reply(op);
-      } else {
-	mm->dispatch(op);        // try again
-      }
-    }
-  };
-
   void create_new_fs(FSMap &m, const std::string &name, int metadata_pool, int data_pool);
 
   version_t get_trim_to();

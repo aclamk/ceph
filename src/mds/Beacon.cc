@@ -34,10 +34,10 @@
 
 Beacon::Beacon(CephContext *cct_, MonClient *monc_, std::string name_) :
   Dispatcher(cct_), lock("Beacon"), monc(monc_), timer(g_ceph_context, lock),
-  name(name_), standby_for_rank(MDSMap::MDS_NO_STANDBY_PREF),
-  standby_for_fscid(FS_CLUSTER_ID_NONE), awaiting_seq(-1)
+  name(name_), standby_for_rank(MDS_RANK_NONE),
+  standby_for_fscid(FS_CLUSTER_ID_NONE), want_state(MDSMap::STATE_BOOT),
+  awaiting_seq(-1)
 {
-  want_state = MDSMap::STATE_NULL;
   last_seq = 0;
   sender = NULL;
   was_laggy = false;
@@ -51,18 +51,16 @@ Beacon::~Beacon()
 }
 
 
-void Beacon::init(MDSMap const *mdsmap, MDSMap::DaemonState want_state_,
-    mds_rank_t standby_rank_, std::string const & standby_name_,
-    fs_cluster_id_t standby_fscid_)
+void Beacon::init(MDSMap const *mdsmap)
 {
   Mutex::Locker l(lock);
   assert(mdsmap != NULL);
 
-  want_state = want_state_;
   _notify_mdsmap(mdsmap);
-  standby_for_rank = standby_rank_;
-  standby_for_name = standby_name_;
-  standby_for_fscid = standby_fscid_;
+  standby_for_rank = mds_rank_t(g_conf->mds_standby_for_rank);
+  standby_for_name = g_conf->mds_standby_for_name;
+  standby_for_fscid = fs_cluster_id_t(g_conf->mds_standby_for_fscid);
+  standby_replay = g_conf->mds_standby_replay;
 
   // Spawn threads and start messaging
   timer.init();
@@ -210,6 +208,7 @@ void Beacon::_send()
   beacon->set_standby_for_rank(standby_for_rank);
   beacon->set_standby_for_name(standby_for_name);
   beacon->set_standby_for_fscid(standby_for_fscid);
+  beacon->set_standby_replay(standby_replay);
   beacon->set_health(health);
   beacon->set_compat(compat);
   // piggyback the sys info on beacon msg
@@ -442,6 +441,38 @@ void Beacon::notify_health(MDSRank const *mds)
       health.metrics.push_back(m);
       large_completed_requests_metrics.clear();
     }
+  }
+
+  // Detect MDS_HEALTH_SLOW_REQUEST condition
+  {
+    int slow = mds->get_mds_slow_req_count();
+    dout(20) << slow << " slow request found" << dendl;
+    if (slow) {
+      std::ostringstream oss;
+      oss << slow << " slow requests are blocked > " << g_conf->mds_op_complaint_time << " sec";
+
+      MDSHealthMetric m(MDS_HEALTH_SLOW_REQUEST, HEALTH_WARN, oss.str());
+      health.metrics.push_back(m);
+    }
+  }
+
+  // Report a health warning if we are readonly
+  if (mds->mdcache->is_readonly()) {
+    MDSHealthMetric m(MDS_HEALTH_READ_ONLY, HEALTH_WARN,
+                      "MDS in read-only mode");
+    health.metrics.push_back(m);
+  }
+
+  // Report if we have significantly exceeded our cache size limit
+  if (mds->mdcache->get_num_inodes() > g_conf->mds_cache_size * 1.5) {
+    std::ostringstream oss;
+    oss << "Too many inodes in cache (" << mds->mdcache->get_num_inodes()
+        << "/" << g_conf->mds_cache_size << "), "
+        << mds->mdcache->num_inodes_with_caps << " inodes in use by clients, "
+        << mds->mdcache->get_num_strays() << " stray files";
+
+    MDSHealthMetric m(MDS_HEALTH_CACHE_OVERSIZED, HEALTH_WARN, oss.str());
+    health.metrics.push_back(m);
   }
 }
 

@@ -93,7 +93,7 @@ and `Monitoring OSDs and PGs`_ for additional details.
 Monitor Quorum
 --------------
 
-Our Getting Started section provides a trivial `Ceph configuration file`_ that
+Our Configuring ceph section provides a trivial `Ceph configuration file`_ that
 provides for one monitor in the test cluster. A cluster will run fine with a
 single monitor; however, **a single monitor is a single-point-of-failure**. To
 ensure high availability in a production Ceph Storage Cluster, you should run
@@ -582,20 +582,6 @@ Trimming requires that the placement groups are ``active + clean``.
 :Default: ``0.05``
 
 
-``paxos trim tolerance``
-
-:Description: The number of extra proposals tolerated before trimming.
-:Type: Integer
-:Default: ``30``
-
-
-``paxos trim disabled max versions``
-
-:Description: The maximimum number of version allowed to pass without trimming.
-:Type: Integer
-:Default: ``100``
-
-
 ``mon lease`` 
 
 :Description: The length (in seconds) of the lease on the monitor's versions.
@@ -865,8 +851,8 @@ Miscellaneous
 
 
 .. _Paxos: http://en.wikipedia.org/wiki/Paxos_(computer_science)
-.. _Monitor Keyrings: ../../operations/authentication#monitor-keyrings
-.. _Ceph configuration file: ../../../start/quick-start/#add-a-configuration-file
+.. _Monitor Keyrings: ../../../dev/mon-bootstrap#secret-keys
+.. _Ceph configuration file: ../ceph-conf/#monitors
 .. _Network Configuration Reference: ../network-config-ref
 .. _ACID: http://en.wikipedia.org/wiki/ACID
 .. _Adding/Removing a Monitor: ../../operations/add-or-rm-mons

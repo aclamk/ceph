@@ -6,9 +6,14 @@ import string
 import argparse
 import sys
 import time
-import itertools
-
-import ConfigParser
+try:
+    from itertools import izip_longest as zip_longest
+except ImportError:
+    from itertools import zip_longest
+try:
+    import configparser
+except ImportError:
+    import ConfigParser as configparser
 
 import boto
 import boto.s3.connection
@@ -16,6 +21,11 @@ import boto.s3.connection
 import inspect
 
 from nose.tools import eq_ as eq
+from nose.plugins.attrib import attr
+
+# test-suite for rgw multisite, the last test destroys a zone,
+# so in order to use this as a dev cluster, do
+# $nosetests -a '!destructive' /path/to/test_multi.py
 
 log_level = 20
 
@@ -40,7 +50,7 @@ def log(level, *params):
         if p:
             s += str(p)
 
-    print s
+    print(s)
     sys.stdout.flush()
 
 def build_cmd(*params):
@@ -70,7 +80,7 @@ def bash(cmd, check_retcode = True):
     log(5, 'running cmd: ', cmd)
     process = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
     s = process.communicate()[0]
-    log(20, 'command returned status=', process.returncode, ' stdout=', s)
+    log(20, 'command returned status=', process.returncode, ' stdout=', s.decode('utf-8'))
     if check_retcode:
         assert(process.returncode == 0)
     return (s, process.returncode)
@@ -79,7 +89,7 @@ def mstart(cluster_id, is_new):
     cmd = mpath('mstart.sh', cluster_id)
     if is_new:
         cmd += ' -n'
-
+        cmd += ' --mds_num 0'
     bash(cmd)
 
 def mstop(cluster_id, entity = None):
@@ -104,10 +114,11 @@ class RGWRealmCredentials:
         self.secret = secret
 
 class RGWCluster:
-    def __init__(self, cluster_num, port):
+    def __init__(self, cluster_num, port, num_gateways):
         self.cluster_num = cluster_num
         self.cluster_id = 'c' + str(cluster_num)
         self.port = port
+        self.num_gateways = num_gateways
         self.needs_reset = True
 
     def start(self):
@@ -118,13 +129,14 @@ class RGWCluster:
         mstop(self.cluster_id)
 
     def start_rgw(self):
-        mrgw(self.cluster_id, self.port, '--debug-rgw=20 --debug-ms=1')
+        for i in range(self.num_gateways):
+            mrgw(self.cluster_id, self.port + i, '--debug-rgw=20 --debug-ms=1')
 
     def stop_rgw(self):
         mstop(self.cluster_id, 'radosgw')
 
     def rgw_admin(self, cmd, check_retcode = True):
-        (s, retcode) = bash(tpath('test-rgw-call.sh', 'call_rgw_admin', self.cluster_num, cmd))
+        (s, retcode) = bash(tpath('test-rgw-call.sh', 'call_rgw_admin', self.cluster_num, cmd), check_retcode)
         return (s, retcode)
 
     def rgw_admin_ro(self, cmd, check_retcode = True):
@@ -155,42 +167,38 @@ class RGWRealm:
         self.credentials = credentials
         self.clusters = clusters
         self.zones = {}
-        self.total_zones = 0
 
     def init_zone(self, cluster, zg, zone_name, first_zone_port):
         is_master = (first_zone_port == cluster.port)
+        endpoints = ",".join(map(lambda x: "http://localhost:" + str(cluster.port + x), range(cluster.num_gateways)))
         if is_master:
             bash(tpath('test-rgw-call.sh', 'init_first_zone', cluster.cluster_num,
-                       self.realm, zg, zone_name, cluster.port,
+                       self.realm, zg, zone_name, endpoints,
                        self.credentials.access_key, self.credentials.secret))
         else:
             bash(tpath('test-rgw-call.sh', 'init_zone_in_existing_zg', cluster.cluster_num,
-                       self.realm, zg, zone_name, first_zone_port, cluster.port,
+                       self.realm, zg, zone_name, first_zone_port, endpoints,
                        self.credentials.access_key, self.credentials.secret))
 
         self.add_zone(cluster, zg, zone_name, is_master)
+        cluster.start_rgw()
 
     def add_zone(self, cluster, zg, zone_name, is_master):
         zone = RGWZone(self.realm, cluster, zg, zone_name)
-        self.zones[self.total_zones] = zone
-        self.total_zones += 1
+        self.zones[zone_name] = zone
 
         if is_master:
             self.master_zone = zone
 
+    def remove_zone(self, zone_name):
+        del self.zones[zone_name]
 
-    def get_zone(self, num):
-        if num >= self.total_zones:
-            return None
-        return self.zones[num]
+    def get_zone(self, zone_name):
+        return self.zones[zone_name]
 
     def get_zones(self):
-        for (k, zone) in self.zones.iteritems():
+        for (k, zone) in self.zones.items():
             yield zone
-
-
-    def num_zones(self):
-        return self.total_zones
 
     def meta_sync_status(self, zone):
         if zone.zone_name == self.master_zone.zone_name:
@@ -203,9 +211,10 @@ class RGWRealm:
 
             assert(retcode == 2) # ENOENT
 
+        meta_sync_status_json = meta_sync_status_json.decode('utf-8')
         log(20, 'current meta sync status=', meta_sync_status_json)
         sync_status = json.loads(meta_sync_status_json)
-        
+
         global_sync_status=sync_status['sync_status']['info']['status']
         num_shards=sync_status['sync_status']['info']['num_shards']
 
@@ -214,14 +223,14 @@ class RGWRealm:
         assert(num_shards == len(sync_markers))
 
         markers={}
-        for i in xrange(num_shards):
+        for i in range(num_shards):
             markers[i] = sync_markers[i]['val']['marker']
 
         return (num_shards, markers)
 
     def meta_master_log_status(self, master_zone):
         (mdlog_status_json, retcode) = master_zone.cluster.rgw_admin_ro('--rgw-realm=' + self.realm + ' mdlog status')
-        mdlog_status = json.loads(mdlog_status_json)
+        mdlog_status = json.loads(mdlog_status_json.decode('utf-8'))
 
         markers={}
         i = 0
@@ -239,7 +248,7 @@ class RGWRealm:
             return False
 
         msg =  ''
-        for i, l, s in zip(log_status, log_status.itervalues(), sync_status.itervalues()):
+        for i, l, s in zip(log_status, log_status.values(), sync_status.values()):
             if l > s:
                 if len(s) != 0:
                     msg += ', '
@@ -288,9 +297,10 @@ class RGWRealm:
 
             assert(retcode == 2) # ENOENT
 
+        data_sync_status_json = data_sync_status_json.decode('utf-8')
         log(20, 'current data sync status=', data_sync_status_json)
         sync_status = json.loads(data_sync_status_json)
-        
+
         global_sync_status=sync_status['sync_status']['info']['status']
         num_shards=sync_status['sync_status']['info']['num_shards']
 
@@ -299,7 +309,7 @@ class RGWRealm:
         assert(num_shards == len(sync_markers))
 
         markers={}
-        for i in xrange(num_shards):
+        for i in range(num_shards):
             markers[i] = sync_markers[i]['val']['marker']
 
         return (num_shards, markers)
@@ -308,22 +318,28 @@ class RGWRealm:
         if target_zone.zone_name == source_zone.zone_name:
             return None
 
+        cmd = '--rgw-realm=' + self.realm + ' bucket sync status --source-zone=' + source_zone.zone_name + ' --bucket=' + bucket_name
+        global user
+        if user.tenant is not None:
+            cmd += ' --tenant=' + user.tenant + ' --uid=' + user.uid
         while True:
-            (bucket_sync_status_json, retcode) = target_zone.cluster.rgw_admin_ro('--rgw-realm=' + self.realm +
-                                                                                ' bucket sync status --source-zone=' + source_zone.zone_name +
-                                                                                ' --bucket=' + bucket_name, check_retcode = False)
+            (bucket_sync_status_json, retcode) = target_zone.cluster.rgw_admin_ro(cmd, check_retcode = False)
             if retcode == 0:
                 break
 
             assert(retcode == 2) # ENOENT
 
+        bucket_sync_status_json = bucket_sync_status_json.decode('utf-8')
         log(20, 'current bucket sync status=', bucket_sync_status_json)
         sync_status = json.loads(bucket_sync_status_json)
 
         markers={}
         for entry in sync_status:
             val = entry['val']
-            pos = val['inc_marker']['position'].split('#')[-1] # get rid of shard id; e.g., 6#00000000002.132.3 -> 00000000002.132.3
+            if val['status'] == 'incremental-sync':
+                pos = val['inc_marker']['position'].split('#')[-1] # get rid of shard id; e.g., 6#00000000002.132.3 -> 00000000002.132.3
+            else:
+                pos = ''
             markers[entry['key']] = pos
 
         return markers
@@ -331,7 +347,7 @@ class RGWRealm:
     def data_source_log_status(self, source_zone):
         source_cluster = source_zone.cluster
         (datalog_status_json, retcode) = source_cluster.rgw_admin_ro('--rgw-realm=' + self.realm + ' datalog status')
-        datalog_status = json.loads(datalog_status_json)
+        datalog_status = json.loads(datalog_status_json.decode('utf-8'))
 
         markers={}
         i = 0
@@ -344,9 +360,13 @@ class RGWRealm:
         return markers
 
     def bucket_source_log_status(self, source_zone, bucket_name):
+        cmd = '--rgw-realm=' + self.realm + ' bilog status --bucket=' + bucket_name
+        global user
+        if user.tenant is not None:
+            cmd += ' --tenant=' + user.tenant + ' --uid=' + user.uid
         source_cluster = source_zone.cluster
-        (bilog_status_json, retcode) = source_cluster.rgw_admin_ro('--rgw-realm=' + self.realm + ' bilog status --bucket=' + bucket_name)
-        bilog_status = json.loads(bilog_status_json)
+        (bilog_status_json, retcode) = source_cluster.rgw_admin_ro(cmd)
+        bilog_status = json.loads(bilog_status_json.decode('utf-8'))
 
         m={}
         markers={}
@@ -370,7 +390,7 @@ class RGWRealm:
             return False
 
         msg =  ''
-        for i, l, s in zip(log_status, log_status.itervalues(), sync_status.itervalues()):
+        for i, l, s in zip(log_status, log_status.values(), sync_status.values()):
             if l > s:
                 if len(s) != 0:
                     msg += ', '
@@ -388,7 +408,7 @@ class RGWRealm:
             return False
 
         msg =  ''
-        for i, l, s in zip(log_status, log_status.itervalues(), sync_status.itervalues()):
+        for i, l, s in zip(log_status, log_status.values(), sync_status.values()):
             if l > s:
                 if len(s) != 0:
                     msg += ', '
@@ -445,6 +465,8 @@ class RGWRealm:
         log(5, 'creating user uid=', user.uid)
         cmd = build_cmd('--uid', user.uid, '--display-name', user.display_name,
                         '--access-key', user.access_key, '--secret', user.secret)
+        if user.tenant is not None:
+            cmd += ' --tenant ' + user.tenant
         self.master_zone.cluster.rgw_admin('--rgw-realm=' + self.realm + ' user create ' + cmd)
 
         if wait_meta:
@@ -453,15 +475,16 @@ class RGWRealm:
     def set_master_zone(self, zone):
         (zg_json, retcode) = zone.cluster.rgw_admin('--rgw-realm=' + self.realm + ' --rgw-zonegroup=' + zone.zg + ' --rgw-zone=' + zone.zone_name + ' zone modify --master=1')
         (period_json, retcode) = zone.cluster.rgw_admin('--rgw-realm=' + self.realm + ' period update --commit')
-	self.master_zone = zone
+        self.master_zone = zone
 
 
 class RGWUser:
-    def __init__(self, uid, display_name, access_key, secret):
+    def __init__(self, uid, display_name, access_key, secret, tenant):
         self.uid = uid
         self.display_name = display_name
         self.access_key = access_key
         self.secret = secret
+        self.tenant = tenant
 
 def gen_access_key():
      return ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(16))
@@ -476,16 +499,16 @@ def gen_bucket_name():
     return run_prefix + '-' + str(num_buckets)
 
 class RGWMulti:
-    def __init__(self, num_clusters):
+    def __init__(self, num_clusters, gateways_per_cluster):
         self.num_clusters = num_clusters
 
         self.base_port = 8000
 
         self.clusters = {}
-        for i in xrange(num_clusters):
-            self.clusters[i] = RGWCluster(i + 1, self.base_port + i)
+        for i in range(num_clusters):
+            self.clusters[i] = RGWCluster(i + 1, self.base_port + i * gateways_per_cluster, gateways_per_cluster)
 
-    def setup(self, bootstrap):
+    def setup(self, bootstrap, tenant):
         global realm
         global realm_credentials
         global user
@@ -494,23 +517,21 @@ class RGWMulti:
         realm = RGWRealm('earth', realm_credentials, self.clusters)
 
         if bootstrap:
-            log(1, 'bootstapping clusters')
+            log(1, 'bootstrapping clusters')
             self.clusters[0].start()
             realm.init_zone(self.clusters[0], 'us', 'us-1', self.base_port)
 
-            for i in xrange(1, self.num_clusters):
+            for i in range(1, self.num_clusters):
                 self.clusters[i].start()
                 realm.init_zone(self.clusters[i], 'us', 'us-' + str(i + 1), self.base_port)
         else:
-            for i in xrange(0, self.num_clusters):
+            for i in range(0, self.num_clusters):
                 realm.add_zone(self.clusters[i], 'us', 'us-' + str(i + 1), (i == 0))
 
         realm.meta_checkpoint()
 
-        user = RGWUser('tester', '"Test User"', gen_access_key(), gen_secret())
+        user = RGWUser('tester', '"Test User"', gen_access_key(), gen_secret(), tenant)
         realm.create_user(user)
-
-        realm.meta_checkpoint()
 
 def check_all_buckets_exist(zone, buckets):
     conn = zone.get_connection(user)
@@ -586,7 +607,7 @@ def test_bucket_remove():
     for zone in realm.get_zones():
         assert check_all_buckets_exist(zone, buckets)
 
-    for zone, bucket_name in zone_bucket.iteritems():
+    for zone, bucket_name in zone_bucket.items():
         conn = zone.get_connection(user)
         conn.delete_bucket(bucket_name)
 
@@ -620,7 +641,7 @@ def check_object_eq(k1, k2, check_extra = True):
     eq(k1.content_disposition, k2.content_disposition)
     eq(k1.content_language, k2.content_language)
     eq(k1.etag, k2.etag)
-    # eq(k1.last_modified, k2.last_modified)
+    eq(k1.last_modified, k2.last_modified)
     if check_extra:
         eq(k1.owner.id, k2.owner.id)
         eq(k1.owner.display_name, k2.owner.display_name)
@@ -641,7 +662,7 @@ def check_bucket_eq(zone1, zone2, bucket_name):
     for o in b2.get_all_versions():
         log(20, 'o=', o.name)
 
-    for k1, k2 in itertools.izip_longest(b1.get_all_versions(), b2.get_all_versions()):
+    for k1, k2 in zip_longest(b1.get_all_versions(), b2.get_all_versions()):
         if k1 is None:
             log(0, 'failure: key=', k2.name, ' is missing from zone=', zone1.zone_name)
             assert False
@@ -671,14 +692,14 @@ def test_object_sync():
     content = 'asdasd'
 
     # don't wait for meta sync just yet
-    for zone, bucket_name in zone_bucket.iteritems():
+    for zone, bucket_name in zone_bucket.items():
         for objname in objnames:
             k = new_key(zone, bucket_name, objname)
             k.set_contents_from_string(content)
 
     realm.meta_checkpoint()
 
-    for source_zone, bucket in zone_bucket.iteritems():
+    for source_zone, bucket in zone_bucket.items():
         for target_zone in all_zones:
             if source_zone.zone_name == target_zone.zone_name:
                 continue
@@ -698,14 +719,14 @@ def test_object_delete():
     content = 'asdasd'
 
     # don't wait for meta sync just yet
-    for zone, bucket in zone_bucket.iteritems():
+    for zone, bucket in zone_bucket.items():
         k = new_key(zone, bucket, objname)
         k.set_contents_from_string(content)
 
     realm.meta_checkpoint()
 
     # check object exists
-    for source_zone, bucket in zone_bucket.iteritems():
+    for source_zone, bucket in zone_bucket.items():
         for target_zone in all_zones:
             if source_zone.zone_name == target_zone.zone_name:
                 continue
@@ -715,7 +736,7 @@ def test_object_delete():
             check_bucket_eq(source_zone, target_zone, bucket)
 
     # check object removal
-    for source_zone, bucket in zone_bucket.iteritems():
+    for source_zone, bucket in zone_bucket.items():
         k = get_key(source_zone, bucket, objname)
         k.delete()
         for target_zone in all_zones:
@@ -737,20 +758,20 @@ def test_multi_period_incremental_sync():
     for z in zone_bucket:
         all_zones.append(z)
 
-    for zone, bucket_name in zone_bucket.iteritems():
+    for zone, bucket_name in zone_bucket.items():
         for objname in [ 'p1', '_p1' ]:
             k = new_key(zone, bucket_name, objname)
             k.set_contents_from_string('asdasd')
     realm.meta_checkpoint()
 
     # kill zone 3 gateway to freeze sync status to incremental in first period
-    z3 = realm.get_zone(2)
+    z3 = realm.get_zone('us-3')
     z3.cluster.stop_rgw()
 
     # change master to zone 2 -> period 2
-    realm.set_master_zone(realm.get_zone(1))
+    realm.set_master_zone(realm.get_zone('us-2'))
 
-    for zone, bucket_name in zone_bucket.iteritems():
+    for zone, bucket_name in zone_bucket.items():
         if zone == z3:
             continue
         for objname in [ 'p2', '_p2' ]:
@@ -758,12 +779,12 @@ def test_multi_period_incremental_sync():
             k.set_contents_from_string('qweqwe')
 
     # wait for zone 1 to sync
-    realm.zone_meta_checkpoint(realm.get_zone(0))
+    realm.zone_meta_checkpoint(realm.get_zone('us-1'))
 
     # change master back to zone 1 -> period 3
-    realm.set_master_zone(realm.get_zone(0))
+    realm.set_master_zone(realm.get_zone('us-1'))
 
-    for zone, bucket_name in zone_bucket.iteritems():
+    for zone, bucket_name in zone_bucket.items():
         if zone == z3:
             continue
         for objname in [ 'p3', '_p3' ]:
@@ -775,7 +796,7 @@ def test_multi_period_incremental_sync():
     realm.meta_checkpoint()
 
     # verify that we end up with the same objects
-    for source_zone, bucket in zone_bucket.iteritems():
+    for source_zone, bucket in zone_bucket.items():
         for target_zone in all_zones:
             if source_zone.zone_name == target_zone.zone_name:
                 continue
@@ -784,12 +805,33 @@ def test_multi_period_incremental_sync():
 
             check_bucket_eq(source_zone, target_zone, bucket)
 
+@attr('destructive')
+def test_zonegroup_remove():
+    z1 = realm.get_zone('us-1')
+
+    # try to 'zone delete' us-2 from cluster 1
+    # must fail with ENOENT because the zone is local to cluster 2
+    (_, retcode) = z1.cluster.rgw_admin('zone delete --rgw-zone=us-2', False)
+    assert(retcode == 2) # ENOENT
+
+    # use 'zonegroup remove', expecting success
+    z1.cluster.rgw_admin('zonegroup remove --rgw-zone=us-2', True)
+
+    # another 'zonegroup remove' should fail with ENOENT
+    (_, retcode) = z1.cluster.rgw_admin('zonegroup remove --rgw-zone=us-2', False)
+    assert(retcode == 2) # ENOENT
+
+    # validate the resulting period
+    z1.cluster.rgw_admin('period update --commit', True)
+    realm.remove_zone('us-2')
 
 def init(parse_args):
-    cfg = ConfigParser.RawConfigParser({
+    cfg = configparser.RawConfigParser({
                                          'num_zones': 3,
+                                         'gateways_per_zone': 2,
                                          'no_bootstrap': 'false',
                                          'log_level': 20,
+                                         'tenant': None,
                                          })
     try:
         path = os.environ['RGW_MULTI_TEST_CONF']
@@ -797,10 +839,10 @@ def init(parse_args):
         path = tpath('test_multi.conf')
 
     try:
-        with file(path) as f:
+        with open(path) as f:
             cfg.readfp(f)
     except:
-        print 'WARNING: error reading test config. Path can be set through the RGW_MULTI_TEST_CONF env variable'
+        print('WARNING: error reading test config. Path can be set through the RGW_MULTI_TEST_CONF env variable')
         pass
 
     parser = argparse.ArgumentParser(
@@ -809,8 +851,10 @@ def init(parse_args):
 
     section = 'DEFAULT'
     parser.add_argument('--num-zones', type=int, default=cfg.getint(section, 'num_zones'))
+    parser.add_argument('--gateways-per-zone', type=int, default=cfg.getint(section, 'gateways_per_zone'))
     parser.add_argument('--no-bootstrap', action='store_true', default=cfg.getboolean(section, 'no_bootstrap'))
     parser.add_argument('--log-level', type=int, default=cfg.getint(section, 'log_level'))
+    parser.add_argument('--tenant', type=str, default=cfg.get(section, 'tenant'))
 
     argv = []
 
@@ -824,9 +868,9 @@ def init(parse_args):
 
     global rgw_multi
 
-    rgw_multi = RGWMulti(int(args.num_zones))
+    rgw_multi = RGWMulti(int(args.num_zones), int(args.gateways_per_zone))
 
-    rgw_multi.setup(not args.no_bootstrap)
+    rgw_multi.setup(not args.no_bootstrap, args.tenant)
 
 
 def setup_module():

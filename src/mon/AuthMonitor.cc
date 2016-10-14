@@ -22,18 +22,11 @@
 #include "messages/MAuth.h"
 #include "messages/MAuthReply.h"
 #include "messages/MMonGlobalID.h"
-
-#include "common/Timer.h"
-#include "common/config.h"
-#include "common/cmdparse.h"
+#include "msg/Messenger.h"
 
 #include "auth/AuthServiceHandler.h"
 #include "auth/KeyRing.h"
-
-#include "osd/osd_types.h"
-
 #include "include/assert.h"
-#include "include/str_list.h"
 
 #define dout_subsys ceph_subsys_mon
 #undef dout_prefix
@@ -44,7 +37,7 @@ static ostream& _prefix(std::ostream *_dout, Monitor *mon, version_t v) {
 		<< ").auth v" << v << " ";
 }
 
-ostream& operator<<(ostream& out, AuthMonitor& pm)
+ostream& operator<<(ostream &out, const AuthMonitor &pm)
 {
   return out << "auth";
 }
@@ -128,7 +121,7 @@ void AuthMonitor::update_from_paxos(bool *need_bootstrap)
   version_t keys_ver = mon->key_server.get_ver();
   if (version == keys_ver)
     return;
-  assert(version >= keys_ver);
+  assert(version > keys_ver);
 
   version_t latest_full = get_version_latest_full();
 
@@ -728,7 +721,7 @@ bool AuthMonitor::prepare_command(MonOpRequestRef op)
       ::decode(keyring, iter);
     } catch (const buffer::error &ex) {
       ss << "error decoding keyring" << " " << ex.what();
-      rs = err;
+      err = -EINVAL;
       goto done;
     }
     import_keyring(keyring);
@@ -991,7 +984,7 @@ bool AuthMonitor::prepare_command(MonOpRequestRef op)
     wait_for_finished_proposal(op, new Monitor::C_Command(mon, op, 0, rs,
 					      get_last_committed() + 1));
     return true;
-  } else if ((prefix == "auth del" || prefix == "auto rm") &&
+  } else if ((prefix == "auth del" || prefix == "auth rm") &&
              !entity_name.empty()) {
     KeyServerData::Incremental auth_inc;
     auth_inc.name = entity;

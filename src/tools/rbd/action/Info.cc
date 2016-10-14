@@ -5,6 +5,7 @@
 #include "tools/rbd/Shell.h"
 #include "tools/rbd/Utils.h"
 #include "include/types.h"
+#include "include/stringify.h"
 #include "common/errno.h"
 #include "common/Formatter.h"
 #include <iostream>
@@ -69,7 +70,7 @@ static int do_show_info(const char *imgname, librbd::Image& image,
   librbd::image_info_t info;
   std::string parent_pool, parent_name, parent_snapname;
   uint8_t old_format;
-  uint64_t overlap, features, flags;
+  uint64_t overlap, features, flags, snap_limit;
   bool snap_protected = false;
   librbd::mirror_image_info_t mirror_image;
   int r;
@@ -108,9 +109,23 @@ static int do_show_info(const char *imgname, librbd::Image& image,
     }
   }
 
+  r = image.snap_get_limit(&snap_limit);
+  if (r < 0)
+    return r;
+
   char prefix[RBD_MAX_BLOCK_NAME_SIZE + 1];
   strncpy(prefix, info.block_name_prefix, RBD_MAX_BLOCK_NAME_SIZE);
   prefix[RBD_MAX_BLOCK_NAME_SIZE] = '\0';
+
+  librbd::group_spec_t group_spec;
+  r = image.get_group(&group_spec);
+  if (r < 0) {
+    return r;
+  }
+
+  std::string group_string = "";
+  if (-1 != group_spec.pool)
+    group_string = stringify(group_spec.pool) + "." + group_spec.name;
 
   if (f) {
     f->open_object_section("image");
@@ -132,12 +147,21 @@ static int do_show_info(const char *imgname, librbd::Image& image,
               << "\tblock_name_prefix: " << prefix
               << std::endl
               << "\tformat: " << (old_format ? "1" : "2")
-              << std::endl;
+	      << std::endl;
   }
 
   if (!old_format) {
     format_features(f, features);
     format_flags(f, flags);
+  }
+
+  if (!group_string.empty()) {
+    if (f) {
+      f->dump_string("group", group_string);
+    } else {
+      std::cout << "\tconsistency group: " << group_string
+		<< std::endl;
+    }
   }
 
   // snapshot info, if present
@@ -147,6 +171,14 @@ static int do_show_info(const char *imgname, librbd::Image& image,
     } else {
       std::cout << "\tprotected: " << (snap_protected ? "True" : "False")
                 << std::endl;
+    }
+  }
+
+  if (snap_limit < UINT64_MAX) {
+    if (f) {
+      f->dump_unsigned("snapshot_limit", snap_limit);
+    } else {
+      std::cout << "\tsnapshot_limit: " << snap_limit << std::endl;
     }
   }
 
@@ -231,7 +263,8 @@ int execute(const po::variables_map &vm) {
   std::string snap_name;
   int r = utils::get_pool_image_snapshot_names(
     vm, at::ARGUMENT_MODIFIER_NONE, &arg_index, &pool_name, &image_name,
-    &snap_name, utils::SNAPSHOT_PRESENCE_PERMITTED);
+    &snap_name, utils::SNAPSHOT_PRESENCE_PERMITTED,
+    utils::SPEC_VALIDATION_NONE);
   if (r < 0) {
     return r;
   }

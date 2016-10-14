@@ -20,6 +20,9 @@ public:
 
     for (std::list<journal::JournalTrimmer*>::iterator it = m_trimmers.begin();
          it != m_trimmers.end(); ++it) {
+      C_SaferCond ctx;
+      (*it)->shut_down(&ctx);
+      ASSERT_EQ(0, ctx.wait());
       delete *it;
     }
     RadosTestFixture::TearDown();
@@ -72,7 +75,7 @@ TEST_F(TestJournalTrimmer, Committed) {
   ASSERT_EQ(0, init_metadata(metadata));
   ASSERT_TRUE(wait_for_update(metadata));
 
-  metadata->set_active_set(10);
+  ASSERT_EQ(0, metadata->set_active_set(10));
   ASSERT_TRUE(wait_for_update(metadata));
 
   uint64_t commit_tid1;
@@ -115,7 +118,7 @@ TEST_F(TestJournalTrimmer, CommittedWithOtherClient) {
   ASSERT_EQ(0, init_metadata(metadata));
   ASSERT_TRUE(wait_for_update(metadata));
 
-  metadata->set_active_set(10);
+  ASSERT_EQ(0, metadata->set_active_set(10));
   ASSERT_TRUE(wait_for_update(metadata));
 
   uint64_t commit_tid1;
@@ -150,7 +153,7 @@ TEST_F(TestJournalTrimmer, RemoveObjects) {
   ASSERT_EQ(0, init_metadata(metadata));
   ASSERT_TRUE(wait_for_update(metadata));
 
-  metadata->set_active_set(10);
+  ASSERT_EQ(0, metadata->set_active_set(10));
   ASSERT_TRUE(wait_for_update(metadata));
 
   ASSERT_EQ(0, append(oid + ".0", create_payload("payload")));
@@ -160,7 +163,10 @@ TEST_F(TestJournalTrimmer, RemoveObjects) {
 
   journal::JournalTrimmer *trimmer = create_trimmer(oid, metadata);
 
-  ASSERT_EQ(0, trimmer->remove_objects(false));
+  C_SaferCond cond;
+  trimmer->remove_objects(false, &cond);
+  ASSERT_EQ(0, cond.wait());
+
   ASSERT_TRUE(wait_for_update(metadata));
 
   ASSERT_EQ(-ENOENT, assert_exists(oid + ".0"));
@@ -180,7 +186,13 @@ TEST_F(TestJournalTrimmer, RemoveObjectsWithOtherClient) {
   ASSERT_TRUE(wait_for_update(metadata));
 
   journal::JournalTrimmer *trimmer = create_trimmer(oid, metadata);
-  ASSERT_EQ(-EBUSY, trimmer->remove_objects(false));
-  ASSERT_EQ(0, trimmer->remove_objects(true));
+
+  C_SaferCond ctx1;
+  trimmer->remove_objects(false, &ctx1);
+  ASSERT_EQ(-EBUSY, ctx1.wait());
+
+  C_SaferCond ctx2;
+  trimmer->remove_objects(true, &ctx2);
+  ASSERT_EQ(0, ctx2.wait());
 }
 

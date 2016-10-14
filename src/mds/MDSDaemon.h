@@ -39,14 +39,9 @@
 #include "Beacon.h"
 
 
-#define CEPH_MDS_PROTOCOL    27 /* cluster internal */
-
-class filepath;
+#define CEPH_MDS_PROTOCOL    28 /* cluster internal */
 
 class MonClient;
-
-class Objecter;
-class Filer;
 
 class Server;
 class Locker;
@@ -54,16 +49,9 @@ class MDCache;
 class MDBalancer;
 class MDSInternalContextBase;
 
-class CInode;
-class CDir;
-class CDentry;
-
 class Messenger;
 class Message;
 
-class MMDSBeacon;
-
-class InoTable;
 class SnapServer;
 class SnapClient;
 
@@ -94,7 +82,6 @@ class MDSDaemon : public Dispatcher, public md_config_obs_t {
   Messenger    *messenger;
   MonClient    *monc;
   MDSMap       *mdsmap;
-  Objecter     *objecter;
   LogClient    log_client;
   LogChannelRef clog;
 
@@ -109,8 +96,7 @@ class MDSDaemon : public Dispatcher, public md_config_obs_t {
   // handle a signal (e.g., SIGTERM)
   void handle_signal(int signum);
 
-  // start up, shutdown
-  int init(MDSMap::DaemonState wanted_state=MDSMap::STATE_BOOT);
+  int init();
 
   /**
    * Hint at whether we were shutdown gracefully (i.e. we were only
@@ -142,10 +128,6 @@ class MDSDaemon : public Dispatcher, public md_config_obs_t {
 
   void wait_for_omap_osds();
 
-  mds_rank_t standby_for_rank;
-  string standby_for_name;
-  MDSMap::DaemonState standby_type;  // one of STANDBY_REPLAY, ONESHOT_REPLAY
-
  private:
   bool ms_dispatch(Message *m);
   bool ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer, bool force_new);
@@ -156,6 +138,7 @@ class MDSDaemon : public Dispatcher, public md_config_obs_t {
   void ms_handle_connect(Connection *con);
   bool ms_handle_reset(Connection *con);
   void ms_handle_remote_reset(Connection *con);
+  bool ms_handle_refused(Connection *con);
 
  protected:
   // admin socket handling
@@ -192,13 +175,17 @@ protected:
   bool handle_core_message(Message *m);
   
   // special message types
+  friend class C_MDS_Send_Command_Reply;
+  static void send_command_reply(MCommand *m, MDSRank* mds_rank, int r,
+				 bufferlist outbl, const std::string& outs);
   int _handle_command_legacy(std::vector<std::string> args);
   int _handle_command(
       const cmdmap_t &cmdmap,
-      bufferlist const &inbl,
+      MCommand *m,
       bufferlist *outbl,
       std::string *outs,
-      Context **run_later);
+      Context **run_later,
+      bool *need_reply);
   void handle_command(class MMonCommand *m);
   void handle_command(class MCommand *m);
   void handle_mds_map(class MMDSMap *m);
