@@ -549,6 +549,77 @@ TEST_F(TestRawPipe, unix_socket) {
   close(connection);
 }
 
+/*
+ * Tests buffer::raw_pipe fallback when run out of descriptors
+ * uses 'patchwork' test
+ */
+TEST_F(TestRawPipe, no_files_left_on_creation) {
+  std::vector<int> files;
+  int f;
+  while ( (f = socket(AF_UNIX, SOCK_STREAM, 0) ) >= 0)
+    files.push_back(f);
+
+  for (int k = 0; k < 10 ; k++) {
+    for (size_t size = 500000; size < file_len ; size +=1000000) {
+      EXPECT_EQ(0, ::lseek(fd, 0, SEEK_SET));
+      bufferlist bl;
+      for (size_t i = 0; i < 5; i++) {
+        buffer::raw* zero_copy = buffer::create_zero_copy(size/10);
+        EXPECT_EQ(size/10, buffer::insert_from_fd(zero_copy, 0, size/10, fd));
+        bufferptr ptr = bufferptr(zero_copy);
+        bl.append(ptr);
+
+        buffer::raw* memory = buffer::create(size/10);
+        EXPECT_EQ(size/10, buffer::insert_from_fd(memory, 0, size/10, fd));
+        bufferptr ptr1 = bufferptr(memory);
+        bl.append(ptr1);
+      }
+      EXPECT_EQ(true, check(bl, 0));
+    }
+    //release one file
+    f = files.back();
+    close(f);
+    files.pop_back();
+  }
+  for (int f : files)
+    close(f);
+}
+
+TEST_F(TestRawPipe, no_files_left_on_extraction) {
+  for (int k = 0; k < 10 ; k++) {
+    std::vector<int> files;
+    int f;
+    for (size_t size = 500000; size < file_len ; size +=1000000) {
+      EXPECT_EQ(0, ::lseek(fd, 0, SEEK_SET));
+      bufferlist bl;
+      for (size_t i = 0; i < 5; i++) {
+        buffer::raw* zero_copy = buffer::create_zero_copy(size/10);
+        EXPECT_EQ(size/10, buffer::insert_from_fd(zero_copy, 0, size/10, fd));
+        bufferptr ptr = bufferptr(zero_copy);
+        bl.append(ptr);
+
+        buffer::raw* memory = buffer::create(size/10);
+        EXPECT_EQ(size/10, buffer::insert_from_fd(memory, 0, size/10, fd));
+        bufferptr ptr1 = bufferptr(memory);
+        bl.append(ptr1);
+      }
+      while ( (f = socket(AF_UNIX, SOCK_STREAM, 0) ) >= 0)
+          files.push_back(f);
+      for (int m = 0 ; m < k ; m++) {
+        //release some files
+        f = files.back();
+        close(f);
+        files.pop_back();
+      }
+      EXPECT_EQ(true, check(bl, 0));
+
+      for (int f : files)
+        close(f);
+    }
+  }
+}
+
+
 
 class TestRawPipePerformance : public ::testing::Test {
 protected:

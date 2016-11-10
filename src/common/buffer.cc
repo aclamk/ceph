@@ -483,6 +483,10 @@ private:
   {
     size_t size;
     int fd;
+    //necessary for emplace_back() and resize()
+    pipe_elem() = default;
+    pipe_elem(size_t size, int fd): size(size), fd(fd) {};
+    pipe_elem& operator=(const pipe_elem& o) = default;
   };
   std::vector<pipe_elem> pipe_read_elements;
   int pipe_curr_write_fd; //this changes as writing progresses to next pipes
@@ -513,12 +517,9 @@ public:
 
     if (pipe_curr_write_fd != -1) {
       close(pipe_curr_write_fd);
-      pipe_curr_write_fd = -1;
     }
     for (auto& elem : pipe_read_elements) {
-      if (elem.fd >=0 ) {
-        close(elem.fd);
-      }
+      close(elem.fd);
     }
   }
 /*
@@ -532,28 +533,28 @@ public:
     return crc;
   }
 
-  void append_pipe() {
-    int r;
+  bool append_pipe() {
     if (pipe_curr_write_fd != -1) {
       close(pipe_curr_write_fd);
+      pipe_curr_write_fd = -1;
     }
+    int r;
     int fds[2];
     if (::pipe(fds) == -1) {
-      r = -errno;
-      bdout << "raw_pipe: error creating pipe: " << cpp_strerror(r) << bendl;
-      throw error_code(r);
+      return false;
     }
     r = ::fcntl(fds[write_end], F_SETFL, O_NONBLOCK);
     if (r != -1)
       r = ::fcntl(fds[read_end], F_SETFL, O_NONBLOCK);
     if (r < 0) {
-      bdout << "raw_pipe: error setting nonblocking flag on temp pipe: "
-          << cpp_strerror(r) << bendl;
-      throw error_code(r);
+      close(fds[write_end]);
+      close(fds[read_end]);
+      return false;
     }
     pipe_curr_write_fd = fds[write_end];
     set_pipe_size(pipe_curr_write_fd);
-    pipe_read_elements.push_back({0, fds[read_end]});
+    pipe_read_elements.emplace_back(0, fds[read_end]);
+    return true;
   }
 
 
@@ -615,9 +616,8 @@ public:
     }
     assert(i < pipe_read_elements.size());
     assert(ofs < (off_t)pipe_read_elements[i].size);
-    ssize_t rem_size = req_size;
     ssize_t total_moved = 0;
-    while (rem_size > 0) {
+    while (req_size > 0) {
       assert(i < pipe_read_elements.size());
       int fds[2];
       if (::pipe(fds) == -1) {
@@ -625,15 +625,15 @@ public:
         return buffer::raw::copy_to_fd(fd, ofs_from, req_size, dst_offset);
      }
 
-      ssize_t ps = set_pipe_size(fds[write_end]);
-      if (ps < (ssize_t)pipe_read_elements[i].size) {
-        //it should be problem that we have insufficient pipe capacity
-        //however, for some file types (e.g. tcp sockets), linux kernel allows
-        //for tee() to clone more then is capacity of pipe
-        //we will capture it observing result of tee()
-      }
+      set_pipe_size(fds[write_end]);
+      //we do not check if pipe size is large enough
+      //we will check if it is ok by watching result of ::tee()
+      //in any case, for some file types (e.g. tcp sockets), linux kernel allows
+      //tee() to clone more than is capacity of pipe
+
       ssize_t s;
-      s = tee(pipe_read_elements[i].fd, fds[write_end], pipe_read_elements[i].size, SPLICE_F_MOVE);
+      s = ::tee(pipe_read_elements[i].fd, fds[write_end],
+                pipe_read_elements[i].size, SPLICE_F_MOVE);
       close(fds[write_end]);
       if (s < (ssize_t)pipe_read_elements[i].size) {
         close(fds[read_end]);
@@ -652,8 +652,8 @@ public:
         ofs = 0;
       }
 
-      if (rem_size < tomove_size)
-        tomove_size = rem_size;
+      if (req_size < tomove_size)
+        tomove_size = req_size;
 
       loff_t off_out = dst_offset;
       ssize_t moved_cnt;
@@ -667,8 +667,9 @@ public:
       }
       if (dst_offset != -1)
         dst_offset += moved_cnt;
-      rem_size -= moved_cnt;
+      req_size -= moved_cnt;
       total_moved += moved_cnt;
+      ofs_from += moved_cnt; //fix it in case we have to continue after error
 
       close(fds[read_end]);
       if (moved_cnt != tomove_size) {
@@ -693,12 +694,10 @@ public:
    */
   ssize_t insert_from_fd(size_t dst_pos, size_t count, int fd, off_t src_offset)
   {
-    if (data != nullptr)
-    {
+    if (data != nullptr) {
       return buffer::raw::insert_from_fd(dst_pos, count, fd, src_offset);
     }
-    if (dst_pos != total_content_size)
-    {
+    if (dst_pos != total_content_size) {
       //convert and do anyway
       len = expected_len;
       get_data();
@@ -708,7 +707,11 @@ public:
     while (count > 0)
     {
       if (pipe_curr_write_fd == -1) {
-        append_pipe();
+        if(!append_pipe()) {
+          len = expected_len;
+          get_data();
+          return buffer::raw::insert_from_fd(dst_pos, count, fd, src_offset);
+        }
       }
       size_t to_move = count;
       ssize_t r;
@@ -785,7 +788,7 @@ public:
         pos += r;
       } else {
         assert(0 && "unexpected error when reading pipes");
-        //fallback for assertless comilation;
+        //fallback for assertless compilation;
         //data will be garbled, but at least we cleanup properly
         continue;
       }
