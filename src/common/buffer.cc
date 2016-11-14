@@ -197,8 +197,8 @@ static simple_spinlock_t buffer_debug_lock = SIMPLE_SPINLOCK_INITIALIZER;
       memcpy(c->data, data, len);
       return c;
     }
-    virtual bool can_zero_copy() const {
-      return false;
+    virtual bool is_data_local() const {
+      return true;
     }
     /*
      * Write buffer contents to file.
@@ -475,7 +475,7 @@ static simple_spinlock_t buffer_debug_lock = SIMPLE_SPINLOCK_INITIALIZER;
  *
  * \note For non-linux builds this class is not compiled and buffer::create_zero_copy produces regular buffer.
  */
-class buffer::raw_pipe : public buffer::raw {
+class buffer::raw_splice_kcrypt : public buffer::raw {
 private:
   static constexpr int read_end = 0;
   static constexpr int write_end = 1;
@@ -496,7 +496,7 @@ private:
 
 public:
   MEMPOOL_CLASS_HELPERS();
-  explicit raw_pipe(unsigned expected_len) : raw(0),
+  explicit raw_splice_kcrypt(unsigned expected_len) : raw(0),
       pipe_curr_write_fd(-1),
       total_content_size(0),
       expected_len(expected_len) {
@@ -512,7 +512,7 @@ public:
     len = 0;
   }
 
-  ~raw_pipe() {
+  ~raw_splice_kcrypt() {
     if (data)
       delete[] data;
 
@@ -559,8 +559,8 @@ public:
   }
 
 
-  bool can_zero_copy() const {
-    return data == nullptr;
+  bool is_data_local() const {
+    return data != nullptr;
   }
 
   ssize_t consume_pipe(int fd, size_t len)
@@ -1032,7 +1032,7 @@ private:
    */
   buffer::raw* buffer::create_zero_copy(size_t capacity) {
 #ifdef CEPH_HAVE_SPLICE
-    return new raw_pipe(capacity);
+    return new raw_splice_kcrypt(capacity);
 #else
     return create_page_aligned(capacity);
 #endif
@@ -1050,7 +1050,7 @@ private:
    */
   buffer::raw* buffer::create_zero_copy(size_t count, int fd, off_t offset) {
 #ifdef CEPH_HAVE_SPLICE
-    buffer::raw* buf = new raw_pipe(count);
+    buffer::raw* buf = new raw_splice_kcrypt(count);
 #else
     buffer::raw* buf = new create_page_aligned(count);
 #endif
@@ -1342,9 +1342,9 @@ private:
         _raw->invalidate_crc();
     memset(c_str()+o, 0, l);
   }
-  bool buffer::ptr::can_zero_copy() const
+  bool buffer::ptr::is_data_local() const
   {
-    return _raw->can_zero_copy();
+    return _raw->is_data_local();
   }
 
   ssize_t buffer::ptr::copy_to_fd(int fd, off_t ofs_from, ssize_t len, off_t dst_offset) const
@@ -1824,15 +1824,18 @@ private:
     }
   }
 
-  /* reverse previous logic. Now if any buffers can zero-copy then return true */
-  bool buffer::list::can_zero_copy() const
+  /*
+   * Reformulated aggregation.
+   * Now all buffers have to be local to return true
+   */
+  bool buffer::list::is_data_local() const
   {
     for (std::list<ptr>::const_iterator it = _buffers.begin();
-	 it != _buffers.end();
-	 ++it)
-      if (it->can_zero_copy())
-	return true;
-    return false;
+        it != _buffers.end();
+        ++it)
+      if (!it->is_data_local())
+        return false;
+    return true;
   }
 
   bool buffer::list::is_provided_buffer(const char *dst) const
@@ -2579,7 +2582,7 @@ static int do_writev(int fd, struct iovec *vec, uint64_t offset, unsigned veclen
 
 int buffer::list::write_fd(int fd) const
 {
-  if (can_zero_copy()) {
+  if (!is_data_local()) {
     std::list<ptr>::const_iterator p = _buffers.begin();
     while (p != _buffers.end()){
       int r;
@@ -2861,7 +2864,7 @@ MEMPOOL_DEFINE_OBJECT_FACTORY(buffer::raw_mmap_pages, buffer_raw_mmap_pagse,
 MEMPOOL_DEFINE_OBJECT_FACTORY(buffer::raw_posix_aligned,
 			      buffer_raw_posix_aligned, buffer_meta);
 #ifdef CEPH_HAVE_SPLICE
-MEMPOOL_DEFINE_OBJECT_FACTORY(buffer::raw_pipe, buffer_raw_pipe, buffer_meta);
+MEMPOOL_DEFINE_OBJECT_FACTORY(buffer::raw_splice_kcrypt, buffer_raw_splice_kcrypt, buffer_meta);
 #endif
 MEMPOOL_DEFINE_OBJECT_FACTORY(buffer::raw_char, buffer_raw_char, buffer_meta);
 MEMPOOL_DEFINE_OBJECT_FACTORY(buffer::raw_unshareable, buffer_raw_unshareable,

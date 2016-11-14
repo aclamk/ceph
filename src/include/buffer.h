@@ -133,7 +133,7 @@ namespace buffer CEPH_BUFFER_API {
   class raw_posix_aligned;
   class raw_hack_aligned;
   class raw_char;
-  class raw_pipe;
+  class raw_splice_kcrypt;
   class raw_unshareable; // diagnostic, unshareable char buffer
   class raw_combined;
   class raw_claim_buffer;
@@ -323,7 +323,7 @@ namespace buffer CEPH_BUFFER_API {
     uint32_t crc32c(uint32_t crc) const;
     void copy_out(unsigned o, unsigned l, char *dest) const;
 
-    bool can_zero_copy() const;
+    bool is_data_local() const;
     ssize_t copy_to_fd(int fd, off_t ofs_from, ssize_t len, off_t dst_offset = -1) const;
     unsigned wasted();
 
@@ -719,7 +719,7 @@ namespace buffer CEPH_BUFFER_API {
     bool contents_equal(buffer::list& other);
     bool contents_equal(const buffer::list& other) const;
 
-    bool can_zero_copy() const;
+    bool is_data_local() const;
     bool is_provided_buffer(const char *dst) const;
     bool is_aligned(unsigned align) const;
     bool is_page_aligned() const;
