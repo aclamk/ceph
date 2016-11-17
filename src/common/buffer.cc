@@ -165,8 +165,9 @@ static simple_spinlock_t buffer_debug_lock = SIMPLE_SPINLOCK_INITIALIZER;
     buffer::malformed_input(cpp_strerror(error).c_str()), code(error) {}
 
   class buffer::raw {
-  public:
+  protected:
     char *data;
+  public:
     unsigned len;
     atomic_t nref;
 
@@ -191,6 +192,7 @@ static simple_spinlock_t buffer_debug_lock = SIMPLE_SPINLOCK_INITIALIZER;
     virtual char *get_data() {
       return data;
     }
+    const char *get_data() const { return get_data(); }
     virtual raw* clone_empty() = 0;
     raw *clone() {
       raw *c = clone_empty();
@@ -974,7 +976,7 @@ private:
 
   buffer::raw* buffer::copy(const char *c, unsigned len) {
     raw* r = buffer::create_aligned(len, sizeof(size_t));
-    memcpy(r->data, c, len);
+    memcpy(r->get_data(), c, len);
     return r;
   }
 
@@ -1240,7 +1242,7 @@ private:
     return _raw->get_data()[_off + n];
   }
 
-  const char *buffer::ptr::raw_c_str() const { assert(_raw); return _raw->data; }
+  const char *buffer::ptr::raw_c_str() const { assert(_raw); return _raw->get_data(); }
   unsigned buffer::ptr::raw_length() const { assert(_raw); return _raw->len; }
   int buffer::ptr::raw_nref() const { assert(_raw); return _raw->nref.read(); }
 
@@ -1252,7 +1254,7 @@ private:
     assert(_raw);
     if (o+l > _len)
         throw end_of_buffer();
-    char* src =  _raw->data + _off + o;
+    char* src =  _raw->get_data() + _off + o;
     maybe_inline_memcpy(dest, src, l, 8);
   }
 
@@ -1286,7 +1288,7 @@ private:
   {
     assert(_raw);
     assert(1 <= unused_tail_length());
-    char* ptr = _raw->data + _off + _len;
+    char* ptr = _raw->get_data() + _off + _len;
     *ptr = c;
     _len++;
     return _len + _off;
@@ -1296,7 +1298,7 @@ private:
   {
     assert(_raw);
     assert(l <= unused_tail_length());
-    char* c = _raw->data + _off + _len;
+    char* c = _raw->get_data() + _off + _len;
     maybe_inline_memcpy(c, p, l, 32);
     _len += l;
     return _len + _off;
@@ -1312,7 +1314,7 @@ private:
     assert(_raw);
     assert(o <= _len);
     assert(o+l <= _len);
-    char* dest = _raw->data + _off + o;
+    char* dest = _raw->get_data() + _off + o;
     if (crc_reset)
         _raw->invalidate_crc();
     maybe_inline_memcpy(dest, src, l, 64);
@@ -2824,7 +2826,7 @@ void buffer::list::hexdump(std::ostream &out, bool trailing_newline) const
 }
 
 std::ostream& buffer::operator<<(std::ostream& out, const buffer::raw &r) {
-  return out << "buffer::raw(" << (void*)r.data << " len " << r.len << " nref " << r.nref.read() << ")";
+  return out << "buffer::raw(" << (void*)r.get_data() << " len " << r.len << " nref " << r.nref.read() << ")";
 }
 
 std::ostream& buffer::operator<<(std::ostream& out, const buffer::ptr& bp) {
