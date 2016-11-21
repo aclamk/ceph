@@ -192,7 +192,6 @@ static simple_spinlock_t buffer_debug_lock = SIMPLE_SPINLOCK_INITIALIZER;
     virtual char *get_data() {
       return data;
     }
-    const char *get_data() const { return get_data(); }
     virtual raw* clone_empty() = 0;
     raw *clone() {
       raw *c = clone_empty();
@@ -778,9 +777,8 @@ public:
       close(pipe_curr_write_fd);
       pipe_curr_write_fd = -1;
     }
-    data = new char[len];
+    data = new char[expected_len];
     //not checking data, it will throw std::bad_alloc
-
     size_t pos = 0;
     for (auto& elem : pipe_read_elements) {
       assert(elem.fd >= 0 && "expected proper file descriptors");
@@ -797,7 +795,7 @@ public:
       }
     }
     pipe_read_elements.resize(0);
-
+    len = expected_len;
     return data;
   }
 
@@ -2500,13 +2498,24 @@ ssize_t buffer::list::read_fd(int fd, size_t len)
   if (len >= CEPH_PAGE_SIZE * 4)
   {
     try {
-        append(buffer::create_zero_copy(len, fd));
-      } catch (buffer::error_code &e) {
-        return e.code;
-      } catch (buffer::malformed_input &e) {
-        return -EIO;
-      }
-      return 0;
+      buffer::raw* x = buffer::create_zero_copy(len);
+      size_t res = 0;
+      int r;
+      do {
+	r = x->insert_from_fd(res, len-res, fd);
+	if (r >= 0) 
+	  res += r;
+      } while (r > 0 && res < len);
+      buffer::ptr p(x);
+      p.set_length(res);
+      append(p);
+      return res;
+    } catch (buffer::error_code &e) {
+      return e.code;
+    } catch (buffer::malformed_input &e) {
+      return -EIO;
+    }
+    return 0;
   }
   bufferptr bp = buffer::create(len);
   ssize_t ret = safe_read(fd, (void*)bp.c_str(), len);
@@ -2826,7 +2835,10 @@ void buffer::list::hexdump(std::ostream &out, bool trailing_newline) const
 }
 
 std::ostream& buffer::operator<<(std::ostream& out, const buffer::raw &r) {
-  return out << "buffer::raw(" << (void*)r.get_data() << " len " << r.len << " nref " << r.nref.read() << ")";
+  const char* rd = const_cast<buffer::raw&>(r).get_data();
+  return out << "buffer::raw(" << (void*)rd << 
+    " len " << r.len << " nref " << r.nref.read() << ")";
+  
 }
 
 std::ostream& buffer::operator<<(std::ostream& out, const buffer::ptr& bp) {
