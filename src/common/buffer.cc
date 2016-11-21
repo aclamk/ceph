@@ -118,6 +118,7 @@ static simple_spinlock_t buffer_debug_lock = SIMPLE_SPINLOCK_INITIALIZER;
   int update_max_pipe_size() {
 #ifdef CEPH_HAVE_SETPIPE_SZ
     char buf[32];
+    char* end_ptr;
     int r;
     struct stat stat_result;
     if (::stat("/proc/sys/fs/pipe-max-size", &stat_result) == -1)
@@ -127,9 +128,8 @@ static simple_spinlock_t buffer_debug_lock = SIMPLE_SPINLOCK_INITIALIZER;
     if (r < 0)
       return r;
     buf[r] = '\0';
-    errno = 0;
-    size_t size = strtoul(buf, nullptr, 10);
-    if (errno == 0)
+    size_t size = strtoul(buf, &end_ptr, 10);
+    if (end_ptr - buf > 0 && size > 4096)
       buffer_max_pipe_size.set(size);
     else
       buffer_max_pipe_size.set(4096); //set something non-zero
