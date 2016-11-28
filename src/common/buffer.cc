@@ -74,7 +74,7 @@ static simple_spinlock_t buffer_debug_lock = SIMPLE_SPINLOCK_INITIALIZER;
       buffer_history_alloc_num.inc();
     }
   }
-    int close(int fd) {
+    int lclose(int fd) {
       return TEMP_FAILURE_RETRY(::close(fd));
     }
   }
@@ -518,10 +518,10 @@ public:
       delete[] data;
 
     if (pipe_curr_write_fd != -1) {
-      close(pipe_curr_write_fd);
+      lclose(pipe_curr_write_fd);
     }
     for (auto& elem : pipe_read_elements) {
-      close(elem.fd);
+      lclose(elem.fd);
     }
   }
 /*
@@ -537,7 +537,7 @@ public:
 
   bool append_pipe() {
     if (pipe_curr_write_fd != -1) {
-      close(pipe_curr_write_fd);
+      lclose(pipe_curr_write_fd);
       pipe_curr_write_fd = -1;
     }
     int r;
@@ -549,8 +549,8 @@ public:
     if (r != -1)
       r = ::fcntl(fds[read_end], F_SETFL, O_NONBLOCK);
     if (r < 0) {
-      close(fds[write_end]);
-      close(fds[read_end]);
+      lclose(fds[write_end]);
+      lclose(fds[read_end]);
       return false;
     }
     pipe_curr_write_fd = fds[write_end];
@@ -636,9 +636,9 @@ public:
       ssize_t s;
       s = ::tee(pipe_read_elements[i].fd, fds[write_end],
                 pipe_read_elements[i].size, SPLICE_F_MOVE);
-      close(fds[write_end]);
+      lclose(fds[write_end]);
       if (s < (ssize_t)pipe_read_elements[i].size) {
-        close(fds[read_end]);
+        lclose(fds[read_end]);
         get_data();
         return buffer::raw::copy_to_fd(fd, ofs_from, req_size, dst_offset);
       }
@@ -646,7 +646,7 @@ public:
       ssize_t tomove_size = pipe_read_elements[i].size;
       if (ofs > 0) {
         if (consume_pipe(fds[read_end], ofs) != ofs) {
-          close(fds[read_end]);
+          lclose(fds[read_end]);
           get_data();
           return buffer::raw::copy_to_fd(fd, ofs_from, req_size, dst_offset);
         }
@@ -663,7 +663,7 @@ public:
                   fd, dst_offset == -1 ? nullptr : &off_out,
                   tomove_size, SPLICE_F_NONBLOCK | SPLICE_F_MORE | SPLICE_F_MOVE);
       if (moved_cnt < 0) {
-        close(fds[read_end]);
+        lclose(fds[read_end]);
         get_data();
         return buffer::raw::copy_to_fd(fd, ofs_from, req_size, dst_offset);
       }
@@ -673,7 +673,7 @@ public:
       total_moved += moved_cnt;
       ofs_from += moved_cnt; //fix it in case we have to continue after error
 
-      close(fds[read_end]);
+      lclose(fds[read_end]);
       if (moved_cnt != tomove_size) {
         //there is something left not moved. it means we were blocked.
         break;
@@ -741,7 +741,7 @@ public:
         //if you started from offset that was unaligned, last page cannot be filled
         if (is_pipe_full(pipe_curr_write_fd)) {
           //it is just pipe blocked
-          close(pipe_curr_write_fd);
+          lclose(pipe_curr_write_fd);
           pipe_curr_write_fd = -1;
         } else {
           int e = -errno;
@@ -751,7 +751,7 @@ public:
             else
               break;
           } else {
-            close(pipe_curr_write_fd);
+            lclose(pipe_curr_write_fd);
             pipe_curr_write_fd = -1;
             len = expected_len;
             get_data();
@@ -774,7 +774,7 @@ public:
       return data;
 
     if (pipe_curr_write_fd != -1) {
-      close(pipe_curr_write_fd);
+      lclose(pipe_curr_write_fd);
       pipe_curr_write_fd = -1;
     }
     data = new char[expected_len];
@@ -784,7 +784,7 @@ public:
       assert(elem.fd >= 0 && "expected proper file descriptors");
       if (elem.fd < 0) continue;
       ssize_t r = safe_read(elem.fd, data + pos, len - pos);
-      close(elem.fd);
+      lclose(elem.fd);
       if (r >=0) {
         pos += r;
       } else {
