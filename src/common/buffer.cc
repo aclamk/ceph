@@ -492,25 +492,21 @@ private:
   };
   std::vector<pipe_elem> pipe_read_elements;
   int pipe_curr_write_fd; //this changes as writing progresses to next pipes
-  size_t total_content_size;
-  unsigned expected_len;
+  size_t actual_content_size;
 
 public:
   MEMPOOL_CLASS_HELPERS();
-  explicit raw_splice_kcrypt(unsigned expected_len) : raw(0),
+  explicit raw_splice_kcrypt(unsigned len) : raw(len),
       pipe_curr_write_fd(-1),
-      total_content_size(0),
-      expected_len(expected_len) {
+      actual_content_size(0) {
     update_max_pipe_size();
     if (get_max_pipe_size()<min_pipe_size) {
-      data = new char[expected_len];
-      len = expected_len;
+      data = new char[len];
       return;
     }
-    int no_pipes = expected_len / get_max_pipe_size() + 1; //this is estimated #pipes to be needed
+    int no_pipes = len / get_max_pipe_size() + 1; //this is estimated #pipes to be needed
     pipe_read_elements.reserve(no_pipes);
     //we will have as much data as we read
-    len = 0;
   }
 
   ~raw_splice_kcrypt() {
@@ -699,9 +695,8 @@ public:
     if (data != nullptr) {
       return buffer::raw::insert_from_fd(dst_pos, count, fd, src_offset);
     }
-    if (dst_pos != total_content_size) {
+    if (dst_pos != actual_content_size) {
       //convert and do anyway
-      len = expected_len;
       get_data();
       return buffer::raw::insert_from_fd(dst_pos, count, fd, src_offset);
     }
@@ -710,8 +705,8 @@ public:
     {
       if (pipe_curr_write_fd == -1) {
         if(!append_pipe()) {
-          len = expected_len;
           get_data();
+	  if (total_moved != 0) return total_moved ;
           return buffer::raw::insert_from_fd(dst_pos, count, fd, src_offset);
         }
       }
@@ -728,8 +723,7 @@ public:
         pipe_read_elements.back().size += r;
         total_moved += r;
         dst_pos += r;
-        total_content_size += r;
-        len += r;
+        actual_content_size += r;
         if (src_offset != -1)
           src_offset += r;
         count -= r;
@@ -753,8 +747,9 @@ public:
           } else {
             lclose(pipe_curr_write_fd);
             pipe_curr_write_fd = -1;
-            len = expected_len;
             get_data();
+	    if (total_moved!=0)
+	      return total_moved;
             return buffer::raw::insert_from_fd(dst_pos, count, fd, src_offset);
           }
         }
@@ -777,7 +772,7 @@ public:
       lclose(pipe_curr_write_fd);
       pipe_curr_write_fd = -1;
     }
-    data = new char[expected_len];
+    data = new char[len];
     //not checking data, it will throw std::bad_alloc
     size_t pos = 0;
     for (auto& elem : pipe_read_elements) {
@@ -795,7 +790,6 @@ public:
       }
     }
     pipe_read_elements.resize(0);
-    len = expected_len;
     return data;
   }
 
@@ -1031,6 +1025,7 @@ private:
    * \param capacity size of buffer
    */
   buffer::raw* buffer::create_zero_copy(size_t capacity) {
+    //return create_page_aligned(capacity);
 #ifdef CEPH_HAVE_SPLICE
     return new raw_splice_kcrypt(capacity);
 #else
@@ -1062,10 +1057,10 @@ private:
       if (r>0) {
         dst_ofs += r;
       }
+      if (r==-EAGAIN) continue;
       if (r<=0)
         throw error_code(-EINVAL);
     }
-    buf->len = count;
     return buf;
   }
 
@@ -2494,6 +2489,8 @@ int buffer::list::read_file(const char *fn, std::string *error)
 
 ssize_t buffer::list::read_fd(int fd, size_t len)
 {
+  if (fd < 0) 
+    return -EBADF;
   // try zero copy first
   if (len >= CEPH_PAGE_SIZE * 4)
   {
@@ -2503,9 +2500,11 @@ ssize_t buffer::list::read_fd(int fd, size_t len)
       int r;
       do {
 	r = x->insert_from_fd(res, len-res, fd);
+	if (r == -EAGAIN) { continue; }
+	if (r <= 0) break;
 	if (r >= 0) 
 	  res += r;
-      } while (r > 0 && res < len);
+      } while (res < len);
       buffer::ptr p(x);
       p.set_length(res);
       append(p);

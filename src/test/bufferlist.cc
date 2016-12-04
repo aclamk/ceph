@@ -284,7 +284,7 @@ int TestRawPipe::fd = 0;
 
 TEST_F(TestRawPipe, create_zero_copy) {
   bufferptr ptr(buffer::create_zero_copy(100000));
-  EXPECT_EQ(0, ptr.length());
+  EXPECT_EQ(100000, ptr.length());
 }
 
 TEST_F(TestRawPipe, create_normal) {
@@ -530,17 +530,15 @@ TEST_F(TestRawPipe, unix_socket) {
   EXPECT_GE(connection, 0);
 
   int size = 1024*1024;
-  EXPECT_EQ(setsockopt(client, SOL_SOCKET,SO_SNDBUF, &size, sizeof(size)), 0);
-  EXPECT_EQ(setsockopt(connection, SOL_SOCKET,SO_RCVBUF, &size, sizeof(size)), 0);
-  EXPECT_EQ(fcntl(client, F_SETFL, fcntl(client, F_GETFL,0) &~ O_NONBLOCK), 0);
-
+  EXPECT_EQ(setsockopt(client, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size)), 0);
+  EXPECT_EQ(setsockopt(connection, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size)), 0);
+  EXPECT_EQ(fcntl(client, F_SETFL, fcntl(client, F_GETFL, 0) &~ O_NONBLOCK), 0);
   bufferptr ptr = bufferptr(buffer::create_zero_copy(file_len, fd));
   for (size_t size = 10; size < 100000 ; size = size * 15/14 + 1 )
   {
     EXPECT_EQ(ptr.copy_to_fd(client, 0, size), size);
     bufferptr ptr_in = bufferptr(buffer::create_zero_copy(size, connection));
     EXPECT_EQ(size, ptr_in.length());
-
     EXPECT_EQ(std::string(ptr.c_str(), size) == std::string(ptr_in.c_str(), size), true);
   }
   EXPECT_EQ(unlink(socket_name), 0);
@@ -612,10 +610,9 @@ TEST_F(TestRawPipe, no_files_left_on_extraction) {
         files.pop_back();
       }
       EXPECT_EQ(true, check(bl, 0));
-
-      for (int f : files)
-        close(f);
     }
+    for (int f : files)
+      close(f);
   }
 }
 
