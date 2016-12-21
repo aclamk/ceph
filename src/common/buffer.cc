@@ -1347,6 +1347,11 @@ private:
     return _raw->copy_to_fd(fd, ofs_from, len, dst_offset);
   }
 
+  ssize_t buffer::ptr::insert_from_fd(int fd, off_t ofs_to, ssize_t len, off_t src_offset)
+  {
+	return _raw->insert_from_fd(fd, ofs_to, len, src_offset);
+  }
+
   // -- buffer::list::iterator --
   /*
   buffer::list::iterator operator=(const buffer::list::iterator& other)

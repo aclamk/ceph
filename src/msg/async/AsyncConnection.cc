@@ -604,17 +604,18 @@ void AsyncConnection::process()
             // get a buffer
             map<ceph_tid_t,pair<bufferlist,int> >::iterator p = rx_buffers.find(current_header.tid);
             if (p != rx_buffers.end()) {
-              ldout(async_msgr->cct,10) << __func__ << " seleting rx buffer v " << p->second.second
+              ldout(async_msgr->cct,20) << __func__ << " seleting rx buffer v " << p->second.second
                                   << " at offset " << data_off
                                   << " len " << p->second.first.length() << dendl;
               data_buf = p->second.first;
               // make sure it's big enough
               if (data_buf.length() < data_len)
-                data_buf.push_back(buffer::create(data_len - data_buf.length()));
+                data_buf.push_back(buffer::create_zero_copy(data_len - data_buf.length()));
               data_blp = data_buf.begin();
             } else {
               ldout(async_msgr->cct,20) << __func__ << " allocating new rx buffer at offset " << data_off << dendl;
-              alloc_aligned_buffer(data_buf, data_len, data_off);
+              //alloc_aligned_buffer(data_buf, data_len, data_off);
+              data_buf.push_back(buffer::create_zero_copy(data_len - data_buf.length()));
               data_blp = data_buf.begin();
             }
           }
@@ -627,7 +628,11 @@ void AsyncConnection::process()
         {
           while (msg_left > 0) {
             bufferptr bp = data_blp.get_current_ptr();
+            //bp.copy_to_fd()
             unsigned read = MIN(bp.length(), msg_left);
+
+            //bp.insert_from_fd(fd, )
+
             r = read_until(read, bp.c_str());
             if (r < 0) {
               ldout(async_msgr->cct, 1) << __func__ << " read data error " << dendl;

@@ -325,6 +325,7 @@ namespace buffer CEPH_BUFFER_API {
 
     bool is_data_local() const;
     ssize_t copy_to_fd(int fd, off_t ofs_from, ssize_t len, off_t dst_offset = -1) const;
+    ssize_t insert_from_fd(int fd, off_t ofs_to, ssize_t len, off_t src_offset = -1);
     unsigned wasted();
 
     int cmp(const ptr& o) const;

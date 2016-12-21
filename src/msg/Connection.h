@@ -170,12 +170,12 @@ public:
   void post_rx_buffer(ceph_tid_t tid, bufferlist& bl) {
     Mutex::Locker l(lock);
     ++rx_buffers_version;
-    rx_buffers[tid] = pair<bufferlist,int>(bl, rx_buffers_version);
+    //rx_buffers[tid] = pair<bufferlist,int>(bl, rx_buffers_version);
   }
 
   void revoke_rx_buffer(ceph_tid_t tid) {
     Mutex::Locker l(lock);
-    rx_buffers.erase(tid);
+    //rx_buffers.erase(tid);
   }
 
   utime_t get_last_keepalive() const {
