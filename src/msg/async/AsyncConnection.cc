@@ -615,9 +615,17 @@ void AsyncConnection::process()
             } else {
               ldout(async_msgr->cct,20) << __func__ << " allocating new rx buffer at offset " << data_off << dendl;
               //alloc_aligned_buffer(data_buf, data_len, data_off);
+              ldout(async_msgr->cct,20) << __func__ << " allocating new rx buffer data_len = " << data_len << dendl;
+              ldout(async_msgr->cct,20) << __func__ << " allocating new rx buffer data_buf.length= " << data_buf.length() << dendl;
+
               data_buf.push_back(buffer::create_zero_copy(data_len - data_buf.length()));
               data_blp = data_buf.begin();
+              ldout(async_msgr->cct,20) << __func__ << " allocating new rx buffer size= " << data_len - data_buf.length() << dendl;
             }
+          }
+          else
+          {
+            ldout(async_msgr->cct,20) << __func__ << " no data" << dendl;
           }
 
           msg_left = data_len;
@@ -626,13 +634,32 @@ void AsyncConnection::process()
 
       case STATE_OPEN_MESSAGE_READ_DATA:
         {
-          while (msg_left > 0) {
+          if (msg_left > 0)
+          {
+            ldout(async_msgr->cct,20) << __func__ << " msg_left=" << msg_left << dendl;
+
+          //while (msg_left > 0)
+          //{
             bufferptr bp = data_blp.get_current_ptr();
             //bp.copy_to_fd()
-            unsigned read = MIN(bp.length(), msg_left);
+            //unsigned read = MIN(bp.length(), msg_left);
+            //data_blp.read_fd()
+            ssize_t r;
+            //data_blp.get_off()
+            r = bp.insert_from_fd(data_blp.get_off(),/*bp.length(),*/ msg_left, cs.fd());
+     //virtual ssize_t insert_from_fd(size_t dst_pos, size_t count, int fd, off_t src_offset = -1)
+            ldout(async_msgr->cct,20) << __func__ << " r=" << r << dendl;
+            if (r == -EAGAIN) break;
+            if (r < 0) {
+              ldout(async_msgr->cct, 1) << __func__ << " read data error " << dendl;
+              goto fail;
+            }
+            msg_left -= r;
+            data_blp.advance(r);
+            //if (msg_left > 0)
+            //  break;
 
-            //bp.insert_from_fd(fd, )
-
+#if 0
             r = read_until(read, bp.c_str());
             if (r < 0) {
               ldout(async_msgr->cct, 1) << __func__ << " read data error " << dendl;
@@ -644,11 +671,15 @@ void AsyncConnection::process()
             data_blp.advance(read);
             data.append(bp, 0, read);
             msg_left -= read;
-          }
+#endif
+          //}
 
           if (msg_left > 0)
             break;
+          ldout(async_msgr->cct,20) << __func__ << " read_done bp.size=" << bp.length() << dendl;
 
+          data.append(bp);
+          }
           state = STATE_OPEN_MESSAGE_READ_FOOTER_AND_DISPATCH;
         }
 
