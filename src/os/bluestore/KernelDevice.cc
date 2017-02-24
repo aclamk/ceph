@@ -255,35 +255,39 @@ void KernelDevice::_aio_thread()
       derr << __func__ << " got " << cpp_strerror(r) << dendl;
     }
     if (r > 0) {
+      std::vector<void*> batch;
       dout(30) << __func__ << " got " << r << " completed aios" << dendl;
       for (int i = 0; i < r; ++i) {
-	IOContext *ioc = static_cast<IOContext*>(aio[i]->priv);
-	_aio_log_finish(ioc, aio[i]->offset, aio[i]->length);
-	if (aio[i]->queue_item.is_linked()) {
-	  std::lock_guard<std::mutex> l(debug_queue_lock);
-	  debug_aio_unlink(*aio[i]);
-	}
-	int r = aio[i]->get_return_value();
-	dout(10) << __func__ << " finished aio " << aio[i] << " r " << r
-		 << " ioc " << ioc
-		 << " with " << (ioc->num_running.load() - 1)
-		 << " aios left" << dendl;
-	assert(r >= 0);
-	int left = --ioc->num_running;
-	// NOTE: once num_running is decremented we can no longer
-	// trust aio[] values; they my be freed (e.g., by BlueFS::_fsync)
-	if (left == 0) {
-	  // check waiting count before doing callback (which may
-	  // destroy this ioc).  and avoid ref to ioc after aio_wake()
-	  // in case that triggers destruction.
-	  void *priv = ioc->priv;
-	  ioc->aio_wake();
-	  if (priv) {
-            Xrange priv_cb_range(&clk_priv);
-	    aio_callback(aio_callback_priv, priv);
-	  }
-	}
+        IOContext *ioc = static_cast<IOContext*>(aio[i]->priv);
+        _aio_log_finish(ioc, aio[i]->offset, aio[i]->length);
+        if (aio[i]->queue_item.is_linked()) {
+          std::lock_guard<std::mutex> l(debug_queue_lock);
+          debug_aio_unlink(*aio[i]);
+        }
+        int r = aio[i]->get_return_value();
+        dout(10) << __func__ << " finished aio " << aio[i] << " r " << r
+            << " ioc " << ioc
+            << " with " << (ioc->num_running.load() - 1)
+            << " aios left" << dendl;
+        assert(r >= 0);
+        int left = --ioc->num_running;
+        // NOTE: once num_running is decremented we can no longer
+        // trust aio[] values; they my be freed (e.g., by BlueFS::_fsync)
+        if (left == 0) {
+          // check waiting count before doing callback (which may
+          // destroy this ioc).  and avoid ref to ioc after aio_wake()
+          // in case that triggers destruction.
+          void *priv = ioc->priv;
+          ioc->aio_wake();
+          if (priv) {
+            batch.push_back(priv);
+          }
+        }
       }
+      if (batch.size() > 0) {
+        aio_callback(aio_callback_priv, batch);
+      }
+
     }
     if (cct->_conf->bdev_debug_aio) {
       utime_t now = ceph_clock_now();

@@ -1868,8 +1868,8 @@ private:
   void _txc_state_proc(TransBatch batch);
   void _txc_aio_submit(TransContext *txc);
 public:
-  void _txc_aio_finish(void *p) {
-    _txc_state_proc(static_cast<TransContext*>(p));
+  void _txc_aio_finish(TransBatch& batch) {
+    _txc_state_proc(batch);
   }
 private:
   void _txc_finish_io(TransContext *txc);
