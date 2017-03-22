@@ -658,7 +658,12 @@ public:
 
   /// a sharded extent map, mapping offsets to lextents to blobs
   struct ExtentMap {
-    Onode *onode;
+    friend class Onode;
+    Onode* get_onode() {
+      //not using offsetof to 1) prevent warning 2) make sure offset is constant
+      static constexpr size_t e_ofs = (size_t)( (char*) &((Onode*)0)->extent_map - (char*)0 );
+      return reinterpret_cast<Onode*>((char*)this - e_ofs);
+    }
     extent_map_t extent_map;        ///< map of Extents to Blobs
     blob_map_t spanning_blob_map;   ///< blobs that span shards
 
@@ -694,7 +699,9 @@ public:
       void operator()(Extent *e) { delete e; }
     };
 
+  private:
     ExtentMap(Onode *o);
+  public:
     ~ExtentMap() {
       extent_map.clear_and_dispose(DeleteDisposer());
     }

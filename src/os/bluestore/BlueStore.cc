@@ -1953,14 +1953,15 @@ ostream& operator<<(ostream& out, const BlueStore::Extent& e)
 #define dout_prefix *_dout << "bluestore.extentmap(" << this << ") "
 
 BlueStore::ExtentMap::ExtentMap(Onode *o)
-  : onode(o),
-    inline_bl(
+  : inline_bl(
       o->c->store->cct->_conf->bluestore_extent_map_inline_shard_prealloc_size) {
+  assert( o == get_onode());
 }
 
 void BlueStore::ExtentMap::update(KeyValueDB::Transaction t,
                                   bool force)
 {
+  Onode* onode = get_onode();
   auto cct = onode->c->store->cct; //used by dout
   dout(20) << __func__ << " " << onode->oid << (force ? " force" : "") << dendl;
   if (onode->onode.extent_map_shards.empty()) {
@@ -2077,6 +2078,7 @@ void BlueStore::ExtentMap::reshard(
   KeyValueDB *db,
   KeyValueDB::Transaction t)
 {
+  Onode* onode = get_onode();
   auto cct = onode->c->store->cct; // used by dout
 
   dout(10) << __func__ << " 0x[" << std::hex << needs_reshard_begin << ","
@@ -2345,6 +2347,7 @@ bool BlueStore::ExtentMap::encode_some(
   bufferlist& bl,
   unsigned *pn)
 {
+  Onode* onode = get_onode();
   auto cct = onode->c->store->cct; //used by dout
   Extent dummy(offset);
   auto start = extent_map.lower_bound(dummy);
@@ -2448,6 +2451,7 @@ bool BlueStore::ExtentMap::encode_some(
 
 unsigned BlueStore::ExtentMap::decode_some(bufferlist& bl)
 {
+  Onode* onode = get_onode();
   auto cct = onode->c->store->cct; //used by dout
   /*
   derr << __func__ << ":";
@@ -2559,6 +2563,7 @@ void BlueStore::ExtentMap::encode_spanning_blobs(
 void BlueStore::ExtentMap::decode_spanning_blobs(
   bufferptr::iterator& p)
 {
+  Onode* onode = get_onode();
   __u8 struct_v;
   denc(struct_v, p);
   // Version 2 differs from v1 in blob's ref_map
@@ -2580,6 +2585,7 @@ void BlueStore::ExtentMap::decode_spanning_blobs(
 
 void BlueStore::ExtentMap::init_shards(bool loaded, bool dirty)
 {
+  Onode* onode = get_onode();
   shards.resize(onode->onode.extent_map_shards.size());
   unsigned i = 0;
   for (auto &s : onode->onode.extent_map_shards) {
@@ -2595,6 +2601,7 @@ void BlueStore::ExtentMap::fault_range(
   uint32_t offset,
   uint32_t length)
 {
+  Onode* onode = get_onode();
   auto cct = onode->c->store->cct; //used by dout
   dout(30) << __func__ << " 0x" << std::hex << offset << "~" << length
 	   << std::dec << dendl;
@@ -2645,6 +2652,7 @@ void BlueStore::ExtentMap::dirty_range(
   uint32_t offset,
   uint32_t length)
 {
+  Onode* onode = get_onode();
   auto cct = onode->c->store->cct; //used by dout
   dout(30) << __func__ << " 0x" << std::hex << offset << "~" << length
 	   << std::dec << dendl;
@@ -2733,6 +2741,7 @@ int BlueStore::ExtentMap::compress_extent_map(
   uint64_t offset,
   uint64_t length)
 {
+  Onode* onode = get_onode();
   auto cct = onode->c->store->cct; //used by dout
   if (extent_map.empty())
     return 0;
@@ -2849,6 +2858,7 @@ BlueStore::Extent *BlueStore::ExtentMap::set_lextent(
   uint64_t blob_offset, uint64_t length, BlobRef b,
   extent_map_t *old_extents)
 {
+  Onode* onode = get_onode();
   punch_hole(logical_offset, length, old_extents);
 
   // We need to have completely initialized Blob to increment its ref counters.
@@ -2871,6 +2881,7 @@ BlueStore::BlobRef BlueStore::ExtentMap::split_blob(
   uint32_t blob_offset,
   uint32_t pos)
 {
+  Onode* onode = get_onode();
   auto cct = onode->c->store->cct; //used by dout
 
   uint32_t end_pos = pos + lb->get_blob().get_logical_length() - blob_offset;
