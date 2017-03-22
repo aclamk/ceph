@@ -554,10 +554,10 @@ public:
     void bound_encode(
       size_t& p,
       uint64_t struct_v,
-      uint64_t sbid,
       bool include_ref_map) const {
       denc(blob, p, struct_v);
       if (blob.is_shared()) {
+        uint64_t sbid = shared_blob->get_sbid();
         denc(sbid, p);
       }
       if (include_ref_map) {
@@ -611,14 +611,16 @@ public:
     }
     ~Extent() {
       if (blob) {
-	blob->shared_blob->get_cache()->rm_extent();
+        if (blob->shared_blob)
+          blob->shared_blob->get_cache()->rm_extent();
       }
     }
 
     void assign_blob(const BlobRef& b) {
       assert(!blob);
       blob = b;
-      blob->shared_blob->get_cache()->add_extent();
+      if(blob->shared_blob)
+        blob->shared_blob->get_cache()->add_extent();
     }
 
     // comparators for intrusive_set
