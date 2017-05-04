@@ -1395,7 +1395,7 @@ namespace rgw {
     struct timespec omtime = rgw_fh->get_mtime();
     real_time appx_t = real_clock::now();
 
-    s->obj_size = ofs; // XXX check ofs
+    s->obj_size = bytes_written;
     perfcounter->inc(l_rgw_put_b, s->obj_size);
 
     op_ret = get_store()->check_quota(s->bucket_owner.get_id(), s->bucket,
