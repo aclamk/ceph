@@ -885,9 +885,7 @@ if(WITH_TESTS)
     DESTINATION bin)
 endif(WITH_TESTS)
 
-if(HAVE_INTEL)
-  add_subdirectory(crypto/isa-l)
-endif(HAVE_INTEL)
+add_subdirectory(crypto)
 
 if(WITH_TESTS)
 
