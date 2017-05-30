@@ -86,6 +86,7 @@ add_executable(unittest_rgw_crypto
   ${test_rgw_crypto_srcs}
   )
 add_ceph_unittest(unittest_rgw_crypto ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/unittest_rgw_crypto)
+add_ceph_test(unittest_rgw_crypto.sh ${CMAKE_CURRENT_SOURCE_DIR}/unittest_rgw_crypto.sh)
 
 target_link_libraries(unittest_rgw_crypto
   rgw_a
