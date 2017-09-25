@@ -139,7 +139,8 @@ TEST(Log, ManyGatherLogPrebuf)
     int l = 10;
     if (subs.should_gather(1, l)) {
       Entry *e = new Entry(ceph_clock_now(), pthread_self(), l, 1);
-      PrebufferedStreambuf psb(e->m_static_buf, sizeof(e->m_static_buf));
+      prebuffered_data data(e->m_static_buf, sizeof(e->m_static_buf));
+      PrebufferedStreambuf& psb = *PrebufferedStreambuf::get_streambuf(&data);
       ostream oss(&psb);
       oss << "this i a long stream asdf asdf asdf asdf asdf asdf asdf asdf asdf as fd";
       //e->m_str = oss.str();
@@ -162,7 +163,8 @@ TEST(Log, ManyGatherLogPrebufOverflow)
     int l = 10;
     if (subs.should_gather(1, l)) {
       Entry *e = new Entry(ceph_clock_now(), pthread_self(), l, 1);
-      PrebufferedStreambuf psb(e->m_static_buf, sizeof(e->m_static_buf));
+      prebuffered_data data(e->m_static_buf, sizeof(e->m_static_buf));
+      PrebufferedStreambuf& psb = *PrebufferedStreambuf::get_streambuf(&data);
       ostream oss(&psb);
       oss << "this i a long stream asdf asdf asdf asdf asdf asdf asdf asdf asdf as fd"
           << std::string(sizeof(e->m_static_buf) * 2, '-') ;
