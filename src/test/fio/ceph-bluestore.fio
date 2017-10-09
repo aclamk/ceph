@@ -1,17 +1,28 @@
 # Runs a 64k random write test against the ceph BlueStore.
 [global]
-ioengine=libfio_ceph_objectstore.so # must be found in your LD_LIBRARY_PATH
+ioengine=ceph-os
+#ioengine=libfio_ceph_objectstore.so # must be found in your LD_LIBRARY_PATH
 
 conf=ceph-bluestore.conf # must point to a valid ceph configuration file
-directory=/mnt/fio-bluestore # directory for osd_data
+directory=/home/adam/ceph-3/src/test/fio/bluestore # directory for osd_data
 
+#rw=write
+#rw=randread
 rw=randwrite
-iodepth=16
+#rw=randrw
+#rwmixwrite=30
+iodepth=16 #128
 
 time_based=1
-runtime=20s
+runtime=60s
+#runtime=900s
+numjobs=8
+#file_service_type=random
+#random_distribution=normal:10
+#random_distribution=zoned:90/1:3/29:5/30:2/40
 
 [bluestore]
-nr_files=64
+nr_files=8192 #4096 #64
 size=256m
-bs=64k
+bs=4k
+

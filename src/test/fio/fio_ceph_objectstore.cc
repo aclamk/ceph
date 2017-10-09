@@ -18,8 +18,11 @@
 #include "include/intarith.h"
 #include "include/stringify.h"
 #include "common/perf_counters.h"
-
+std::string rocksdb_stats();
+extern "C"
+{
 #include <fio.h>
+}
 #include <optgroup.h>
 
 #include "include/assert.h" // fio.h clobbers our assert.h
@@ -46,7 +49,8 @@ fio_option make_option(Func&& func)
   return o;
 }
 
-static std::vector<fio_option> ceph_options{
+  //static
+std::vector<fio_option> ceph_optionsxx{
   make_option([] (fio_option& o) {
     o.name   = "conf";
     o.lname  = "ceph configuration file";
@@ -349,6 +353,22 @@ class UnitComplete : public Context {
 
 int fio_ceph_os_queue(thread_data* td, io_u* u)
 {
+  {
+    static std::atomic<uint32_t> cnt{0};
+    cnt++;
+    if(1)
+    if((cnt.load() % 30000) == 0) {
+      cout <<" mempool dump:\n";
+      JSONFormatter f(true);
+      f.open_object_section("transaction");
+      mempool::dump(&f);
+      f.close_section();
+      f.flush(cout);
+      cout << std::endl;
+      cout << " ROCKS STATS:\n";
+      //cout << rocksdb_stats() << std::endl;
+    }
+  }
   fio_ro_check(td, u);
 
   auto job = static_cast<Job*>(td->io_ops_data);
@@ -426,6 +446,16 @@ void fio_ceph_os_io_u_free(thread_data* td, io_u* u)
 // ioengine_ops for get_ioengine()
 struct ceph_ioengine : public ioengine_ops {
   ceph_ioengine() : ioengine_ops({}) {
+  static std::vector<fio_option> ceph_options{
+  make_option([] (fio_option& o) {
+    o.name   = "conf";
+    o.lname  = "ceph configuration file";
+    o.type   = FIO_OPT_STR_STORE;
+    o.help   = "Path to a ceph configuration file";
+    o.off1   = offsetof(Options, conf);
+  }),
+  {} // fio expects a 'null'-terminated list
+};
     name        = "ceph-os";
     version     = FIO_IOOPS_VERSION;
     flags       = FIO_DISKLESSIO;
@@ -452,4 +482,5 @@ void get_ioengine(struct ioengine_ops** ioengine_ptr) {
   static ceph_ioengine ioengine;
   *ioengine_ptr = &ioengine;
 }
+
 } // extern "C"

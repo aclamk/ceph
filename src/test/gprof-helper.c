@@ -14,7 +14,7 @@
  * Usage example:
  * LD_PRELOAD=./gprof-helper.so your_program
  */
-
+#define _GNU_SOURCE
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>

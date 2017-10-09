@@ -1,3 +1,4 @@
+message(STATUS " CMAKE_C_FLAGS=${CMAKE_C_FLAGS}")
 include(GetGitRevisionDescription)
 
 enable_language(C ASM)
@@ -57,6 +58,7 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL Clang)
   endif()
 endif(CMAKE_CXX_COMPILER_ID STREQUAL GNU)
 set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_CXX_FLAGS}")
+message(STATUS " CMAKE_C_FLAGS=${CMAKE_C_FLAGS}")
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Default BUILD_TYPE is RelWithDebInfo, other options are: Debug, Release, and MinSizeRel." FORCE)
