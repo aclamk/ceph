@@ -120,6 +120,38 @@ enum {
   l_bluestore_last
 };
 
+struct onode_map_handle {
+  ghobject_t oid;
+  size_t hash;
+  onode_map_handle(const ghobject_t& oid): oid(oid), hash(calc_hash(oid)) {}
+  onode_map_handle(ghobject_t&& oid): oid(oid), hash(calc_hash(oid)) {}
+
+private:
+  size_t calc_hash(const ghobject_t& oid) {
+    const string &key = oid.hobj.get_key();
+    size_t hash = ceph_str_hash(CEPH_STR_HASH_RJENKINS, key.data(), key.length());
+    return hash;
+  }
+};
+namespace std {
+  template<> struct hash<onode_map_handle> {
+    size_t operator()(const onode_map_handle &r) const {
+      return r.hash;
+      /*
+      r.oid.hobj.
+      ceph_str_hash(CEPH_STR_HASH_RJENKINS, name, strlen(name))
+      static rjhash<uint64_t> I;
+      return r.get_hash() ^ I(r.snap);
+      */
+    }
+  };
+
+} // namespace std
+inline bool operator==(const onode_map_handle& lhs, const onode_map_handle& rhs) {
+    if (lhs.hash != rhs.hash) return false;
+    return lhs.oid == rhs.oid;
+  }
+
 class BlueStore : public ObjectStore,
 		  public md_config_obs_t {
   // -----------------------------------------------------
@@ -1300,8 +1332,8 @@ public:
     Cache *cache;
 
     /// forward lookups
-    mempool::bluestore_cache_other::unordered_map<ghobject_t,OnodeRef> onode_map;
-
+    //mempool::bluestore_cache_other::unordered_map<ghobject_t,OnodeRef> onode_map;
+    mempool::bluestore_cache_other::unordered_map<onode_map_handle,OnodeRef> onode_map;
     friend class Collection; // for split_cache()
 
   public:
