@@ -128,7 +128,7 @@ struct onode_map_handle {
 
 private:
   size_t calc_hash(const ghobject_t& oid) {
-    const string &key = oid.hobj.get_key();
+    const string &key = oid.hobj.oid.name;
     size_t hash = ceph_str_hash(CEPH_STR_HASH_RJENKINS, key.data(), key.length());
     return hash;
   }
