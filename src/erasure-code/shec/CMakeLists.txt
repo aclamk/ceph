@@ -11,6 +11,7 @@ set(shec_utils_srcs
 
 add_library(shec_utils OBJECT ${shec_utils_srcs})
 add_dependencies(shec_utils ${CMAKE_SOURCE_DIR}/src/ceph_ver.h)
+set_property(TARGET shec_utils PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 set(ec_shec_objs
   $<TARGET_OBJECTS:gf-complete_objs>
@@ -23,6 +24,7 @@ set_target_properties(ec_shec PROPERTIES
   INSTALL_RPATH "")
 target_link_libraries(ec_shec ${EXTRALIBS})
 install(TARGETS ec_shec DESTINATION ${erasure_plugin_dir})
+set_property(TARGET ec_shec PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # legacy libraries
 foreach(flavor ${jerasure_legacy_flavors})

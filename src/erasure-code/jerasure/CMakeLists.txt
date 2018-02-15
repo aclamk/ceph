@@ -6,6 +6,7 @@ set(jerasure_utils_src
 
 add_library(jerasure_utils OBJECT ${jerasure_utils_src})
 add_dependencies(jerasure_utils ${CMAKE_SOURCE_DIR}/src/ceph_ver.h)
+set_property(TARGET jerasure_utils PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # Set the CFLAGS correctly for gf-complete based on SIMD compiler support
 set(GF_COMPILE_FLAGS)
@@ -71,6 +72,7 @@ set_target_properties(gf-complete_objs PROPERTIES
   COMPILE_FLAGS "${SIMD_COMPILE_FLAGS}")
 set_target_properties(gf-complete_objs PROPERTIES 
   COMPILE_DEFINITIONS "${GF_COMPILE_FLAGS}")
+set_property(TARGET gf-complete_objs PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 set(jerasure_srcs
   jerasure/src/cauchy.c
@@ -80,6 +82,7 @@ set(jerasure_srcs
   jerasure/src/reed_sol.c
   jerasure_init.cc)
 add_library(jerasure_objs OBJECT ${jerasure_srcs}) 
+set_property(TARGET jerasure_objs PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 set(ec_jerasure_objs
   $<TARGET_OBJECTS:gf-complete_objs>
@@ -92,6 +95,7 @@ set_target_properties(ec_jerasure PROPERTIES
   INSTALL_RPATH "")
 target_link_libraries(ec_jerasure ${EXTRALIBS})
 install(TARGETS ec_jerasure DESTINATION ${erasure_plugin_dir})
+set_property(TARGET ec_jerasure PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # legacy libraries
 foreach(flavor ${jerasure_legacy_flavors})

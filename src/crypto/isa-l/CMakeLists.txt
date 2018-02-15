@@ -36,3 +36,6 @@ target_include_directories(ceph_crypto_isal PRIVATE ${isal_dir}/include)
 add_dependencies(ceph_crypto_isal ${CMAKE_SOURCE_DIR}/src/ceph_ver.h)
 set_target_properties(ceph_crypto_isal PROPERTIES VERSION 1.0.0 SOVERSION 1)
 install(TARGETS ceph_crypto_isal DESTINATION ${isal_crypto_plugin_dir})
+
+set_property(TARGET ceph_crypto_isal PROPERTY POSITION_INDEPENDENT_CODE ON)
+set_property(TARGET crypto_plugins PROPERTY POSITION_INDEPENDENT_CODE ON)

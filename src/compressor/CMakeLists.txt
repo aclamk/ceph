@@ -34,7 +34,8 @@ endif()
 
 add_custom_target(compressor_plugins DEPENDS
     ${ceph_compressor_libs})
-
+set_property(TARGET compressor_plugins PROPERTY POSITION_INDEPENDENT_CODE ON)
+  
 if(WITH_EMBEDDED)
   include(MergeStaticLibraries)
   add_library(cephd_compressor_base STATIC ${compressor_srcs})

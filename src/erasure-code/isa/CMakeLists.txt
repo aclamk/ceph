@@ -66,6 +66,7 @@ target_link_libraries(ec_isa ${EXTRALIBS})
 set_target_properties(ec_isa PROPERTIES
   INSTALL_RPATH "")
 install(TARGETS ec_isa DESTINATION ${erasure_plugin_dir})
+set_property(TARGET ec_isa PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 if(WITH_EMBEDDED)
   add_library(cephd_ec_isa STATIC ${isa_srcs})

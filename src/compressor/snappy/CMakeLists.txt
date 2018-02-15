@@ -14,6 +14,7 @@ set_target_properties(ceph_snappy PROPERTIES
   SOVERSION 2
   INSTALL_RPATH "")
 install(TARGETS ceph_snappy DESTINATION ${compressor_plugin_dir})
+set_property(TARGET ceph_snappy PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 if(WITH_EMBEDDED)
   add_library(cephd_compressor_snappy STATIC ${snappy_sources})

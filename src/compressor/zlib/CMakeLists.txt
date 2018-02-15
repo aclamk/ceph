@@ -46,6 +46,7 @@ set_target_properties(ceph_zlib PROPERTIES
   SOVERSION 2
   INSTALL_RPATH "")
 install(TARGETS ceph_zlib DESTINATION ${compressor_plugin_dir})
+set_property(TARGET ceph_zlib PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 if(WITH_EMBEDDED)
   add_library(cephd_compressor_zlib STATIC ${zlib_sources})

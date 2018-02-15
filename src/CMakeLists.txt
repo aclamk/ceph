@@ -29,7 +29,7 @@ if(LINUX)
 endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wtype-limits -Wignored-qualifiers -Winit-self")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wpointer-arith -Werror=format-security -fno-strict-aliasing -fsigned-char")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wpointer-arith -Werror=format-security -fno-strict-aliasing -fsigned-char -fno-omit-frame-pointer ")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftemplate-depth-1024 -Wno-invalid-offsetof")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wnon-virtual-dtor")
@@ -40,7 +40,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL GNU)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wstrict-null-sentinel -Woverloaded-virtual")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-new-ttp-matching")
   if(NOT WITH_OSD_INSTRUMENT_FUNCTIONS)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ")
   endif()
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL Clang)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_EXPORTS_C_FLAG}")
@@ -860,7 +860,7 @@ set(ceph_osd_srcs
   ceph_osd.cc)
 add_executable(ceph-osd ${ceph_osd_srcs})
 add_dependencies(ceph-osd erasure_code_plugins)
-target_link_libraries(ceph-osd osd os global-static ceph-common
+target_link_libraries(ceph-osd osd os global-static common
   ${BLKID_LIBRARIES} ${RDMA_LIBRARIES})
 if(WITH_FUSE)
   target_link_libraries(ceph-osd ${FUSE_LIBRARIES})
@@ -1002,8 +1002,8 @@ if(WITH_LIBCEPHFS)
   add_executable(mount.ceph ${mount_ceph_srcs}
     $<TARGET_OBJECTS:parse_secret_objs>
     $<TARGET_OBJECTS:common_mountcephfs_objs>)
-  set_target_properties(mount.ceph PROPERTIES
-    INSTALL_RPATH "")
+#  set_target_properties(mount.ceph PROPERTIES
+#    INSTALL_RPATH "")
   target_link_libraries(mount.ceph ${KEYUTILS_LIBRARIES})
 
   install(TARGETS ceph-syn DESTINATION bin)
