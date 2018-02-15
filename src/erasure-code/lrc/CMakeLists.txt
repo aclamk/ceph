@@ -12,7 +12,7 @@ add_library(ec_lrc SHARED ${lrc_srcs})
 add_dependencies(ec_lrc ${CMAKE_SOURCE_DIR}/src/ceph_ver.h)
 set_target_properties(ec_lrc PROPERTIES
   INSTALL_RPATH "")
-#target_link_libraries(ec_lrc json_spirit)
+target_link_libraries(ec_lrc json_spirit)
 install(TARGETS ec_lrc DESTINATION ${erasure_plugin_dir})
 set_property(TARGET ec_lrc PROPERTY POSITION_INDEPENDENT_CODE ON)
 
