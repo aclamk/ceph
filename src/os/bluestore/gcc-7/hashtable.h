@@ -1424,6 +1424,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  if (!__p->_M_nxt || _M_bucket_index(__p->_M_next()) != __n)
 	    break;
 	  __prev_p = __p;
+	  increase_M_find_before_node();
 	}
       return nullptr;
     }

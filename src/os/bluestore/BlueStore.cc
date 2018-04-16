@@ -201,6 +201,20 @@ static int decode_escaped(const char *p, string *out)
   return p - orig_p;
 }
 
+PerfCounters* counter_create() {
+PerfCountersBuilder b(
+    g_ceph_context, string("unordered_map"),
+    736200, 736202);
+  b.add_u64(736201, "_M_find_before_node", "increased each time _M_find_before_node walks to next item (global)");
+  PerfCounters* logger = b.create_perf_counters();
+  g_ceph_context->get_perfcounters_collection()->add(logger);
+  logger->set(736201, 0);
+  return logger;
+}
+void increase_M_find_before_node(){
+  static PerfCounters* logger = counter_create();
+  logger->inc(736201, 1);
+}
 // some things we encode in binary (as le32 or le64); print the
 // resulting key strings nicely
 template<typename S>
