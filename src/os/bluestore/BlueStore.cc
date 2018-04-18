@@ -201,20 +201,57 @@ static int decode_escaped(const char *p, string *out)
   return p - orig_p;
 }
 
-PerfCounters* counter_create() {
-PerfCountersBuilder b(
-    g_ceph_context, string("unordered_map"),
-    736200, 736202);
-  b.add_u64(736201, "_M_find_before_node", "increased each time _M_find_before_node walks to next item (global)");
-  PerfCounters* logger = b.create_perf_counters();
-  g_ceph_context->get_perfcounters_collection()->add(logger);
-  logger->set(736201, 0);
-  return logger;
+struct _M_context {
+  const char* last_name = nullptr;
+  PerfCounters* logger = nullptr;
+  uint32_t counter = 0;
+};
+static std::map<const char*, std::pair<PerfCounters*, uint32_t> > perf_counters;
+
+void locate_perf_counter(_M_context& ctx, const char* name) {
+  if (ctx.logger == nullptr) {
+    static std::mutex m;
+    m.lock();
+    auto it = perf_counters.find(name);
+    if (it == perf_counters.end()) {
+      static std::atomic <uint32_t> counter_last{736200};
+      uint32_t counter_nr = counter_last.fetch_add(4);
+      PerfCountersBuilder b(
+          g_ceph_context, string(name),
+          counter_nr, counter_nr+3);
+      b.add_u64(counter_nr+1, "unordered-map-enter", "when _M_find_before_node is called");
+      b.add_u64(counter_nr+2, "unordered-map-iterate", "when _M_find_before_node walks to next item");
+      PerfCounters* logger = b.create_perf_counters();
+      g_ceph_context->get_perfcounters_collection()->add(logger);
+      logger->set(counter_nr+1, 0);
+      auto it2 = perf_counters.emplace(name, std::pair<PerfCounters*, uint32_t>(logger, counter_nr+1));
+      assert(it2.second);
+      it = it2.first;
+    }
+    m.unlock();
+    ctx.last_name = it->first;
+    ctx.counter = it->second.second;;
+    ctx.logger = it->second.first;
+  }
 }
-void increase_M_find_before_node(){
-  static PerfCounters* logger = counter_create();
-  logger->inc(736201, 1);
+
+void action_M_find_before_node(const char* name,uint32_t action) {
+  thread_local _M_context ctx;
+  if (ctx.last_name != name) {
+    locate_perf_counter(ctx, name);
+  }
+  ctx.logger->inc(ctx.counter+action, 1);
 }
+
+
+void enter_M_find_before_node(const char* name) {
+  action_M_find_before_node(name, 0);
+}
+
+void iterate_M_find_before_node(const char* name) {
+  action_M_find_before_node(name, 1);
+}
+
 // some things we encode in binary (as le32 or le64); print the
 // resulting key strings nicely
 template<typename S>

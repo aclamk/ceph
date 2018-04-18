@@ -29,7 +29,8 @@
 
 #ifndef _HASHTABLE_H
 #define _HASHTABLE_H 1
-
+void iterate_M_find_before_node(const char* name);
+void enter_M_find_before_node(const char* name);
 #pragma GCC system_header
 
 #include <bits/hashtable_policy.h>
@@ -1157,6 +1158,7 @@ public:
     _M_find_before_node(size_type __n, const key_type& __k,
 			__hash_code __code) const
     {
+      enter_M_find_before_node(__PRETTY_FUNCTION__);
       __node_base* __prev_p = _M_buckets[__n];
       if (!__prev_p)
 	return nullptr;
@@ -1168,7 +1170,7 @@ public:
 	  if (!__p->_M_nxt || _M_bucket_index(__p->_M_next()) != __n)
 	    break;
 	  __prev_p = __p;
-	  increase_M_find_before_node();
+	  iterate_M_find_before_node(__PRETTY_FUNCTION__);
 	}
       return nullptr;
     }
