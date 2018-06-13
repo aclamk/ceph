@@ -111,6 +111,13 @@ if(WITH_BLUESTORE)
   add_ceph_unittest(unittest_alloc_bench)
   target_link_libraries(unittest_alloc_bench os global)
 
+  add_executable(unittest_alloc_ageing
+    Allocator_ageing_fragmentation.cc
+    $<TARGET_OBJECTS:unit-main>
+    )
+  add_ceph_unittest(unittest_alloc_ageing)
+  target_link_libraries(unittest_alloc_ageing os global)
+  
   add_executable(unittest_fastbmap_allocator
     fastbmap_allocator_test.cc
     $<TARGET_OBJECTS:unit-main>
