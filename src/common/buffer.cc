@@ -998,8 +998,7 @@ static ceph::spinlock debug_lock;
     : _buffers(std::move(other._buffers)),
       _carriage(&always_empty_bptr),
       _len(other._len),
-      _memcopy_count(other._memcopy_count),
-      last_p(this) {
+      _memcopy_count(other._memcopy_count) {
     other.clear();
   }
 
@@ -1009,9 +1008,6 @@ static ceph::spinlock debug_lock;
     std::swap(_memcopy_count, other._memcopy_count);
     std::swap(_carriage, other._carriage);
     _buffers.swap(other._buffers);
-    //last_p.swap(other.last_p);
-    last_p = begin();
-    other.last_p = other.begin();
   }
 
   bool buffer::list::contents_equal(const ceph::buffer::list& other) const
@@ -1237,7 +1233,6 @@ static ceph::spinlock debug_lock;
       _buffers.push_back(*nb.release());
     }
     invalidate_crc();
-    last_p = begin();
   }
 
   bool buffer::list::rebuild_aligned(unsigned align)
@@ -1298,7 +1293,6 @@ static ceph::spinlock debug_lock;
       _buffers.insert_after(p_prev, *ptr_node::create(unaligned._buffers.front()).release());
       ++p_prev;
     }
-    last_p = begin();
 
     return  (old_memcopy_count != _memcopy_count);
   }
@@ -1336,7 +1330,6 @@ static ceph::spinlock debug_lock;
     bl._carriage = &always_empty_bptr;
     bl._buffers.clear_and_dispose();
     bl._len = 0;
-    bl.last_p = bl.begin();
   }
 
   void buffer::list::claim_append_piecewise(list& bl)
@@ -1348,16 +1341,29 @@ static ceph::spinlock debug_lock;
     bl.clear();
   }
 
+  void buffer::list::copy(
+    const unsigned off,
+    const unsigned len,
+    char* const dest,
+    constiter_hint_t& last_p) const
+  {
+    if (off + len > length())
+      throw end_of_buffer();
+    if (last_p.get_off() != off) 
+      last_p.seek(off);
+    last_p.copy(len, dest);
+  }
   void buffer::list::copy(unsigned off, unsigned len, char *dest) const
   {
-    if (off + len > length())
-      throw end_of_buffer();
-    if (last_p.get_off() != off) 
-      last_p.seek(off);
-    last_p.copy(len, dest);
+    constiter_hint_t last_p(this, off);
+    copy(off, len, dest, last_p);
   }
 
-  void buffer::list::copy(unsigned off, unsigned len, list &dest) const
+  void buffer::list::copy(
+    const unsigned off,
+    const unsigned len,
+    list &dest,
+    constiter_hint_t& last_p) const
   {
     if (off + len > length())
       throw end_of_buffer();
@@ -1365,15 +1371,34 @@ static ceph::spinlock debug_lock;
       last_p.seek(off);
     last_p.copy(len, dest);
   }
+  void buffer::list::copy(unsigned off, unsigned len, list &dest) const
+  {
+    constiter_hint_t last_p(this, off);
+    copy(off, len, dest, last_p);
+  }
 
-  void buffer::list::copy(unsigned off, unsigned len, std::string& dest) const
+  void buffer::list::copy(
+    const unsigned off,
+    const unsigned len,
+    std::string& dest,
+    constiter_hint_t& last_p) const
   {
     if (last_p.get_off() != off) 
       last_p.seek(off);
     return last_p.copy(len, dest);
   }
-    
-  void buffer::list::copy_in(unsigned off, unsigned len, const char *src, bool crc_reset)
+  void buffer::list::copy(unsigned off, unsigned len, std::string& dest) const
+  {
+    constiter_hint_t last_p(this, off);
+    copy(off, len, dest, last_p);
+  }
+
+  void buffer::list::copy_in(
+    const unsigned off,
+    const unsigned len,
+    const char* const src,
+    const bool crc_reset,
+    iter_hint_t& last_p)
   {
     if (off + len > length())
       throw end_of_buffer();
@@ -1383,11 +1408,26 @@ static ceph::spinlock debug_lock;
     last_p.copy_in(len, src, crc_reset);
   }
 
-  void buffer::list::copy_in(unsigned off, unsigned len, const list& src)
+  void buffer::list::copy_in(unsigned off, unsigned len, const char* src, bool crc_reset)
+  {
+    iter_hint_t last_p(this, off);
+    copy_in(off, len, src, crc_reset, last_p);
+  }
+
+  void buffer::list::copy_in(
+    const unsigned off,
+    const unsigned len,
+    const list& src,
+    iter_hint_t& last_p)
   {
     if (last_p.get_off() != off) 
       last_p.seek(off);
     last_p.copy_in(len, src);
+  }
+  void buffer::list::copy_in(unsigned off, unsigned len, const list& src)
+  {
+    iter_hint_t last_p(this, off);
+    copy_in(off, len, src, last_p);
   }
 
   void buffer::list::append(char c)
@@ -1728,8 +1768,6 @@ static ceph::spinlock debug_lock;
     }
       
     // splice in *replace (implement me later?)
-    
-    last_p = begin();  // just in case we were in the removed region.
   }
 
   void buffer::list::write(int off, int len, std::ostream& out) const

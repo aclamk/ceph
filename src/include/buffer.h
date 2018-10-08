@@ -929,8 +929,6 @@ namespace buffer CEPH_BUFFER_API {
     }
 
   private:
-    mutable iterator last_p;
-
     // always_empty_bptr has no underlying raw but its _len is always 0.
     // This is useful for e.g. get_append_buffer_unused_tail_length() as
     // it allows to avoid conditionals on hot paths.
@@ -942,24 +940,21 @@ namespace buffer CEPH_BUFFER_API {
     list()
       : _carriage(&always_empty_bptr),
         _len(0),
-        _memcopy_count(0),
-        last_p(this) {
+        _memcopy_count(0) {
     }
     // cppcheck-suppress noExplicitConstructor
     // cppcheck-suppress noExplicitConstructor
     list(unsigned prealloc)
       : _carriage(&always_empty_bptr),
         _len(0),
-        _memcopy_count(0),
-	last_p(this) {
+        _memcopy_count(0) {
       reserve(prealloc);
     }
 
     list(const list& other)
       : _carriage(&always_empty_bptr),
         _len(other._len),
-        _memcopy_count(other._memcopy_count),
-        last_p(this) {
+        _memcopy_count(other._memcopy_count) {
       _buffers.clone_from(other._buffers);
       make_shareable();
     }
@@ -983,7 +978,6 @@ namespace buffer CEPH_BUFFER_API {
       _carriage = other._carriage;
       _len = other._len;
       _memcopy_count = other._memcopy_count;
-      last_p = begin();
       other.clear();
       return *this;
     }
@@ -1040,7 +1034,6 @@ namespace buffer CEPH_BUFFER_API {
       _buffers.clear_and_dispose();
       _len = 0;
       _memcopy_count = 0;
-      last_p = begin();
     }
     void push_back(const ptr& bp) {
       if (bp.length() == 0)
@@ -1144,6 +1137,22 @@ namespace buffer CEPH_BUFFER_API {
     void copy(unsigned off, unsigned len, std::string& dest) const;
     void copy_in(unsigned off, unsigned len, const char *src, bool crc_reset = true);
     void copy_in(unsigned off, unsigned len, const list& src);
+
+    typedef iterator iter_hint_t;
+    typedef const_iterator constiter_hint_t;
+
+    iter_hint_t create_iter_hint(unsigned off = 0) {
+      return iter_hint_t(this, off);
+    }
+    constiter_hint_t create_iter_hint(unsigned off = 0) const {
+      return constiter_hint_t(this, off);
+    }
+
+    void copy(unsigned off, unsigned len, char *dest, constiter_hint_t& p_last) const;
+    void copy(unsigned off, unsigned len, list &dest, constiter_hint_t& p_last) const;
+    void copy(unsigned off, unsigned len, std::string& dest, constiter_hint_t& p_last) const;
+    void copy_in(unsigned off, unsigned len, const char *src, bool crc_reset, iter_hint_t& p_last);
+    void copy_in(unsigned off, unsigned len, const list& src, iter_hint_t& p_last);
 
     void append(char c);
     void append(const char *data, unsigned len);
