@@ -1209,7 +1209,7 @@ decode(std::array<T, N>& v, bufferlist::const_iterator& p)
   __u8 struct_v = v;                                         \
   __u8 struct_compat = compat;		                     \
   ceph_le32 struct_len;				             \
-  ::buffer::list::contiguous_filler filler =		     \
+  auto /*::buffer::list::contiguous_filler*/ filler =		     \
     (bl).append_hole(2 * sizeof(__u8) + sizeof(ceph_le32));  \
   const auto starting_bl_len = (bl).length();		     \
   using ::ceph::encode;					     \

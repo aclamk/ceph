@@ -38,7 +38,8 @@
 #include "include/crc32c.h"
 #include "common/sctp_crc32.h"
 
-#include "include/encoding.h"
+#include "include/denc.h"
+#include "osd/osd_types.h"
 
 #define MAX_TEST 1000000
 #define FILENAME "bufferlist"
@@ -2857,14 +2858,20 @@ TEST(BufferList, TestSHA1) {
 
 }
 
+
+#if 0
 //calculate size stage
 class encode_size
 {
 public:
+  class filler {
+  public:
+    void copy_in(const unsigned len, const char* const src) {};
+  };
   size_t encode{0};
+  filler append_hole(size_t v) {encode+=v; return filler();}
+  size_t length() {return 0;}
 };
-
-
 
 
 class encode_helper
@@ -2875,7 +2882,22 @@ public:
 
   encode_helper() {}
   ~encode_helper() {};
+  class filler {
+    char* pos;
+    public:
+      filler(char* pos) : pos(pos) {};
+      void copy_in(const unsigned len, const char* const src)
+      {
+        memcpy(pos, src, len);
+        pos += len;
+      }
+    };
+  filler append_hole(size_t v) {return filler{at.pos}; at.pos+=v;}
+  size_t length() {return (size_t)at.pos;}
 };
+#endif
+
+
 
 
 #if 0
@@ -2900,31 +2922,139 @@ template<typename T> void encode(T& bl) const {
 namespace ceph {
   //namespace encode {
 
+  /*
 template<typename T> void inline encode(T& __restrict__ x, encode_size& s)
 {
   s.encode += sizeof(x);
   //s.total += sizeof(x);
 }
+*/
+#if 0
+template<class T>
+inline void encode_raw(const T& t, encode_helper& bl)
+{
+  bl.at.copy_in(sizeof(t),(char*)&t);
+}
+#endif
+#if 0
+#define WRITE_RAW_ENCODER(type)                                         \
+  inline void encode(const type &v, encode_helper& bl, uint64_t features=0) { ::ceph::encode_raw(v, bl); } \
+  inline void encode(const type &v, encode_size& bl, uint64_t features=0) { bl.encode += sizeof(v); }
 
+WRITE_RAW_ENCODER(__u8)
+#ifndef _CHAR_IS_SIGNED
+WRITE_RAW_ENCODER(__s8)
+#endif
+WRITE_RAW_ENCODER(char)
+WRITE_RAW_ENCODER(ceph_le64)
+WRITE_RAW_ENCODER(ceph_le32)
+WRITE_RAW_ENCODER(ceph_le16)
+
+#define WRITE_INTTYPE_ENCODER(type, etype)                              \
+  inline void encode(type v, encode_helper& bl, uint64_t features=0) { \
+    ceph_##etype e;                                                     \
+    e = v;                                                              \
+    ::ceph::encode_raw(e, bl);                                          \
+  }                                                                     \
+inline void encode(type v, encode_size& bl, uint64_t features=0) { \
+    ceph_##etype e;                                                     \
+    bl.encode +=sizeof(e);                                                              \
+  }
+WRITE_INTTYPE_ENCODER(uint64_t, le64)
+WRITE_INTTYPE_ENCODER(int64_t, le64)
+WRITE_INTTYPE_ENCODER(uint32_t, le32)
+WRITE_INTTYPE_ENCODER(int32_t, le32)
+WRITE_INTTYPE_ENCODER(uint16_t, le16)
+WRITE_INTTYPE_ENCODER(int16_t, le16)
+#endif
 //template<typename T> void inline encode(const T& __restrict__ x, buffer::list::contiguous_filler& __restrict__ at)
+#if 0
 template<typename T> void inline encode(const T& __restrict__ x, encode_helper& __restrict__ eh)
 {
   eh.at.copy_in(sizeof(x), (const char*)&x);
+  ceph_le16 e;
 }
-
+#endif
 //}
+/*
+template<class T, class Alloc, typename traits=denc_traits<T>>
+inline std::enable_if_t<!traits::supported>
+encode(const std::vector<T,Alloc>& v, encode_helper& bl);
+*/
+#if 0
+
+#if 0
+template<class A, class B,
+         typename a_traits=denc_traits<A>, typename b_traits=denc_traits<B>>
+inline std::enable_if_t<!a_traits::supported ||
+                        !b_traits::supported>
+encode(const std::pair<A,B> &p, encode_helper &bl);
+#endif
+
+template<class A, class B,
+         typename a_traits, typename b_traits>
+inline std::enable_if_t<!a_traits::supported ||
+                        !b_traits::supported>
+  encode(const std::pair<A,B> &p, encode_helper &bl)
+{
+  encode(p.first, bl);
+  encode(p.second, bl);
+}
+#endif
+
+#if 0
+template<typename A, typename B>
+inline void
+  encode(const std::pair<A,B> &p, encode_helper &bl)
+{
+  encode(p.first, bl);
+  encode(p.second, bl);
+}
+#endif
+#if 0
+template<typename A, typename B>
+inline void
+  encode(const std::pair<A,B> &p, encode_size &bl)
+{
+  encode(p.first, bl);
+  encode(p.second, bl);
+}
+#endif
+#if 1
+template<class T, class Alloc>
+inline void
+  encode(const std::vector<T,Alloc>& v, encode_helper& bl)
+{
+  __u32 n = (__u32)(v.size());
+  encode(n, bl);
+  for (auto p = v.begin(); p != v.end(); ++p)
+    encode(*p, bl);
+}
+template<class T, class Alloc>
+inline void
+  encode(const std::vector<T,Alloc>& v, encode_size& bl)
+{
+  __u32 n = (__u32)(v.size());
+  encode(n, bl);
+  for (auto p = v.begin(); p != v.end(); ++p)
+    encode(*p, bl);
+}
+#endif
 }
 
 
-struct clone_info1 {
+struct cloneinfoX {
   snapid_t cloneid;
   vector<snapid_t> snaps;  // ascending
   vector< pair<uint64_t,uint64_t> > overlap;
   uint64_t size;
 
-  clone_info1() : cloneid(CEPH_NOSNAP), size(0) {}
+  cloneinfoX() : cloneid(CEPH_NOSNAP), size(0) {}
 
-  void encode(bufferlist& bl) const {
+  template<typename T> void inline encode(T& __restrict__ bl) const;
+#if 0
+  //void encode(bufferlist& bl) const
+  {
     ENCODE_START(1, 1, bl);
     encode(cloneid, bl);
     encode(snaps, bl);
@@ -2932,8 +3062,17 @@ struct clone_info1 {
     encode(size, bl);
     ENCODE_FINISH(bl);
   }
+#endif
+  void encode_x(bufferlist& bl)
+  {
+    encode_size s;
+    encode_helper h;
+    encode(s);
+    h.bl = &bl;
+    h.at = bl.append_hole(s.encode);
+    encode(h);
+  }
 };
-
 
 
 struct makaron
@@ -2961,7 +3100,7 @@ struct groch
   uint16_t a2;
   uint8_t a3;
   makaron m;
-  //clone_info1 ci;
+  //cloneinfoX ci;
   template<typename T> void encode(T& bl) const;
 };
 
@@ -2975,6 +3114,11 @@ template<typename T> void groch::encode(T& __restrict__ bl) const
   //m.encode(bl);
   //ci.encode(bl);
 }
+
+
+
+
+
 
 struct fasola
 {
@@ -3047,6 +3191,7 @@ TEST(BufferList, encode_bench)
   }
 }
 
+
 TEST(BufferList, encode_bench_x)
 {
   for (size_t j=0; j < 100000; j++)
@@ -3059,6 +3204,80 @@ TEST(BufferList, encode_bench_x)
     EXPECT_EQ((unsigned)(4+4+8+8 + 4+4+8+8+2+1+1+1 + 8+4+2+1) * 10, bl.length());
   }
 }
+
+void DUPA(clone_info c, bufferlist& bl);
+clone_info CI;
+TEST(BufferList, encode_bench_DUPA)
+{
+  CI.overlap.emplace_back(1,1);
+  CI.overlap.emplace_back(10,10);
+  CI.overlap.emplace_back(100,100);
+  CI.snaps.emplace_back(1);
+  CI.snaps.emplace_back(2);
+  CI.snaps.emplace_back(3);
+  CI.snaps.emplace_back(4);
+
+  for (size_t j=0; j < 100000; j++)
+  {
+    bufferlist bl;
+    for (size_t i=0; i < 10; i++)
+    {
+      CI.encode(bl);
+    }
+    EXPECT_EQ((unsigned)(110) * 10, bl.length());
+  }
+}
+
+
+void DUPA(clone_info c, bufferlist& bl)
+{
+  c.encode(bl);
+}
+
+void DUPAx(cloneinfoX& c, bufferlist& bl);
+cloneinfoX CIx;
+TEST(BufferList, encode_bench_DUPAx)
+{
+  CIx.overlap.emplace_back(1,1);
+  CIx.overlap.emplace_back(10,10);
+  CIx.overlap.emplace_back(100,100);
+  CIx.snaps.emplace_back(1);
+  CIx.snaps.emplace_back(2);
+  CIx.snaps.emplace_back(3);
+  CIx.snaps.emplace_back(4);
+
+  for (size_t j=0; j < 100000; j++)
+  {
+    bufferlist bl;
+    for (size_t i=0; i < 10; i++)
+    {
+      CIx.encode_x(bl);
+    }
+    EXPECT_EQ((unsigned)(110) * 10, bl.length());
+  }
+}
+
+
+void DUPAx(cloneinfoX& c, bufferlist& bl)
+{
+  c.encode(bl);
+}
+
+
+
+template<typename T> void cloneinfoX::encode(T& __restrict__ bl) const
+  //void encode(bufferlist& bl) const
+  {
+
+    ENCODE_START(1, 1, bl);
+    encode(cloneid, bl);
+    encode(snaps, bl);
+    encode(overlap, bl);
+    encode(size, bl);
+    ENCODE_FINISH(bl);
+  }
+template void cloneinfoX::encode<encode_size&>(encode_size& bl) const;
+template void cloneinfoX::encode<encode_helper&>(encode_helper& bl) const;
 
 
 TEST(BufferHash, all) {
