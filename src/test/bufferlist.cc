@@ -3020,7 +3020,7 @@ inline void
   encode(p.second, bl);
 }
 #endif
-#if 1
+#if 0
 template<class T, class Alloc>
 inline void
   encode(const std::vector<T,Alloc>& v, encode_helper& bl)
