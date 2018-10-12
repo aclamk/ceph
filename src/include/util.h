@@ -41,7 +41,7 @@ struct ceph_data_stats
     f->dump_int("avail_percent", avail_percent);
   }
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(byte_total, bl);
     encode(byte_used, bl);

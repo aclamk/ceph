@@ -46,7 +46,7 @@ public:
 
     Incremental() : inc_type(GLOBAL_ID), max_global_id(0), auth_type(0) {}
 
-    void encode(bufferlist& bl, uint64_t features=-1) const {
+    template <class TT> void encode(TT& bl, uint64_t features=-1) const {
       using ceph::encode;
       ENCODE_START(2, 2, bl);
       __u32 _type = (__u32)inc_type;

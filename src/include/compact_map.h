@@ -297,14 +297,14 @@ public:
       return const_iterator(this);
     return const_iterator(this, map->upper_bound(k));
   }
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     using ceph::encode;
     if (map)
       encode(*map, bl);
     else
       encode((uint32_t)0, bl);
   }
-  void encode(bufferlist &bl, uint64_t features) const {
+  template <class TT> void encode(TT &bl, uint64_t features) const {
     using ceph::encode;
     if (map)
       encode(*map, bl, features);

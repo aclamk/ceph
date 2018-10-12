@@ -25,7 +25,7 @@ struct creating_pgs_t {
     bool done() const {
       return start >= end;
     }
-    void encode(bufferlist& bl) const {
+    template <class TT> void encode(TT& bl) const {
       using ceph::encode;
       encode(created, bl);
       encode(modified, bl);
@@ -76,7 +76,7 @@ struct creating_pgs_t {
     queue.erase(removed_pool);
     return total - pgs.size();
   }
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(last_scan_epoch, bl);
     encode(pgs, bl);

@@ -82,7 +82,7 @@ private:
 
     subdir_info_s() : objs(0), subdirs(0), hash_level(0) {}
 
-    void encode(bufferlist &bl) const
+    template <class TT> void encode(TT &bl) const
     {
       using ceph::encode;
       __u8 v = 1;
@@ -107,7 +107,7 @@ private:
   struct settings_s {
     uint32_t split_rand_factor; ///< random factor added to split threshold (only on root of collection)
     settings_s() : split_rand_factor(0) {}
-    void encode(bufferlist &bl) const
+    template <class TT> void encode(TT &bl) const
     {
       using ceph::encode;
       __u8 v = 1;
@@ -142,7 +142,7 @@ private:
     bool is_col_split() const { return op == COL_SPLIT; }
     bool is_merge() const { return op == MERGE; }
 
-    void encode(bufferlist &bl) const {
+    template <class TT> void encode(TT &bl) const {
       using ceph::encode;
       __u8 v = 1;
       encode(v, bl);

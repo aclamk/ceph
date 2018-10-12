@@ -109,7 +109,7 @@ struct LogEntry {
 
   void log_to_syslog(string level, string facility);
 
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<LogEntry*>& o);
@@ -144,7 +144,7 @@ struct LogSummary {
     return keys.count(k);
   }
 
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<LogSummary*>& o);

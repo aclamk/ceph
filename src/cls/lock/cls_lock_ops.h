@@ -17,7 +17,7 @@ struct cls_lock_lock_op
 
   cls_lock_lock_op() : type(LOCK_NONE), flags(0) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(name, bl);
     uint8_t t = (uint8_t)type;
@@ -54,7 +54,7 @@ struct cls_lock_unlock_op
 
   cls_lock_unlock_op() {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(name, bl);
     encode(cookie, bl);
@@ -79,7 +79,7 @@ struct cls_lock_break_op
 
   cls_lock_break_op() {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(name, bl);
     encode(locker, bl);
@@ -104,7 +104,7 @@ struct cls_lock_get_info_op
 
   cls_lock_get_info_op() {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(name, bl);
     ENCODE_FINISH(bl);
@@ -127,7 +127,7 @@ struct cls_lock_get_info_reply
 
   cls_lock_get_info_reply() : lock_type(LOCK_NONE) {}
 
-  void encode(bufferlist &bl, uint64_t features) const {
+  template <class TT> void encode(TT &bl, uint64_t features) const {
     ENCODE_START(1, 1, bl);
     encode(lockers, bl, features);
     uint8_t t = (uint8_t)lock_type;
@@ -155,7 +155,7 @@ struct cls_lock_list_locks_reply
 
   cls_lock_list_locks_reply() {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(locks, bl);
     ENCODE_FINISH(bl);
@@ -179,7 +179,7 @@ struct cls_lock_assert_op
 
   cls_lock_assert_op() : type(LOCK_NONE) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(name, bl);
     uint8_t t = (uint8_t)type;
@@ -213,7 +213,7 @@ struct cls_lock_set_cookie_op
 
   cls_lock_set_cookie_op() : type(LOCK_NONE) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(name, bl);
     uint8_t t = (uint8_t)type;

@@ -292,7 +292,7 @@ public:
 
   bool parse(const string& s);
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   void decode(json_spirit::Value& v);
   void dump(Formatter *f) const;
@@ -464,7 +464,7 @@ public:
     (*this) = temp;
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   void decode(json_spirit::Value& v);
   size_t encoded_size() const;

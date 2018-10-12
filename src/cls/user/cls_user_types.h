@@ -23,7 +23,7 @@ struct cls_user_bucket {
     std::string data_extra_pool;
   } explicit_placement;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     /* since new version of this structure is not backward compatible,
      * we have older rgw running against newer osd if we encode it
      * in the new way. Only encode newer version if placement_id is
@@ -107,7 +107,7 @@ struct cls_user_bucket_entry {
 
   cls_user_bucket_entry() : size(0), size_rounded(0), count(0), user_stats_sync(false) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(9, 5, bl);
     uint64_t s = size;
     __u32 mt = ceph::real_clock::to_time_t(creation_time);
@@ -168,7 +168,7 @@ struct cls_user_stats {
       total_bytes(0),
       total_bytes_rounded(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
      ENCODE_START(1, 1, bl);
     encode(total_entries, bl);
     encode(total_bytes, bl);
@@ -196,7 +196,7 @@ struct cls_user_header {
   ceph::real_time last_stats_sync;     /* last time a full stats sync completed */
   ceph::real_time last_stats_update;   /* last time a stats update was done */
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
      ENCODE_START(1, 1, bl);
     encode(stats, bl);
     encode(last_stats_sync, bl);

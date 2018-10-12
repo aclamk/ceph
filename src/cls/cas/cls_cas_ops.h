@@ -14,7 +14,7 @@ struct cls_chunk_refcount_get_op {
 
   cls_chunk_refcount_get_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(source, bl);
     ENCODE_FINISH(bl);
@@ -35,7 +35,7 @@ struct cls_chunk_refcount_put_op {
 
   cls_chunk_refcount_put_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(source, bl);
     ENCODE_FINISH(bl);
@@ -57,7 +57,7 @@ struct cls_chunk_refcount_set_op {
 
   cls_chunk_refcount_set_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(refs, bl);
     ENCODE_FINISH(bl);
@@ -79,7 +79,7 @@ struct cls_chunk_refcount_read_ret {
 
   cls_chunk_refcount_read_ret() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(refs, bl);
     ENCODE_FINISH(bl);
@@ -101,7 +101,7 @@ struct chunk_obj_refcount {
 
   chunk_obj_refcount() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(refs, bl);
     ENCODE_FINISH(bl);
@@ -121,7 +121,7 @@ struct obj_refcount {
 
   obj_refcount() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(refs, bl);
     encode(retired_refs, bl);

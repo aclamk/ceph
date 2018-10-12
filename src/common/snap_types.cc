@@ -2,7 +2,7 @@
 #include "snap_types.h"
 #include "common/Formatter.h"
 
-void SnapRealmInfo::encode(bufferlist& bl) const
+template <class TT> void SnapRealmInfo::encode(TT& bl) const
 {
   h.num_snaps = my_snaps.size();
   h.num_prior_parent_snaps = prior_parent_snaps.size();
@@ -11,6 +11,9 @@ void SnapRealmInfo::encode(bufferlist& bl) const
   encode_nohead(my_snaps, bl);
   encode_nohead(prior_parent_snaps, bl);
 }
+template void SnapRealmInfo::encode<bufferlist&>(bufferlist& bl) const;
+template void SnapRealmInfo::encode<encode_size&>(encode_size& bl) const;
+template void SnapRealmInfo::encode<encode_helper&>(encode_helper& bl) const;
 
 void SnapRealmInfo::decode(bufferlist::const_iterator& bl)
 {

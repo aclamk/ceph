@@ -18,7 +18,7 @@ struct inodeno_t {
   inodeno_t operator+=(inodeno_t o) { val += o.val; return *this; }
   operator _inodeno_t() const { return val; }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(val, bl);
   }
@@ -112,7 +112,7 @@ struct file_layout_t {
 
   bool is_valid() const;
 
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& p);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<file_layout_t*>& o);

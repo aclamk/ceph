@@ -43,7 +43,7 @@ void LogStatusDump::dump(Formatter *f) const {
   encode_json("status", s, f);
 }
 
-void RGWMetadataLogData::encode(bufferlist& bl) const {
+template <class TT> void RGWMetadataLogData::encode(TT& bl) const {
   ENCODE_START(1, 1, bl);
   encode(read_version, bl);
   encode(write_version, bl);
@@ -51,6 +51,9 @@ void RGWMetadataLogData::encode(bufferlist& bl) const {
   encode(s, bl);
   ENCODE_FINISH(bl);
 }
+template void RGWMetadataLogData::encode<bufferlist&>(bufferlist& bl) const;
+template void RGWMetadataLogData::encode<encode_size&>(encode_size& bl) const;
+template void RGWMetadataLogData::encode<encode_helper&>(encode_helper& bl) const;
 
 void RGWMetadataLogData::decode(bufferlist::const_iterator& bl) {
    DECODE_START(1, bl);

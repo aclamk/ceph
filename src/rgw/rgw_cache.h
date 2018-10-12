@@ -32,7 +32,7 @@ struct ObjectMetaInfo {
 
   ObjectMetaInfo() : size(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 2, bl);
     encode(size, bl);
     encode(mtime, bl);
@@ -62,7 +62,7 @@ struct ObjectCacheInfo {
 
   ObjectCacheInfo() = default;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(5, 3, bl);
     encode(status, bl);
     encode(flags, bl);
@@ -103,7 +103,7 @@ struct RGWCacheNotifyInfo {
 
   RGWCacheNotifyInfo() : op(0), ofs(0) {}
 
-  void encode(bufferlist& obl) const {
+  template <class TT> void encode(TT& obl) const {
     ENCODE_START(2, 2, obl);
     encode(op, obl);
     encode(obj, obl);

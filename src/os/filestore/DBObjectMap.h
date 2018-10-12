@@ -274,7 +274,7 @@ public:
     State() : v(0), seq(1), legacy(false) {}
     explicit State(uint64_t seq) : v(0), seq(seq), legacy(false) {}
 
-    void encode(bufferlist &bl) const {
+    template <class TT> void encode(TT &bl) const {
       ENCODE_START(3, 1, bl);
       encode(v, bl);
       encode(seq, bl);
@@ -317,7 +317,7 @@ public:
 
     SequencerPosition spos;
 
-    void encode(bufferlist &bl) const {
+    template <class TT> void encode(TT &bl) const {
       coll_t unused;
       ENCODE_START(2, 1, bl);
       encode(seq, bl);

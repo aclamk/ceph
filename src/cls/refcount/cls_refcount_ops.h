@@ -13,7 +13,7 @@ struct cls_refcount_get_op {
 
   cls_refcount_get_op() : implicit_ref(false) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(tag, bl);
     encode(implicit_ref, bl);
@@ -38,7 +38,7 @@ struct cls_refcount_put_op {
 
   cls_refcount_put_op() : implicit_ref(false) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(tag, bl);
     encode(implicit_ref, bl);
@@ -62,7 +62,7 @@ struct cls_refcount_set_op {
 
   cls_refcount_set_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(refs, bl);
     ENCODE_FINISH(bl);
@@ -85,7 +85,7 @@ struct cls_refcount_read_op {
 
   cls_refcount_read_op() : implicit_ref(false) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(implicit_ref, bl);
     ENCODE_FINISH(bl);
@@ -107,7 +107,7 @@ struct cls_refcount_read_ret {
 
   cls_refcount_read_ret() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(refs, bl);
     ENCODE_FINISH(bl);
@@ -130,7 +130,7 @@ struct obj_refcount {
 
   obj_refcount() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(refs, bl);
     encode(retired_refs, bl);

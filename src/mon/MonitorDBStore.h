@@ -63,7 +63,7 @@ class MonitorDBStore
     Op(int t, const string& p, string start, string end)
       : type(t), prefix(p), key(start), endkey(end) { }
 
-    void encode(bufferlist& encode_bl) const {
+    template <class TT> void encode(TT& encode_bl) const {
       ENCODE_START(2, 1, encode_bl);
       encode(type, encode_bl);
       encode(prefix, encode_bl);
@@ -151,7 +151,7 @@ class MonitorDBStore
       ops.push_back(Op(OP_COMPACT, prefix, start, end));
     }
 
-    void encode(bufferlist& bl) const {
+    template <class TT> void encode(TT& bl) const {
       ENCODE_START(2, 1, bl);
       encode(ops, bl);
       encode(bytes, bl);

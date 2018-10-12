@@ -101,7 +101,7 @@ string hobject_t::to_str() const
   return out;
 }
 
-void hobject_t::encode(bufferlist& bl) const
+template <class TT> void hobject_t::encode(TT& bl) const
 {
   ENCODE_START(4, 3, bl);
   encode(key, bl);
@@ -114,6 +114,9 @@ void hobject_t::encode(bufferlist& bl) const
   ceph_assert(!max || (*this == hobject_t(hobject_t::get_max())));
   ENCODE_FINISH(bl);
 }
+template void hobject_t::encode<bufferlist&>(bufferlist& bl) const;
+template void hobject_t::encode<encode_size&>(encode_size& bl) const;
+template void hobject_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void hobject_t::decode(bufferlist::const_iterator& bl)
 {
@@ -359,7 +362,7 @@ int cmp(const hobject_t& l, const hobject_t& r)
 
 // This is compatible with decode for hobject_t prior to
 // version 5.
-void ghobject_t::encode(bufferlist& bl) const
+template <class TT> void ghobject_t::encode(TT& bl) const
 {
   // when changing this, remember to update encoded_size() too.
   ENCODE_START(6, 3, bl);
@@ -375,6 +378,9 @@ void ghobject_t::encode(bufferlist& bl) const
   encode(max, bl);
   ENCODE_FINISH(bl);
 }
+template void ghobject_t::encode<bufferlist&>(bufferlist& bl) const;
+template void ghobject_t::encode<encode_size&>(encode_size& bl) const;
+template void ghobject_t::encode<encode_helper&>(encode_helper& bl) const;
 
 size_t ghobject_t::encoded_size() const
 {

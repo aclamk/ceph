@@ -26,7 +26,7 @@
  */
 struct EntityName
 {
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(type, bl);
     encode(id, bl);

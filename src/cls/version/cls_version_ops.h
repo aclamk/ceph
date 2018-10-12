@@ -11,7 +11,7 @@ struct cls_version_set_op {
 
   cls_version_set_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(objv, bl);
     ENCODE_FINISH(bl);
@@ -31,7 +31,7 @@ struct cls_version_inc_op {
 
   cls_version_inc_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(objv, bl);
     encode(conds, bl);
@@ -53,7 +53,7 @@ struct cls_version_check_op {
 
   cls_version_check_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(objv, bl);
     encode(conds, bl);
@@ -74,7 +74,7 @@ struct cls_version_read_ret {
 
   cls_version_read_ret() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(objv, bl);
     ENCODE_FINISH(bl);

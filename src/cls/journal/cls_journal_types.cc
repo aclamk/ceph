@@ -8,13 +8,16 @@
 namespace cls {
 namespace journal {
 
-void ObjectPosition::encode(bufferlist& bl) const {
+template <class TT> void ObjectPosition::encode(TT& bl) const {
   ENCODE_START(1, 1, bl);
   encode(object_number, bl);
   encode(tag_tid, bl);
   encode(entry_tid, bl);
   ENCODE_FINISH(bl);
 }
+template void ObjectPosition::encode<bufferlist&>(bufferlist& bl) const;
+template void ObjectPosition::encode<encode_size&>(encode_size& bl) const;
+template void ObjectPosition::encode<encode_helper&>(encode_helper& bl) const;
 
 void ObjectPosition::decode(bufferlist::const_iterator& iter) {
   DECODE_START(1, iter);
@@ -35,11 +38,14 @@ void ObjectPosition::generate_test_instances(std::list<ObjectPosition *> &o) {
   o.push_back(new ObjectPosition(1, 2, 3));
 }
 
-void ObjectSetPosition::encode(bufferlist& bl) const {
+template <class TT> void ObjectSetPosition::encode(TT& bl) const {
   ENCODE_START(1, 1, bl);
   encode(object_positions, bl);
   ENCODE_FINISH(bl);
 }
+template void ObjectSetPosition::encode<bufferlist&>(bufferlist& bl) const;
+template void ObjectSetPosition::encode<encode_size&>(encode_size& bl) const;
+template void ObjectSetPosition::encode<encode_helper&>(encode_helper& bl) const;
 
 void ObjectSetPosition::decode(bufferlist::const_iterator& iter) {
   DECODE_START(1, iter);
@@ -63,7 +69,7 @@ void ObjectSetPosition::generate_test_instances(
   o.push_back(new ObjectSetPosition({{0, 1, 120}, {121, 2, 121}}));
 }
 
-void Client::encode(bufferlist& bl) const {
+template <class TT> void Client::encode(TT& bl) const {
   ENCODE_START(1, 1, bl);
   encode(id, bl);
   encode(data, bl);
@@ -71,6 +77,9 @@ void Client::encode(bufferlist& bl) const {
   encode(static_cast<uint8_t>(state), bl);
   ENCODE_FINISH(bl);
 }
+template void Client::encode<bufferlist&>(bufferlist& bl) const;
+template void Client::encode<encode_size&>(encode_size& bl) const;
+template void Client::encode<encode_helper&>(encode_helper& bl) const;
 
 void Client::decode(bufferlist::const_iterator& iter) {
   DECODE_START(1, iter);
@@ -107,13 +116,16 @@ void Client::generate_test_instances(std::list<Client *> &o) {
   o.push_back(new Client("id", data, {{{1, 2, 120}, {2, 3, 121}}}));
 }
 
-void Tag::encode(bufferlist& bl) const {
+template <class TT> void Tag::encode(TT& bl) const {
   ENCODE_START(1, 1, bl);
   encode(tid, bl);
   encode(tag_class, bl);
   encode(data, bl);
   ENCODE_FINISH(bl);
 }
+template void Tag::encode<bufferlist&>(bufferlist& bl) const;
+template void Tag::encode<encode_size&>(encode_size& bl) const;
+template void Tag::encode<encode_helper&>(encode_helper& bl) const;
 
 void Tag::decode(bufferlist::const_iterator& iter) {
   DECODE_START(1, iter);

@@ -46,11 +46,14 @@ private:
 
 } // anonymous namespace
 
-void AsyncRequestId::encode(bufferlist &bl) const {
+template <class TT> void AsyncRequestId::encode(TT &bl) const {
   using ceph::encode;
   encode(client_id, bl);
   encode(request_id, bl);
 }
+template void AsyncRequestId::encode<bufferlist&>(bufferlist &bl) const;
+template void AsyncRequestId::encode<encode_size&>(encode_size &bl) const;
+template void AsyncRequestId::encode<encode_helper&>(encode_helper &bl) const;
 
 void AsyncRequestId::decode(bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -65,10 +68,13 @@ void AsyncRequestId::dump(Formatter *f) const {
   f->dump_unsigned("request_id", request_id);
 }
 
-void AcquiredLockPayload::encode(bufferlist &bl) const {
+template <class TT> void AcquiredLockPayload::encode(TT &bl) const {
   using ceph::encode;
   encode(client_id, bl);
 }
+template void AcquiredLockPayload::encode<bufferlist&>(bufferlist &bl) const;
+template void AcquiredLockPayload::encode<encode_size&>(encode_size &bl) const;
+template void AcquiredLockPayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void AcquiredLockPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -83,10 +89,13 @@ void AcquiredLockPayload::dump(Formatter *f) const {
   f->close_section();
 }
 
-void ReleasedLockPayload::encode(bufferlist &bl) const {
+template <class TT> void ReleasedLockPayload::encode(TT &bl) const {
   using ceph::encode;
   encode(client_id, bl);
 }
+template void ReleasedLockPayload::encode<bufferlist&>(bufferlist &bl) const;
+template void ReleasedLockPayload::encode<encode_size&>(encode_size &bl) const;
+template void ReleasedLockPayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void ReleasedLockPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -101,11 +110,14 @@ void ReleasedLockPayload::dump(Formatter *f) const {
   f->close_section();
 }
 
-void RequestLockPayload::encode(bufferlist &bl) const {
+template <class TT> void RequestLockPayload::encode(TT &bl) const {
   using ceph::encode;
   encode(client_id, bl);
   encode(force, bl);
 }
+template void RequestLockPayload::encode<bufferlist&>(bufferlist &bl) const;
+template void RequestLockPayload::encode<encode_size&>(encode_size &bl) const;
+template void RequestLockPayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void RequestLockPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -124,8 +136,11 @@ void RequestLockPayload::dump(Formatter *f) const {
   f->dump_bool("force", force);
 }
 
-void HeaderUpdatePayload::encode(bufferlist &bl) const {
+template <class TT> void HeaderUpdatePayload::encode(TT &bl) const {
 }
+template void HeaderUpdatePayload::encode<bufferlist&>(bufferlist &bl) const;
+template void HeaderUpdatePayload::encode<encode_size&>(encode_size &bl) const;
+template void HeaderUpdatePayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void HeaderUpdatePayload::decode(__u8 version, bufferlist::const_iterator &iter) {
 }
@@ -133,10 +148,13 @@ void HeaderUpdatePayload::decode(__u8 version, bufferlist::const_iterator &iter)
 void HeaderUpdatePayload::dump(Formatter *f) const {
 }
 
-void AsyncRequestPayloadBase::encode(bufferlist &bl) const {
+template <class TT> void AsyncRequestPayloadBase::encode(TT &bl) const {
   using ceph::encode;
   encode(async_request_id, bl);
 }
+template void AsyncRequestPayloadBase::encode<bufferlist&>(bufferlist &bl) const;
+template void AsyncRequestPayloadBase::encode<encode_size&>(encode_size &bl) const;
+template void AsyncRequestPayloadBase::encode<encode_helper&>(encode_helper &bl) const;
 
 void AsyncRequestPayloadBase::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -149,12 +167,15 @@ void AsyncRequestPayloadBase::dump(Formatter *f) const {
   f->close_section();
 }
 
-void AsyncProgressPayload::encode(bufferlist &bl) const {
+template <class TT> void AsyncProgressPayload::encode(TT &bl) const {
   using ceph::encode;
   AsyncRequestPayloadBase::encode(bl);
   encode(offset, bl);
   encode(total, bl);
 }
+template void AsyncProgressPayload::encode<bufferlist&>(bufferlist &bl) const;
+template void AsyncProgressPayload::encode<encode_size&>(encode_size &bl) const;
+template void AsyncProgressPayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void AsyncProgressPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -169,11 +190,14 @@ void AsyncProgressPayload::dump(Formatter *f) const {
   f->dump_unsigned("total", total);
 }
 
-void AsyncCompletePayload::encode(bufferlist &bl) const {
+template <class TT> void AsyncCompletePayload::encode(TT &bl) const {
   using ceph::encode;
   AsyncRequestPayloadBase::encode(bl);
   encode(result, bl);
 }
+template void AsyncCompletePayload::encode<bufferlist&>(bufferlist &bl) const;
+template void AsyncCompletePayload::encode<encode_size&>(encode_size &bl) const;
+template void AsyncCompletePayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void AsyncCompletePayload::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -186,12 +210,15 @@ void AsyncCompletePayload::dump(Formatter *f) const {
   f->dump_int("result", result);
 }
 
-void ResizePayload::encode(bufferlist &bl) const {
+template <class TT> void ResizePayload::encode(TT &bl) const {
   using ceph::encode;
   encode(size, bl);
   AsyncRequestPayloadBase::encode(bl);
   encode(allow_shrink, bl);
 }
+template void ResizePayload::encode<bufferlist&>(bufferlist &bl) const;
+template void ResizePayload::encode<encode_size&>(encode_size &bl) const;
+template void ResizePayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void ResizePayload::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -209,11 +236,14 @@ void ResizePayload::dump(Formatter *f) const {
   AsyncRequestPayloadBase::dump(f);
 }
 
-void SnapPayloadBase::encode(bufferlist &bl) const {
+template <class TT> void SnapPayloadBase::encode(TT &bl) const {
   using ceph::encode;
   encode(snap_name, bl);
   encode(snap_namespace, bl);
 }
+template void SnapPayloadBase::encode<bufferlist&>(bufferlist &bl) const;
+template void SnapPayloadBase::encode<encode_size&>(encode_size &bl) const;
+template void SnapPayloadBase::encode<encode_helper&>(encode_helper &bl) const;
 
 void SnapPayloadBase::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -228,9 +258,12 @@ void SnapPayloadBase::dump(Formatter *f) const {
   snap_namespace.dump(f);
 }
 
-void SnapCreatePayload::encode(bufferlist &bl) const {
+template <class TT> void SnapCreatePayload::encode(TT &bl) const {
   SnapPayloadBase::encode(bl);
 }
+template void SnapCreatePayload::encode<bufferlist&>(bufferlist &bl) const;
+template void SnapCreatePayload::encode<encode_size&>(encode_size &bl) const;
+template void SnapCreatePayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void SnapCreatePayload::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -244,11 +277,14 @@ void SnapCreatePayload::dump(Formatter *f) const {
   SnapPayloadBase::dump(f);
 }
 
-void SnapRenamePayload::encode(bufferlist &bl) const {
+template <class TT> void SnapRenamePayload::encode(TT &bl) const {
   using ceph::encode;
   encode(snap_id, bl);
   SnapPayloadBase::encode(bl);
 }
+template void SnapRenamePayload::encode<bufferlist&>(bufferlist &bl) const;
+template void SnapRenamePayload::encode<encode_size&>(encode_size &bl) const;
+template void SnapRenamePayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void SnapRenamePayload::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -261,10 +297,13 @@ void SnapRenamePayload::dump(Formatter *f) const {
   SnapPayloadBase::dump(f);
 }
 
-void RenamePayload::encode(bufferlist &bl) const {
+template <class TT> void RenamePayload::encode(TT &bl) const {
   using ceph::encode;
   encode(image_name, bl);
 }
+template void RenamePayload::encode<bufferlist&>(bufferlist &bl) const;
+template void RenamePayload::encode<encode_size&>(encode_size &bl) const;
+template void RenamePayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void RenamePayload::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -275,11 +314,14 @@ void RenamePayload::dump(Formatter *f) const {
   f->dump_string("image_name", image_name);
 }
 
-void UpdateFeaturesPayload::encode(bufferlist &bl) const {
+template <class TT> void UpdateFeaturesPayload::encode(TT &bl) const {
   using ceph::encode;
   encode(features, bl);
   encode(enabled, bl);
 }
+template void UpdateFeaturesPayload::encode<bufferlist&>(bufferlist &bl) const;
+template void UpdateFeaturesPayload::encode<encode_size&>(encode_size &bl) const;
+template void UpdateFeaturesPayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void UpdateFeaturesPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -292,9 +334,12 @@ void UpdateFeaturesPayload::dump(Formatter *f) const {
   f->dump_bool("enabled", enabled);
 }
 
-void UnknownPayload::encode(bufferlist &bl) const {
+template <class TT> void UnknownPayload::encode(TT &bl) const {
   ceph_abort();
 }
+template void UnknownPayload::encode<bufferlist&>(bufferlist &bl) const;
+template void UnknownPayload::encode<encode_size&>(encode_size &bl) const;
+template void UnknownPayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void UnknownPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
 }
@@ -306,11 +351,14 @@ bool NotifyMessage::check_for_refresh() const {
   return boost::apply_visitor(CheckForRefreshVisitor(), payload);
 }
 
-void NotifyMessage::encode(bufferlist& bl) const {
+template <class TT> void NotifyMessage::encode(TT& bl) const {
   ENCODE_START(6, 1, bl);
   boost::apply_visitor(watcher::util::EncodePayloadVisitor(bl), payload);
   ENCODE_FINISH(bl);
 }
+template void NotifyMessage::encode<bufferlist&>(bufferlist& bl) const;
+template void NotifyMessage::encode<encode_size&>(encode_size& bl) const;
+template void NotifyMessage::encode<encode_helper&>(encode_helper& bl) const;
 
 void NotifyMessage::decode(bufferlist::const_iterator& iter) {
   DECODE_START(1, iter);
@@ -408,11 +456,14 @@ void NotifyMessage::generate_test_instances(std::list<NotifyMessage *> &o) {
   o.push_back(new NotifyMessage(MigratePayload(AsyncRequestId(ClientId(0, 1), 2))));
 }
 
-void ResponseMessage::encode(bufferlist& bl) const {
+template <class TT> void ResponseMessage::encode(TT& bl) const {
   ENCODE_START(1, 1, bl);
   encode(result, bl);
   ENCODE_FINISH(bl);
 }
+template void ResponseMessage::encode<bufferlist&>(bufferlist& bl) const;
+template void ResponseMessage::encode<encode_size&>(encode_size& bl) const;
+template void ResponseMessage::encode<encode_helper&>(encode_helper& bl) const;
 
 void ResponseMessage::decode(bufferlist::const_iterator& iter) {
   DECODE_START(1, iter);

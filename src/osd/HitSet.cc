@@ -42,7 +42,7 @@ HitSet::HitSet(const HitSet::Params& params)
   }
 }
 
-void HitSet::encode(bufferlist &bl) const
+template <class TT> void HitSet::encode(TT &bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(sealed, bl);
@@ -54,6 +54,9 @@ void HitSet::encode(bufferlist &bl) const
   }
   ENCODE_FINISH(bl);
 }
+template void HitSet::encode<bufferlist&>(bufferlist &bl) const;
+template void HitSet::encode<encode_size&>(encode_size &bl) const;
+template void HitSet::encode<encode_helper&>(encode_helper &bl) const;
 
 void HitSet::decode(bufferlist::const_iterator& bl)
 {
@@ -134,7 +137,7 @@ const HitSet::Params& HitSet::Params::operator=(const Params& o)
   return *this;
 }
 
-void HitSet::Params::encode(bufferlist &bl) const
+template <class TT> void HitSet::Params::encode(TT &bl) const
 {
   ENCODE_START(1, 1, bl);
   if (impl) {
@@ -145,6 +148,9 @@ void HitSet::Params::encode(bufferlist &bl) const
   }
   ENCODE_FINISH(bl);
 }
+template void HitSet::Params::encode<bufferlist&>(bufferlist &bl) const;
+template void HitSet::Params::encode<encode_size&>(encode_size &bl) const;
+template void HitSet::Params::encode<encode_helper&>(encode_helper &bl) const;
 
 bool HitSet::Params::create_impl(impl_type_t type)
 {

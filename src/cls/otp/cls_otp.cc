@@ -43,7 +43,7 @@ struct otp_header {
 
   otp_header() {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(ids, bl);
     ENCODE_FINISH(bl);
@@ -64,7 +64,7 @@ struct otp_instance {
 
   otp_instance() {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(otp, bl);
     encode(last_checks, bl);

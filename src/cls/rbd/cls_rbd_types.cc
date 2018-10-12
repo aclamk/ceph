@@ -8,7 +8,7 @@
 namespace cls {
 namespace rbd {
 
-void MirrorPeer::encode(bufferlist &bl) const {
+template <class TT> void MirrorPeer::encode(TT &bl) const {
   ENCODE_START(1, 1, bl);
   encode(uuid, bl);
   encode(cluster_name, bl);
@@ -16,6 +16,9 @@ void MirrorPeer::encode(bufferlist &bl) const {
   encode(pool_id, bl);
   ENCODE_FINISH(bl);
 }
+template void MirrorPeer::encode<bufferlist&>(bufferlist &bl) const;
+template void MirrorPeer::encode<encode_size&>(encode_size &bl) const;
+template void MirrorPeer::encode<encode_helper&>(encode_helper &bl) const;
 
 void MirrorPeer::decode(bufferlist::const_iterator &it) {
   DECODE_START(1, it);
@@ -75,12 +78,15 @@ std::ostream& operator<<(std::ostream& os, const MirrorPeer& peer) {
   return os;
 }
 
-void MirrorImage::encode(bufferlist &bl) const {
+template <class TT> void MirrorImage::encode(TT &bl) const {
   ENCODE_START(1, 1, bl);
   encode(global_image_id, bl);
   encode(static_cast<uint8_t>(state), bl);
   ENCODE_FINISH(bl);
 }
+template void MirrorImage::encode<bufferlist&>(bufferlist &bl) const;
+template void MirrorImage::encode<encode_size&>(encode_size &bl) const;
+template void MirrorImage::encode<encode_helper&>(encode_helper &bl) const;
 
 void MirrorImage::decode(bufferlist::const_iterator &it) {
   uint8_t int_state;
@@ -133,7 +139,7 @@ std::ostream& operator<<(std::ostream& os, const MirrorImage& mirror_image) {
   return os;
 }
 
-void MirrorImageStatus::encode(bufferlist &bl) const {
+template <class TT> void MirrorImageStatus::encode(TT &bl) const {
   ENCODE_START(1, 1, bl);
   encode(state, bl);
   encode(description, bl);
@@ -141,6 +147,9 @@ void MirrorImageStatus::encode(bufferlist &bl) const {
   encode(up, bl);
   ENCODE_FINISH(bl);
 }
+template void MirrorImageStatus::encode<bufferlist&>(bufferlist &bl) const;
+template void MirrorImageStatus::encode<encode_size&>(encode_size &bl) const;
+template void MirrorImageStatus::encode<encode_helper&>(encode_helper &bl) const;
 
 void MirrorImageStatus::decode(bufferlist::const_iterator &it) {
   DECODE_START(1, it);
@@ -212,12 +221,15 @@ std::ostream& operator<<(std::ostream& os, const MirrorImageStatus& status) {
   return os;
 }
 
-void ChildImageSpec::encode(bufferlist &bl) const {
+template <class TT> void ChildImageSpec::encode(TT &bl) const {
   ENCODE_START(1, 1, bl);
   encode(pool_id, bl);
   encode(image_id, bl);
   ENCODE_FINISH(bl);
 }
+template void ChildImageSpec::encode<bufferlist&>(bufferlist &bl) const;
+template void ChildImageSpec::encode<encode_size&>(encode_size &bl) const;
+template void ChildImageSpec::encode<encode_helper&>(encode_helper &bl) const;
 
 void ChildImageSpec::decode(bufferlist::const_iterator &it) {
   DECODE_START(1, it);
@@ -236,12 +248,15 @@ void ChildImageSpec::generate_test_instances(std::list<ChildImageSpec*> &o) {
   o.push_back(new ChildImageSpec(123, "abc"));
 }
 
-void GroupImageSpec::encode(bufferlist &bl) const {
+template <class TT> void GroupImageSpec::encode(TT &bl) const {
   ENCODE_START(1, 1, bl);
   encode(image_id, bl);
   encode(pool_id, bl);
   ENCODE_FINISH(bl);
 }
+template void GroupImageSpec::encode<bufferlist&>(bufferlist &bl) const;
+template void GroupImageSpec::encode<encode_size&>(encode_size &bl) const;
+template void GroupImageSpec::encode<encode_helper&>(encode_helper &bl) const;
 
 void GroupImageSpec::decode(bufferlist::const_iterator &it) {
   DECODE_START(1, it);
@@ -293,12 +308,15 @@ void GroupImageSpec::generate_test_instances(std::list<GroupImageSpec*> &o) {
   o.push_back(new GroupImageSpec("1018643c9869", 3));
 }
 
-void GroupImageStatus::encode(bufferlist &bl) const {
+template <class TT> void GroupImageStatus::encode(TT &bl) const {
   ENCODE_START(1, 1, bl);
   encode(spec, bl);
   encode(state, bl);
   ENCODE_FINISH(bl);
 }
+template void GroupImageStatus::encode<bufferlist&>(bufferlist &bl) const;
+template void GroupImageStatus::encode<encode_size&>(encode_size &bl) const;
+template void GroupImageStatus::encode<encode_helper&>(encode_helper &bl) const;
 
 void GroupImageStatus::decode(bufferlist::const_iterator &it) {
   DECODE_START(1, it);
@@ -331,12 +349,15 @@ void GroupImageStatus::generate_test_instances(std::list<GroupImageStatus*> &o) 
 }
 
 
-void GroupSpec::encode(bufferlist &bl) const {
+template <class TT> void GroupSpec::encode(TT &bl) const {
   ENCODE_START(1, 1, bl);
   encode(pool_id, bl);
   encode(group_id, bl);
   ENCODE_FINISH(bl);
 }
+template void GroupSpec::encode<bufferlist&>(bufferlist &bl) const;
+template void GroupSpec::encode<encode_size&>(encode_size &bl) const;
+template void GroupSpec::encode<encode_helper&>(encode_helper &bl) const;
 
 void GroupSpec::decode(bufferlist::const_iterator &it) {
   DECODE_START(1, it);
@@ -359,12 +380,15 @@ void GroupSpec::generate_test_instances(std::list<GroupSpec *> &o) {
   o.push_back(new GroupSpec("1018643c9869", 3));
 }
 
-void GroupSnapshotNamespace::encode(bufferlist& bl) const {
+template <class TT> void GroupSnapshotNamespace::encode(TT& bl) const {
   using ceph::encode;
   encode(group_pool, bl);
   encode(group_id, bl);
   encode(group_snapshot_id, bl);
 }
+template void GroupSnapshotNamespace::encode<bufferlist&>(bufferlist& bl) const;
+template void GroupSnapshotNamespace::encode<encode_size&>(encode_size& bl) const;
+template void GroupSnapshotNamespace::encode<encode_helper&>(encode_helper& bl) const;
 
 void GroupSnapshotNamespace::decode(bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -379,11 +403,14 @@ void GroupSnapshotNamespace::dump(Formatter *f) const {
   f->dump_string("group_snapshot_id", group_snapshot_id);
 }
 
-void TrashSnapshotNamespace::encode(bufferlist& bl) const {
+template <class TT> void TrashSnapshotNamespace::encode(TT& bl) const {
   using ceph::encode;
   encode(original_name, bl);
   encode(static_cast<uint32_t>(original_snapshot_namespace_type), bl);
 }
+template void TrashSnapshotNamespace::encode<bufferlist&>(bufferlist& bl) const;
+template void TrashSnapshotNamespace::encode<encode_size&>(encode_size& bl) const;
+template void TrashSnapshotNamespace::encode<encode_helper&>(encode_helper& bl) const;
 
 void TrashSnapshotNamespace::decode(bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -460,7 +487,7 @@ SnapshotNamespaceType get_snap_namespace_type(
     GetTypeVisitor(), snapshot_namespace));
 }
 
-void SnapshotInfo::encode(bufferlist& bl) const {
+template <class TT> void SnapshotInfo::encode(TT& bl) const {
   ENCODE_START(1, 1, bl);
   encode(id, bl);
   encode(snapshot_namespace, bl);
@@ -470,6 +497,9 @@ void SnapshotInfo::encode(bufferlist& bl) const {
   encode(child_count, bl);
   ENCODE_FINISH(bl);
 }
+template void SnapshotInfo::encode<bufferlist&>(bufferlist& bl) const;
+template void SnapshotInfo::encode<encode_size&>(encode_size& bl) const;
+template void SnapshotInfo::encode<encode_helper&>(encode_helper& bl) const;
 
 void SnapshotInfo::decode(bufferlist::const_iterator& it) {
   DECODE_START(1, it);
@@ -505,11 +535,14 @@ void SnapshotInfo::generate_test_instances(std::list<SnapshotInfo*> &o) {
                                "12345", 123, {123456, 0}, 429));
 }
 
-void SnapshotNamespace::encode(bufferlist& bl) const {
+template <class TT> void SnapshotNamespace::encode(TT& bl) const {
   ENCODE_START(1, 1, bl);
   boost::apply_visitor(EncodeSnapshotNamespaceVisitor(bl), *this);
   ENCODE_FINISH(bl);
 }
+template void SnapshotNamespace::encode<bufferlist&>(bufferlist& bl) const;
+template void SnapshotNamespace::encode<encode_size&>(encode_size& bl) const;
+template void SnapshotNamespace::encode<encode_helper&>(encode_helper& bl) const;
 
 void SnapshotNamespace::decode(bufferlist::const_iterator &p)
 {
@@ -592,7 +625,7 @@ std::ostream& operator<<(std::ostream& os, const UnknownSnapshotNamespace& ns) {
   return os;
 }
 
-void ImageSnapshotSpec::encode(bufferlist& bl) const {
+template <class TT> void ImageSnapshotSpec::encode(TT& bl) const {
   using ceph::encode;
   ENCODE_START(1, 1, bl);
   encode(pool, bl);
@@ -600,6 +633,9 @@ void ImageSnapshotSpec::encode(bufferlist& bl) const {
   encode(snap_id, bl);
   ENCODE_FINISH(bl);
 }
+template void ImageSnapshotSpec::encode<bufferlist&>(bufferlist& bl) const;
+template void ImageSnapshotSpec::encode<encode_size&>(encode_size& bl) const;
+template void ImageSnapshotSpec::encode<encode_helper&>(encode_helper& bl) const;
 
 void ImageSnapshotSpec::decode(bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -621,7 +657,7 @@ void ImageSnapshotSpec::generate_test_instances(std::list<ImageSnapshotSpec *> &
   o.push_back(new ImageSnapshotSpec(1, "testimage", 7));
 }
 
-void GroupSnapshot::encode(bufferlist& bl) const {
+template <class TT> void GroupSnapshot::encode(TT& bl) const {
   using ceph::encode;
   ENCODE_START(1, 1, bl);
   encode(id, bl);
@@ -630,6 +666,9 @@ void GroupSnapshot::encode(bufferlist& bl) const {
   encode(snaps, bl);
   ENCODE_FINISH(bl);
 }
+template void GroupSnapshot::encode<bufferlist&>(bufferlist& bl) const;
+template void GroupSnapshot::encode<encode_size&>(encode_size& bl) const;
+template void GroupSnapshot::encode<encode_helper&>(encode_helper& bl) const;
 
 void GroupSnapshot::decode(bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -651,7 +690,7 @@ void GroupSnapshot::generate_test_instances(std::list<GroupSnapshot *> &o) {
   o.push_back(new GroupSnapshot("10152ae8944a", "groupsnapshot1", GROUP_SNAPSHOT_STATE_INCOMPLETE));
   o.push_back(new GroupSnapshot("1018643c9869", "groupsnapshot2", GROUP_SNAPSHOT_STATE_COMPLETE));
 }
-void TrashImageSpec::encode(bufferlist& bl) const {
+template <class TT> void TrashImageSpec::encode(TT& bl) const {
   ENCODE_START(1, 1, bl);
   encode(source, bl);
   encode(name, bl);
@@ -659,6 +698,9 @@ void TrashImageSpec::encode(bufferlist& bl) const {
   encode(deferment_end_time, bl);
   ENCODE_FINISH(bl);
 }
+template void TrashImageSpec::encode<bufferlist&>(bufferlist& bl) const;
+template void TrashImageSpec::encode<encode_size&>(encode_size& bl) const;
+template void TrashImageSpec::encode<encode_helper&>(encode_helper& bl) const;
 
 void TrashImageSpec::decode(bufferlist::const_iterator &it) {
   DECODE_START(1, it);
@@ -676,13 +718,16 @@ void TrashImageSpec::dump(Formatter *f) const {
   f->dump_unsigned("deferment_end_time", deferment_end_time);
 }
 
-void MirrorImageMap::encode(bufferlist &bl) const {
+template <class TT> void MirrorImageMap::encode(TT &bl) const {
   ENCODE_START(1, 1, bl);
   encode(instance_id, bl);
   encode(mapped_time, bl);
   encode(data, bl);
   ENCODE_FINISH(bl);
 }
+template void MirrorImageMap::encode<bufferlist&>(bufferlist &bl) const;
+template void MirrorImageMap::encode<encode_size&>(encode_size &bl) const;
+template void MirrorImageMap::encode<encode_helper&>(encode_helper &bl) const;
 
 void MirrorImageMap::decode(bufferlist::const_iterator &it) {
   DECODE_START(1, it);
@@ -767,7 +812,7 @@ std::ostream& operator<<(std::ostream& os,
   return os;
 }
 
-void MigrationSpec::encode(bufferlist& bl) const {
+template <class TT> void MigrationSpec::encode(TT& bl) const {
   ENCODE_START(1, 1, bl);
   encode(header_type, bl);
   encode(pool_id, bl);
@@ -781,6 +826,9 @@ void MigrationSpec::encode(bufferlist& bl) const {
   encode(state_description, bl);
   ENCODE_FINISH(bl);
 }
+template void MigrationSpec::encode<bufferlist&>(bufferlist& bl) const;
+template void MigrationSpec::encode<encode_size&>(encode_size& bl) const;
+template void MigrationSpec::encode<encode_helper&>(encode_helper& bl) const;
 
 void MigrationSpec::decode(bufferlist::const_iterator& bl) {
   DECODE_START(1, bl);

@@ -130,7 +130,7 @@ public:
       ,
       "utime_t have padding");
   }
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
 #if defined(CEPH_LITTLE_ENDIAN)
     bl.append((char *)(this), sizeof(__u32) + sizeof(__u32));
 #else

@@ -97,7 +97,7 @@ class CephContext;
 struct CephXServerChallenge {
   uint64_t server_challenge;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     __u8 struct_v = 1;
     encode(struct_v, bl);
@@ -118,7 +118,7 @@ WRITE_CLASS_ENCODER(CephXServerChallenge)
 struct CephXRequestHeader {
   __u16 request_type;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(request_type, bl);
   }
@@ -133,7 +133,7 @@ struct CephXResponseHeader {
   uint16_t request_type;
   int32_t status;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(request_type, bl);
     encode(status, bl);
@@ -152,7 +152,7 @@ struct CephXTicketBlob {
 
   CephXTicketBlob() : secret_id(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
      using ceph::encode;
      __u8 struct_v = 1;
      encode(struct_v, bl);
@@ -176,7 +176,7 @@ struct CephXAuthenticate {
   uint64_t key;
   CephXTicketBlob old_ticket;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
      using ceph::encode;
      __u8 struct_v = 1;
      encode(struct_v, bl);
@@ -198,7 +198,7 @@ WRITE_CLASS_ENCODER(CephXAuthenticate)
 struct CephXChallengeBlob {
   uint64_t server_challenge, client_challenge;
   
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
      using ceph::encode;
     encode(server_challenge, bl);
     encode(client_challenge, bl);
@@ -246,7 +246,7 @@ extern bool cephx_build_service_ticket_reply(CephContext *cct,
 struct CephXServiceTicketRequest {
   uint32_t keys;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     __u8 struct_v = 1;
     encode(struct_v, bl);
@@ -268,7 +268,7 @@ WRITE_CLASS_ENCODER(CephXServiceTicketRequest)
 
 struct CephXAuthorizeReply {
   uint64_t nonce_plus_one;
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     __u8 struct_v = 1;
     encode(struct_v, bl);
@@ -367,7 +367,7 @@ struct CephXServiceTicket {
   CryptoKey session_key;
   utime_t validity;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     __u8 struct_v = 1;
     encode(struct_v, bl);
@@ -389,7 +389,7 @@ struct CephXServiceTicketInfo {
   AuthTicket ticket;
   CryptoKey session_key;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     __u8 struct_v = 1;
     encode(struct_v, bl);
@@ -408,7 +408,7 @@ WRITE_CLASS_ENCODER(CephXServiceTicketInfo)
 
 struct CephXAuthorizeChallenge : public AuthAuthorizerChallenge {
   uint64_t server_challenge;
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     __u8 struct_v = 1;
     encode(struct_v, bl);
@@ -427,7 +427,7 @@ struct CephXAuthorize {
   uint64_t nonce;
   bool have_challenge = false;
   uint64_t server_challenge_plus_one = 0;
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     __u8 struct_v = 2;
     encode(struct_v, bl);

@@ -449,12 +449,15 @@ bool MonCap::is_capable(
   return false;
 }
 
-void MonCap::encode(bufferlist& bl) const
+template <class TT> void MonCap::encode(TT& bl) const
 {
   ENCODE_START(4, 4, bl);   // legacy MonCaps was 3, 3
   encode(text, bl);
   ENCODE_FINISH(bl);
 }
+template void MonCap::encode<bufferlist&>(bufferlist& bl) const;
+template void MonCap::encode<encode_size&>(encode_size& bl) const;
+template void MonCap::encode<encode_helper&>(encode_helper& bl) const;
 
 void MonCap::decode(bufferlist::const_iterator& bl)
 {

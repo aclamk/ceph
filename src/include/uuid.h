@@ -52,7 +52,7 @@ struct uuid_d {
     return (char*)uuid.data;
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ::encode_raw(uuid, bl);
   }
 

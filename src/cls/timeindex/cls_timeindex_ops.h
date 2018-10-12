@@ -11,7 +11,7 @@ struct cls_timeindex_add_op {
 
   cls_timeindex_add_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entries, bl);
     ENCODE_FINISH(bl);
@@ -34,7 +34,7 @@ struct cls_timeindex_list_op {
 
   cls_timeindex_list_op() : max_entries(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(from_time, bl);
     encode(marker, bl);
@@ -61,7 +61,7 @@ struct cls_timeindex_list_ret {
 
   cls_timeindex_list_ret() : truncated(false) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entries, bl);
     encode(marker, bl);
@@ -92,7 +92,7 @@ struct cls_timeindex_trim_op {
 
   cls_timeindex_trim_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(from_time, bl);
     encode(to_time, bl);

@@ -32,7 +32,7 @@ struct AsyncRequestId {
   AsyncRequestId(const ClientId &client_id_, uint64_t request_id_)
     : client_id(client_id_), request_id(request_id_) {}
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 
@@ -77,7 +77,7 @@ struct AcquiredLockPayload {
   AcquiredLockPayload() {}
   AcquiredLockPayload(const ClientId &client_id_) : client_id(client_id_) {}
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -91,7 +91,7 @@ struct ReleasedLockPayload {
   ReleasedLockPayload() {}
   ReleasedLockPayload(const ClientId &client_id_) : client_id(client_id_) {}
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -108,7 +108,7 @@ struct RequestLockPayload {
     : client_id(client_id_), force(force_) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -117,7 +117,7 @@ struct HeaderUpdatePayload {
   static const NotifyOp NOTIFY_OP = NOTIFY_OP_HEADER_UPDATE;
   static const bool CHECK_FOR_REFRESH = false;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -126,7 +126,7 @@ struct AsyncRequestPayloadBase {
 public:
   AsyncRequestId async_request_id;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 
@@ -146,7 +146,7 @@ struct AsyncProgressPayload : public AsyncRequestPayloadBase {
   uint64_t offset;
   uint64_t total;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -161,7 +161,7 @@ struct AsyncCompletePayload : public AsyncRequestPayloadBase {
 
   int result;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -185,7 +185,7 @@ struct ResizePayload : public AsyncRequestPayloadBase {
   uint64_t size;
   bool allow_shrink;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -197,7 +197,7 @@ public:
   cls::rbd::SnapshotNamespace snap_namespace;
   std::string snap_name;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 
@@ -216,7 +216,7 @@ struct SnapCreatePayload : public SnapPayloadBase {
 		    const std::string &name)
     : SnapPayloadBase(_snap_namespace, name) {}
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -231,7 +231,7 @@ struct SnapRenamePayload : public SnapPayloadBase {
 
   uint64_t snap_id = 0;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -281,7 +281,7 @@ struct RenamePayload {
 
   std::string image_name;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -297,7 +297,7 @@ struct UpdateFeaturesPayload {
   uint64_t features;
   bool enabled;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -314,7 +314,7 @@ struct UnknownPayload {
   static const NotifyOp NOTIFY_OP = static_cast<NotifyOp>(-1);
   static const bool CHECK_FOR_REFRESH = false;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -346,7 +346,7 @@ struct NotifyMessage {
 
   bool check_for_refresh() const;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
   NotifyOp get_notify_op() const;
@@ -360,7 +360,7 @@ struct ResponseMessage {
 
   int result;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 

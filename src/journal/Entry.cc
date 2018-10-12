@@ -24,7 +24,7 @@ uint32_t Entry::get_fixed_size() {
   return HEADER_FIXED_SIZE + REMAINDER_FIXED_SIZE;
 }
 
-void Entry::encode(bufferlist &bl) const {
+template <class TT> void Entry::encode(TT &bl) const {
   using ceph::encode;
   bufferlist data_bl;
   encode(preamble, data_bl);
@@ -39,6 +39,9 @@ void Entry::encode(bufferlist &bl) const {
   encode(crc, bl);
   ceph_assert(get_fixed_size() + m_data.length() + bl_offset == bl.length());
 }
+template void Entry::encode<bufferlist&>(bufferlist &bl) const;
+template void Entry::encode<encode_size&>(encode_size &bl) const;
+template void Entry::encode<encode_helper&>(encode_helper &bl) const;
 
 void Entry::decode(bufferlist::const_iterator &iter) {
   using ceph::decode;

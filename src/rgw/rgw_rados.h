@@ -185,7 +185,7 @@ struct compression_block {
   uint64_t new_ofs;
   uint64_t len;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(old_ofs, bl);
     encode(new_ofs, bl);
@@ -214,7 +214,7 @@ struct RGWCompressionInfo {
                                                           orig_size(cs_info.orig_size),
                                                           blocks(cs_info.blocks) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(compression_type, bl);
     encode(orig_size, bl);
@@ -241,7 +241,7 @@ struct RGWOLHInfo {
 
   RGWOLHInfo() : removed(false) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(target, bl);
     encode(removed, bl);
@@ -264,7 +264,7 @@ struct RGWOLHPendingInfo {
 
   RGWOLHPendingInfo() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(time, bl);
     ENCODE_FINISH(bl);
@@ -324,7 +324,7 @@ struct RGWObjManifestPart {
 
   RGWObjManifestPart() : loc_ofs(0), size(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 2, bl);
     encode(loc, bl);
     encode(loc_ofs, bl);
@@ -372,7 +372,7 @@ struct RGWObjManifestRule {
   RGWObjManifestRule(uint32_t _start_part_num, uint64_t _start_ofs, uint64_t _part_size, uint64_t _stripe_max_size) :
                        start_part_num(_start_part_num), start_ofs(_start_ofs), part_size(_part_size), stripe_max_size(_stripe_max_size) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(start_part_num, bl);
     encode(start_ofs, bl);
@@ -477,7 +477,7 @@ public:
     max_head_size = 0;
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(7, 6, bl);
     encode(obj_size, bl);
     encode(objs, bl);
@@ -834,7 +834,7 @@ struct RGWUploadPartInfo {
 
   RGWUploadPartInfo() : num(0), size(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(4, 2, bl);
     encode(num, bl);
     encode(size, bl);
@@ -995,7 +995,7 @@ struct RGWListRawObjsCtx {
 struct RGWDefaultSystemMetaObjInfo {
   string default_id;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(default_id, bl);
     ENCODE_FINISH(bl);
@@ -1015,7 +1015,7 @@ WRITE_CLASS_ENCODER(RGWDefaultSystemMetaObjInfo)
 struct RGWNameToId {
   string obj_id;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(obj_id, bl);
     ENCODE_FINISH(bl);
@@ -1114,7 +1114,7 @@ struct RGWZonePlacementInfo {
 
   RGWZonePlacementInfo() : index_type(RGWBIType_Normal) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(6, 1, bl);
     encode(index_pool.to_str(), bl);
     encode(data_pool.to_str(), bl);
@@ -1363,7 +1363,7 @@ struct RGWZone {
   RGWZone() : log_meta(false), log_data(false), read_only(false), bucket_index_max_shards(0),
               sync_from_all(true) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(7, 1, bl);
     encode(name, bl);
     encode(endpoints, bl);
@@ -1424,7 +1424,7 @@ WRITE_CLASS_ENCODER(RGWZone)
 struct RGWDefaultZoneGroupInfo {
   string default_zonegroup;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(default_zonegroup, bl);
     ENCODE_FINISH(bl);
@@ -1457,7 +1457,7 @@ struct RGWZoneGroupPlacementTarget {
     return false;
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(name, bl);
     encode(tags, bl);
@@ -1596,7 +1596,7 @@ struct RGWPeriodMap
 
   string master_zonegroup;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
 
   int update(const RGWZoneGroup& zonegroup, CephContext *cct);
@@ -1619,7 +1619,7 @@ struct RGWPeriodConfig
   RGWQuotaInfo bucket_quota;
   RGWQuotaInfo user_quota;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(bucket_quota, bl);
     encode(user_quota, bl);
@@ -1657,7 +1657,7 @@ struct RGWRegionMap {
   RGWQuotaInfo bucket_quota;
   RGWQuotaInfo user_quota;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
 
   void dump(Formatter *f) const;
@@ -1678,7 +1678,7 @@ struct RGWZoneGroupMap {
   /* constract the map */
   int read(CephContext *cct, RGWRados *store);
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
 
   void dump(Formatter *f) const;
@@ -1695,7 +1695,7 @@ struct objexp_hint_entry {
   rgw_obj_key obj_key;
   ceph::real_time exp_time;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(bucket_name, bl);
     encode(bucket_id, bl);
@@ -1787,7 +1787,7 @@ WRITE_CLASS_ENCODER(RGWRealm)
 struct RGWPeriodLatestEpochInfo {
   epoch_t epoch;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(epoch, bl);
     ENCODE_FINISH(bl);
@@ -1929,7 +1929,7 @@ public:
   int commit(RGWRealm& realm, const RGWPeriod &current_period,
              std::ostream& error_stream, bool force_if_stale = false);
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(id, bl);
     encode(epoch, bl);

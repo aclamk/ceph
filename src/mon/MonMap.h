@@ -58,7 +58,7 @@ struct mon_info_t {
   mon_info_t() { }
 
 
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& p);
   void print(ostream& out) const;
 };
@@ -315,7 +315,7 @@ public:
     mon_info[n].public_addr = a;
   }
 
-  void encode(bufferlist& blist, uint64_t con_features) const;
+  template <class TT> void encode(TT& blist, uint64_t con_features) const;
   void decode(bufferlist& blist) {
     auto p = std::cbegin(blist);
     decode(p);

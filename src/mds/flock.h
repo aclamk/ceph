@@ -250,7 +250,7 @@ private:
                                          ceph_filelock>::iterator>& locks);
 
 public:
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(held_locks, bl);
     encode(client_held_lock_counts, bl);

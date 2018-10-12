@@ -103,7 +103,7 @@ public:
     encode(ftr->flags, bl);
   }
 
-  inline void encode(buffer::list& bl) const {
+  template <class TT> inline void encode(TT& bl) const {
     encode_hdr(bl);
     encode_ftr(bl);
   }

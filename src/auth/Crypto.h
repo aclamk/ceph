@@ -106,7 +106,7 @@ public:
   ~CryptoKey() {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
 
   int get_type() const { return type; }

@@ -22,7 +22,7 @@
  * SnapInfo
  */
 
-void SnapInfo::encode(bufferlist& bl) const
+template <class TT> void SnapInfo::encode(TT& bl) const
 {
   ENCODE_START(2, 2, bl);
   encode(snapid, bl);
@@ -31,6 +31,9 @@ void SnapInfo::encode(bufferlist& bl) const
   encode(name, bl);
   ENCODE_FINISH(bl);
 }
+template void SnapInfo::encode<bufferlist&>(bufferlist& bl) const;
+template void SnapInfo::encode<encode_size&>(encode_size& bl) const;
+template void SnapInfo::encode<encode_helper&>(encode_helper& bl) const;
 
 void SnapInfo::decode(bufferlist::const_iterator& bl)
 {
@@ -84,13 +87,16 @@ std::string_view SnapInfo::get_long_name() const
  * snaplink_t
  */
 
-void snaplink_t::encode(bufferlist& bl) const
+template <class TT> void snaplink_t::encode(TT& bl) const
 {
   ENCODE_START(2, 2, bl);
   encode(ino, bl);
   encode(first, bl);
   ENCODE_FINISH(bl);
 }
+template void snaplink_t::encode<bufferlist&>(bufferlist& bl) const;
+template void snaplink_t::encode<encode_size&>(encode_size& bl) const;
+template void snaplink_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void snaplink_t::decode(bufferlist::const_iterator& bl)
 {
@@ -123,7 +129,7 @@ ostream& operator<<(ostream& out, const snaplink_t &l)
  * sr_t
  */
 
-void sr_t::encode(bufferlist& bl) const
+template <class TT> void sr_t::encode(TT& bl) const
 {
   ENCODE_START(6, 4, bl);
   encode(seq, bl);
@@ -137,6 +143,9 @@ void sr_t::encode(bufferlist& bl) const
   encode(flags, bl);
   ENCODE_FINISH(bl);
 }
+template void sr_t::encode<bufferlist&>(bufferlist& bl) const;
+template void sr_t::encode<encode_size&>(encode_size& bl) const;
+template void sr_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void sr_t::decode(bufferlist::const_iterator& p)
 {

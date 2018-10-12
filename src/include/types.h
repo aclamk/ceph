@@ -343,7 +343,7 @@ struct client_t {
   // cppcheck-suppress noExplicitConstructor
   client_t(int64_t _v = -2) : v(_v) {}
   
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(v, bl);
   }
@@ -489,7 +489,7 @@ struct shard_id_t {
 
   const static shard_id_t NO_SHARD;
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     using ceph::encode;
     encode(id, bl);
   }
@@ -526,7 +526,7 @@ struct errorcode32_t {
   int operator<(int i)  { return code < i; }
   int operator<=(int i) { return code <= i; }
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     using ceph::encode;
     __s32 newcode = hostos_to_ceph_errno(code);
     encode(newcode, bl);

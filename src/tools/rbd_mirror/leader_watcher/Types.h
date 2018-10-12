@@ -47,7 +47,7 @@ struct HeartbeatPayload {
   HeartbeatPayload() {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -58,7 +58,7 @@ struct LockAcquiredPayload {
   LockAcquiredPayload() {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -69,7 +69,7 @@ struct LockReleasedPayload {
   LockReleasedPayload() {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -80,7 +80,7 @@ struct UnknownPayload {
   UnknownPayload() {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -96,7 +96,7 @@ struct NotifyMessage {
 
   Payload payload;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 

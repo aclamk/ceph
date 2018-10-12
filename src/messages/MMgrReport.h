@@ -36,7 +36,7 @@ public:
   uint8_t priority = PerfCountersBuilder::PRIO_USEFUL;
   enum unit_t unit;
 
-  void encode(bufferlist &bl) const
+  template <class TT> void encode(TT &bl) const
   {
     // TODO: decide whether to drop the per-type
     // encoding here, we could rely on the MgrReport

@@ -31,7 +31,7 @@ ostream& operator<<(ostream& out, const bluefs_extent_t& e)
 
 // bluefs_super_t
 
-void bluefs_super_t::encode(bufferlist& bl) const
+template <class TT> void bluefs_super_t::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(uuid, bl);
@@ -41,6 +41,9 @@ void bluefs_super_t::encode(bufferlist& bl) const
   encode(log_fnode, bl);
   ENCODE_FINISH(bl);
 }
+template void bluefs_super_t::encode<bufferlist&>(bufferlist& bl) const;
+template void bluefs_super_t::encode<encode_size&>(encode_size& bl) const;
+template void bluefs_super_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void bluefs_super_t::decode(bufferlist::const_iterator& p)
 {
@@ -135,7 +138,7 @@ ostream& operator<<(ostream& out, const bluefs_fnode_t& file)
 
 // bluefs_transaction_t
 
-void bluefs_transaction_t::encode(bufferlist& bl) const
+template <class TT> void bluefs_transaction_t::encode(TT& bl) const
 {
   uint32_t crc = op_bl.crc32c(-1);
   ENCODE_START(1, 1, bl);
@@ -151,6 +154,9 @@ void bluefs_transaction_t::encode(bufferlist& bl) const
   encode(crc, bl);
   ENCODE_FINISH(bl);
 }
+template void bluefs_transaction_t::encode<bufferlist&>(bufferlist& bl) const;
+template void bluefs_transaction_t::encode<encode_size&>(encode_size& bl) const;
+template void bluefs_transaction_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void bluefs_transaction_t::decode(bufferlist::const_iterator& p)
 {

@@ -942,7 +942,7 @@ struct rgw_slo_entry {
 
   rgw_slo_entry() : size_bytes(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(path, bl);
     encode(etag, bl);
@@ -975,7 +975,7 @@ struct RGWSLOInfo {
     free(raw_data);
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entries, bl);
     encode(total_size, bl);

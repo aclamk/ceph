@@ -29,7 +29,7 @@ struct inode_backpointer_t {
   inode_backpointer_t() : version(0) {}
   inode_backpointer_t(inodeno_t i, std::string_view d, version_t v) : dirino(i), dname(d), version(v) {}
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator &bl);
   void decode_old(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
@@ -59,7 +59,7 @@ struct inode_backtrace_t {
 
   inode_backtrace_t() : pool(-1) {}
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<inode_backtrace_t*>& ls);

@@ -22,7 +22,7 @@ struct cls_timeindex_entry {
 
   cls_timeindex_entry() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(key_ts, bl);
     encode(key_ext, bl);

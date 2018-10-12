@@ -34,7 +34,7 @@ struct ModeUpdatedPayload {
     : mirror_mode(mirror_mode) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -56,7 +56,7 @@ struct ImageUpdatedPayload {
       global_image_id(global_image_id) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -67,7 +67,7 @@ struct UnknownPayload {
   UnknownPayload() {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -82,7 +82,7 @@ struct NotifyMessage {
 
   Payload payload;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 

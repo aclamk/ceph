@@ -67,7 +67,7 @@ public:
     Release(const ceph_mds_request_release& rel, string name) :
       item(rel), dname(name) {}
 
-    void encode(bufferlist& bl) const {
+    template <class TT> void encode(TT& bl) const {
       using ceph::encode;
       item.dname_len = dname.length();
       encode(item, bl);

@@ -26,7 +26,7 @@ public:
     fs_cluster_id_t cid;
     std::string name;
     fs_info_t() : cid(FS_CLUSTER_ID_NONE) {}
-    void encode(bufferlist& bl, uint64_t features) const;
+    template <class TT> void encode(TT& bl, uint64_t features) const;
     void decode(bufferlist::const_iterator &bl);
   };
 
@@ -47,7 +47,7 @@ public:
     return FS_CLUSTER_ID_NONE;
   }
 
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& bl);
 
   void print(ostream& out) const;

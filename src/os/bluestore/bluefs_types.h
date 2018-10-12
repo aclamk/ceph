@@ -131,7 +131,7 @@ struct bluefs_super_t {
     return ~((uint64_t)block_size - 1);
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& p);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<bluefs_super_t*>& ls);
@@ -233,7 +233,7 @@ struct bluefs_transaction_t {
     encode(next_seq, op_bl);
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& p);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<bluefs_transaction_t*>& ls);

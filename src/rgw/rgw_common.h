@@ -529,7 +529,7 @@ struct RGWAccessKey {
   RGWAccessKey(std::string _id, std::string _key)
     : id(std::move(_id)), key(std::move(_key)) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 2, bl);
     encode(id, bl);
     encode(key, bl);
@@ -559,7 +559,7 @@ struct RGWSubUser {
   uint32_t perm_mask;
 
   RGWSubUser() : perm_mask(0) {}
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 2, bl);
     encode(name, bl);
     encode(perm_mask, bl);
@@ -592,7 +592,7 @@ public:
   int add_from_string(const string& str);
   int remove_from_string(const string& str);
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
      ENCODE_START(1, 1, bl);
      encode(caps, bl);
      ENCODE_FINISH(bl);
@@ -662,7 +662,7 @@ struct RGWUserInfo
       return &(access_keys.begin()->second);
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
      ENCODE_START(20, 9, bl);
      encode((uint64_t)0, bl); // old auid
      string access_key;
@@ -826,7 +826,7 @@ struct rgw_pool {
     return ns.compare(p.ns);
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
      ENCODE_START(10, 10, bl);
     encode(name, bl);
     encode(ns, bl);
@@ -945,7 +945,7 @@ struct rgw_raw_obj {
     return oid.empty();
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
      ENCODE_START(6, 6, bl);
     encode(pool, bl);
     encode(oid, bl);
@@ -1031,7 +1031,7 @@ struct rgw_bucket {
     b->explicit_placement.index_pool = explicit_placement.index_pool.to_str();
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
      ENCODE_START(10, 10, bl);
     encode(name, bl);
     encode(marker, bl);
@@ -1258,7 +1258,7 @@ struct RGWBucketInfo {
   uint8_t reshard_status;
   string new_bucket_instance_id;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
      ENCODE_START(19, 4, bl);
      encode(bucket, bl);
      encode(owner.id, bl);
@@ -1388,7 +1388,7 @@ struct RGWBucketEntryPoint
 
   RGWBucketEntryPoint() : linked(false), has_bucket_info(false) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(10, 8, bl);
     encode(bucket, bl);
     encode(owner.id, bl);
@@ -1732,7 +1732,7 @@ struct rgw_obj_key {
     return true;
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(name, bl);
     encode(instance, bl);
@@ -1956,7 +1956,7 @@ struct RGWBucketEnt {
     b->count = count;
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(7, 5, bl);
     uint64_t s = size;
     __u32 mt = ceph::real_clock::to_time_t(creation_time);
@@ -2055,7 +2055,7 @@ struct rgw_obj {
     return in_extra_data;
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(6, 6, bl);
     encode(bucket, bl);
     encode(key.ns, bl);

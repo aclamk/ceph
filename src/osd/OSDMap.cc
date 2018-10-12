@@ -56,7 +56,7 @@ void osd_info_t::dump(Formatter *f) const
   f->dump_int("lost_at", lost_at);
 }
 
-void osd_info_t::encode(bufferlist& bl) const
+template <class TT> void osd_info_t::encode(TT& bl) const
 {
   using ceph::encode;
   __u8 struct_v = 1;
@@ -68,6 +68,9 @@ void osd_info_t::encode(bufferlist& bl) const
   encode(down_at, bl);
   encode(lost_at, bl);
 }
+template void osd_info_t::encode<bufferlist&>(bufferlist& bl) const;
+template void osd_info_t::encode<encode_size&>(encode_size& bl) const;
+template void osd_info_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void osd_info_t::decode(bufferlist::const_iterator& bl)
 {
@@ -117,7 +120,7 @@ void osd_xinfo_t::dump(Formatter *f) const
   f->dump_unsigned("old_weight", old_weight);
 }
 
-void osd_xinfo_t::encode(bufferlist& bl) const
+template <class TT> void osd_xinfo_t::encode(TT& bl) const
 {
   ENCODE_START(3, 1, bl);
   encode(down_stamp, bl);
@@ -128,6 +131,9 @@ void osd_xinfo_t::encode(bufferlist& bl) const
   encode(old_weight, bl);
   ENCODE_FINISH(bl);
 }
+template void osd_xinfo_t::encode<bufferlist&>(bufferlist& bl) const;
+template void osd_xinfo_t::encode<encode_size&>(encode_size& bl) const;
+template void osd_xinfo_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void osd_xinfo_t::decode(bufferlist::const_iterator& bl)
 {
@@ -493,7 +499,7 @@ static void encode_addrvec_pvec_as_addr(const T& m, bufferlist& bl, uint64_t f)
   }
 }
 
-void OSDMap::Incremental::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void OSDMap::Incremental::encode(TT& bl, uint64_t features) const
 {
   using ceph::encode;
   if ((features & CEPH_FEATURE_OSDMAP_ENC) == 0) {
@@ -641,6 +647,9 @@ void OSDMap::Incremental::encode(bufferlist& bl, uint64_t features) const
   crc_filler->copy_in(4u, (char*)&crc_le);
   have_crc = true;
 }
+template void OSDMap::Incremental::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void OSDMap::Incremental::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void OSDMap::Incremental::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void OSDMap::Incremental::decode_classic(bufferlist::const_iterator &p)
 {
@@ -2640,7 +2649,7 @@ void OSDMap::encode_classic(bufferlist& bl, uint64_t features) const
   encode(osd_addrs->hb_front_addrs, bl, features);
 }
 
-void OSDMap::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void OSDMap::encode(TT& bl, uint64_t features) const
 {
   using ceph::encode;
   if ((features & CEPH_FEATURE_OSDMAP_ENC) == 0) {
@@ -2827,6 +2836,9 @@ void OSDMap::encode(bufferlist& bl, uint64_t features) const
   crc_filler->copy_in(4, (char*)&crc_le);
   crc_defined = true;
 }
+template void OSDMap::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void OSDMap::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void OSDMap::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void OSDMap::decode(bufferlist& bl)
 {

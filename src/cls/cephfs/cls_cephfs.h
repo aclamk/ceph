@@ -36,7 +36,7 @@ class ObjCeiling {
       return id > rhs.id;
     }
 
-    void encode(bufferlist &bl) const
+    template <class TT> void encode(TT &bl) const
     {
       ENCODE_START(1, 1, bl);
       encode(id, bl);
@@ -83,7 +83,7 @@ public:
     : obj_index(0), obj_size(0), mtime(0)
   {}
 
-  void encode(bufferlist &bl) const
+  template <class TT> void encode(TT &bl) const
   {
     ENCODE_START(1, 1, bl);
     encode(obj_xattr_name, bl);
@@ -113,7 +113,7 @@ class InodeTagFilterArgs
   public:
     std::string scrub_tag;
 
-  void encode(bufferlist &bl) const
+  template <class TT> void encode(TT &bl) const
   {
     ENCODE_START(1, 1, bl);
     encode(scrub_tag, bl);

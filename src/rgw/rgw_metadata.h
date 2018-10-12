@@ -262,7 +262,7 @@ struct RGWMetadataLogData {
   
   RGWMetadataLogData() : status(MDLOG_STATUS_UNKNOWN) {}
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   void decode_json(JSONObj *obj);
@@ -273,7 +273,7 @@ struct RGWMetadataLogHistory {
   epoch_t oldest_realm_epoch;
   std::string oldest_period_id;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(oldest_realm_epoch, bl);
     encode(oldest_period_id, bl);

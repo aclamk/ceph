@@ -57,7 +57,7 @@ struct Mapping {
   explicit Mapping(const pair<snapid_t, hobject_t> &in)
     : snap(in.first), hoid(in.second) {}
   Mapping() : snap(0) {}
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(snap, bl);
     encode(hoid, bl);
@@ -118,13 +118,16 @@ string SnapMapper::to_object_key(const hobject_t &hoid)
   return OBJECT_PREFIX + shard_prefix + hoid.to_str();
 }
 
-void SnapMapper::object_snaps::encode(bufferlist &bl) const
+template <class TT> void SnapMapper::object_snaps::encode(TT &bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(oid, bl);
   encode(snaps, bl);
   ENCODE_FINISH(bl);
 }
+template void SnapMapper::object_snaps::encode<bufferlist&>(bufferlist &bl) const;
+template void SnapMapper::object_snaps::encode<encode_size&>(encode_size &bl) const;
+template void SnapMapper::object_snaps::encode<encode_helper&>(encode_helper &bl) const;
 
 void SnapMapper::object_snaps::decode(bufferlist::const_iterator &bl)
 {

@@ -60,7 +60,7 @@ public:
   uint32_t get_max_age() { return max_age; }
   uint8_t get_allowed_methods() { return allowed_methods; }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(max_age, bl);
     encode(allowed_methods, bl);
@@ -98,7 +98,7 @@ class RGWCORSConfiguration
     RGWCORSConfiguration() {}
     ~RGWCORSConfiguration() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(rules, bl);
     ENCODE_FINISH(bl);

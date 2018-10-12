@@ -39,7 +39,7 @@ public:
   Anchor(inodeno_t i, inodeno_t di, std::string_view str, __u8 tp) :
     ino(i), dirino(di), d_name(str), d_type(tp) {}
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<Anchor*>& ls);

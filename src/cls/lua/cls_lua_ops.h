@@ -10,7 +10,7 @@ struct cls_lua_eval_op {
   std::string handler;
   bufferlist input;
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(script, bl);
     encode(handler, bl);

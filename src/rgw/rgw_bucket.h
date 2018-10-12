@@ -112,7 +112,7 @@ public:
 
   RGWUserBuckets& operator=(const RGWUserBuckets&) = default;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(buckets, bl);
   }
@@ -350,7 +350,7 @@ struct rgw_data_change {
   string key;
   real_time timestamp;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     uint8_t t = (uint8_t)entity_type;
     encode(t, bl);
@@ -379,7 +379,7 @@ struct rgw_data_change_log_entry {
   real_time log_timestamp;
   rgw_data_change entry;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(log_id, bl);
     encode(log_timestamp, bl);

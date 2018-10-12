@@ -31,7 +31,7 @@ struct SnapInfo {
 
   mutable string long_name; ///< cached _$ino_$name
   
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<SnapInfo*>& ls);
@@ -58,7 +58,7 @@ struct snaplink_t {
   inodeno_t ino;
   snapid_t first;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<snaplink_t*>& ls);
@@ -94,7 +94,7 @@ struct sr_t {
       current_parent_since(1), flags(0)
   {}
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<sr_t*>& ls);

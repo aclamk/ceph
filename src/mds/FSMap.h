@@ -44,7 +44,7 @@ class health_check_map_t;
 class Filesystem
 {
 public:
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& p);
 
   void dump(Formatter *f) const;
@@ -468,7 +468,7 @@ public:
    */
   void sanity() const;
 
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& p);
   void decode(bufferlist& bl) {
     auto p = bl.cbegin();

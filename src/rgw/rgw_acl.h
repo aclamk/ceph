@@ -55,7 +55,7 @@ public:
   uint32_t get_permissions() const { return flags; }
   void set_permissions(uint32_t perm) { flags = perm; }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 2, bl);
     encode(flags, bl);
     ENCODE_FINISH(bl);
@@ -81,7 +81,7 @@ public:
   ACLGranteeTypeEnum get_type() const { return (ACLGranteeTypeEnum)type; }
   void set(ACLGranteeTypeEnum t) { type = t; }
 //  virtual void set(const char *s) = 0;
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 2, bl);
     encode(type, bl);
     ENCODE_FINISH(bl);
@@ -141,7 +141,7 @@ public:
   ACLGroupTypeEnum get_group() const { return group; }
   const string& get_referer() const { return url_spec; }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(5, 3, bl);
     encode(type, bl);
     string s;
@@ -240,7 +240,7 @@ struct ACLReferer {
     return false;
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(url_spec, bl);
     encode(perm, bl);
@@ -309,7 +309,7 @@ public:
   uint32_t get_referer_perm(uint32_t current_perm,
                             std::string http_referer,
                             uint32_t perm_mask);
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(4, 3, bl);
     bool maps_initialized = true;
     encode(maps_initialized, bl);
@@ -368,7 +368,7 @@ public:
   ACLOwner() {}
   ~ACLOwner() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(3, 2, bl);
     string s;
     id.to_str(s);
@@ -422,7 +422,7 @@ public:
                          uint32_t perm,
                          const char * http_referer = nullptr);
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 2, bl);
     encode(owner, bl);
     encode(acl, bl);

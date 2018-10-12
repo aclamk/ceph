@@ -24,7 +24,7 @@ struct cls_rbd_parent {
 
   cls_rbd_parent() : pool(-1), snapid(CEPH_NOSNAP), overlap(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(pool, bl);
     encode(id, bl);
@@ -75,7 +75,7 @@ struct cls_rbd_snap {
     return parent.exists();
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(7, 1, bl);
     encode(id, bl);
     encode(name, bl);

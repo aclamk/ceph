@@ -33,7 +33,7 @@ public:
 
     // We do not include the module's `failed` field in the beacon,
     // because it is exposed via health checks.
-    void encode(bufferlist &bl) const {
+    template <class TT> void encode(TT &bl) const {
       ENCODE_START(1, 1, bl);
       encode(name, bl);
       encode(can_run, bl);
@@ -79,7 +79,7 @@ public:
       : gid(0)
     {}
 
-    void encode(bufferlist& bl) const
+    template <class TT> void encode(TT& bl) const
     {
       ENCODE_START(3, 1, bl);
       encode(gid, bl);
@@ -236,7 +236,7 @@ public:
     return ls;
   }
 
-  void encode(bufferlist& bl, uint64_t features) const
+  template <class TT> void encode(TT& bl, uint64_t features) const
   {
     if (!HAVE_FEATURE(features, SERVER_NAUTILUS)) {
       ENCODE_START(5, 1, bl);

@@ -18,12 +18,15 @@
 
 // cnode_t
 
-void kstore_cnode_t::encode(bufferlist& bl) const
+template <class TT> void kstore_cnode_t::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(bits, bl);
   ENCODE_FINISH(bl);
 }
+template void kstore_cnode_t::encode<bufferlist&>(bufferlist& bl) const;
+template void kstore_cnode_t::encode<encode_size&>(encode_size& bl) const;
+template void kstore_cnode_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void kstore_cnode_t::decode(bufferlist::const_iterator& p)
 {
@@ -47,7 +50,7 @@ void kstore_cnode_t::generate_test_instances(list<kstore_cnode_t*>& o)
 
 // kstore_onode_t
 
-void kstore_onode_t::encode(bufferlist& bl) const
+template <class TT> void kstore_onode_t::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(nid, bl);
@@ -60,6 +63,9 @@ void kstore_onode_t::encode(bufferlist& bl) const
   encode(alloc_hint_flags, bl);
   ENCODE_FINISH(bl);
 }
+template void kstore_onode_t::encode<bufferlist&>(bufferlist& bl) const;
+template void kstore_onode_t::encode<encode_size&>(encode_size& bl) const;
+template void kstore_onode_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void kstore_onode_t::decode(bufferlist::const_iterator& p)
 {

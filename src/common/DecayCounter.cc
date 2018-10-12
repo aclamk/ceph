@@ -17,13 +17,16 @@
 
 #include "include/encoding.h"
 
-void DecayCounter::encode(bufferlist& bl) const
+template <class TT> void DecayCounter::encode(TT& bl) const
 {
   decay();
   ENCODE_START(5, 4, bl);
   encode(val, bl);
   ENCODE_FINISH(bl);
 }
+template void DecayCounter::encode<bufferlist&>(bufferlist& bl) const;
+template void DecayCounter::encode<encode_size&>(encode_size& bl) const;
+template void DecayCounter::encode<encode_helper&>(encode_helper& bl) const;
 
 void DecayCounter::decode(bufferlist::const_iterator &p)
 {

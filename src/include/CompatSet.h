@@ -77,7 +77,7 @@ struct CompatSet {
       remove(f.id);
     }
 
-    void encode(bufferlist& bl) const {
+    template <class TT> void encode(TT& bl) const {
       using ceph::encode;
       /* See below, mask always has the lowest bit set in memory, but
        * unset in the encoding */
@@ -222,7 +222,7 @@ struct CompatSet {
     return true;
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     compat.encode(bl);
     ro_compat.encode(bl);
     incompat.encode(bl);

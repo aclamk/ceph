@@ -51,7 +51,7 @@ struct Page {
       return lhs.offset < rhs.offset;
     }
   };
-  void encode(bufferlist &bl, size_t page_size) const {
+  template <class TT> void encode(TT &bl, size_t page_size) const {
     using ceph::encode;
     bl.append(buffer::copy(data, page_size));
     encode(offset, bl);
@@ -206,7 +206,7 @@ class PageSet {
     free_pages(cur, pages.end());
   }
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     using ceph::encode;
     encode(page_size, bl);
     unsigned count = pages.size();

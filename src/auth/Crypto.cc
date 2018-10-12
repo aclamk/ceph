@@ -411,7 +411,7 @@ CryptoKeyHandler *CryptoAES::get_key_handler(const bufferptr& secret,
 // ---------------------------------------------------
 
 
-void CryptoKey::encode(bufferlist& bl) const
+template <class TT> void CryptoKey::encode(TT& bl) const
 {
   using ceph::encode;
   encode(type, bl);
@@ -420,6 +420,9 @@ void CryptoKey::encode(bufferlist& bl) const
   encode(len, bl);
   bl.append(secret);
 }
+template void CryptoKey::encode<bufferlist&>(bufferlist& bl) const;
+template void CryptoKey::encode<encode_size&>(encode_size& bl) const;
+template void CryptoKey::encode<encode_helper&>(encode_helper& bl) const;
 
 void CryptoKey::decode(bufferlist::const_iterator& bl)
 {

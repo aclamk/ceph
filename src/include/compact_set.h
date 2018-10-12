@@ -258,7 +258,7 @@ public:
       return const_iterator(this);
     return const_iterator(this, set->upper_bound(t));
   }
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     using ceph::encode;
     if (set)
       encode(*set, bl);

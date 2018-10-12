@@ -241,7 +241,7 @@ bool entity_addrvec_t::parse(const char *s, const char **end)
   return !v.empty();
 }
 
-void entity_addrvec_t::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void entity_addrvec_t::encode(TT& bl, uint64_t features) const
 {
   using ceph::encode;
   if ((features & CEPH_FEATURE_MSG_ADDR2) == 0) {
@@ -252,6 +252,9 @@ void entity_addrvec_t::encode(bufferlist& bl, uint64_t features) const
   encode((__u8)2, bl);
   encode(v, bl, features);
 }
+template void entity_addrvec_t::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void entity_addrvec_t::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void entity_addrvec_t::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void entity_addrvec_t::decode(bufferlist::const_iterator& bl)
 {

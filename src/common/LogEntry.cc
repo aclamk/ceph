@@ -190,7 +190,7 @@ void LogEntry::log_to_syslog(string level, string facility)
   }
 }
 
-void LogEntry::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void LogEntry::encode(TT& bl, uint64_t features) const
 {
   if (!HAVE_FEATURE(features, SERVER_NAUTILUS)) {
     ENCODE_START(4, 2, bl);
@@ -220,6 +220,9 @@ void LogEntry::encode(bufferlist& bl, uint64_t features) const
   encode(channel, bl);
   ENCODE_FINISH(bl);
 }
+template void LogEntry::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void LogEntry::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void LogEntry::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void LogEntry::decode(bufferlist::const_iterator& bl)
 {
@@ -311,7 +314,7 @@ void LogSummary::build_ordered_tail(list<LogEntry> *tail) const
   }
 }
 
-void LogSummary::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void LogSummary::encode(TT& bl, uint64_t features) const
 {
   if (!HAVE_FEATURE(features, SERVER_MIMIC)) {
     ENCODE_START(2, 2, bl);
@@ -328,6 +331,9 @@ void LogSummary::encode(bufferlist& bl, uint64_t features) const
   encode(tail_by_channel, bl, features);
   ENCODE_FINISH(bl);
 }
+template void LogSummary::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void LogSummary::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void LogSummary::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void LogSummary::decode(bufferlist::const_iterator& bl)
 {

@@ -35,7 +35,7 @@ struct ImageAddedPayload {
     : image_id(image_id), trash_image_spec(trash_image_spec) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -51,7 +51,7 @@ struct ImageRemovedPayload {
     : image_id(image_id) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -62,7 +62,7 @@ struct UnknownPayload {
   UnknownPayload() {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -77,7 +77,7 @@ struct NotifyMessage {
 
   Payload payload;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 

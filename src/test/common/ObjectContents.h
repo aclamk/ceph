@@ -110,7 +110,7 @@ public:
     out << "_exists is " << _exists << std::endl;
   }
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     using ceph::encode;
     encode(_size, bl);
     encode(seeds, bl);

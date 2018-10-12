@@ -94,7 +94,7 @@ struct FeatureMap {
     return *this;
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(m, bl);
     ENCODE_FINISH(bl);
@@ -156,7 +156,7 @@ struct LevelDBStoreStats {
     f->dump_stream("last_updated") << last_update;
   }
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(bytes_total, bl);
     encode(bytes_sst, bl);
@@ -208,7 +208,7 @@ struct DataStats {
     f->close_section();
   }
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(3, 1, bl);
     encode(fs_stats.byte_total, bl);
     encode(fs_stats.byte_used, bl);
@@ -252,7 +252,7 @@ struct ScrubResult {
     return prefix_crc != other.prefix_crc || prefix_keys != other.prefix_keys;
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(prefix_crc, bl);
     encode(prefix_keys, bl);
@@ -474,7 +474,7 @@ public:
     f->close_section();
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(HEAD_VERSION, COMPAT_VERSION, bl);
     encode(features, bl);
     ENCODE_FINISH(bl);

@@ -139,13 +139,16 @@ void SloppyCRCMap::clone_range(uint64_t offset, uint64_t len,
   }
 }
 
-void SloppyCRCMap::encode(bufferlist& bl) const
+template <class TT> void SloppyCRCMap::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(block_size, bl);
   encode(crc_map, bl);
   ENCODE_FINISH(bl);
 }
+template void SloppyCRCMap::encode<bufferlist&>(bufferlist& bl) const;
+template void SloppyCRCMap::encode<encode_size&>(encode_size& bl) const;
+template void SloppyCRCMap::encode<encode_helper&>(encode_helper& bl) const;
 
 void SloppyCRCMap::decode(bufferlist::const_iterator& bl)
 {

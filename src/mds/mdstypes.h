@@ -205,7 +205,7 @@ struct frag_info_t : public scatter_info_t {
 	nsubdirs == o.nsubdirs;
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<frag_info_t*>& ls);
@@ -268,7 +268,7 @@ struct nest_info_t : public scatter_info_t {
         rsnaps == o.rsnaps;
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<nest_info_t*>& ls);
@@ -291,7 +291,7 @@ struct vinodeno_t {
   vinodeno_t() {}
   vinodeno_t(inodeno_t i, snapid_t s) : ino(i), snapid(s) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(ino, bl);
     encode(snapid, bl);
@@ -323,7 +323,7 @@ struct quota_info_t
  
   quota_info_t() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(max_bytes, bl);
     encode(max_files, bl);
@@ -391,7 +391,7 @@ struct client_writeable_range_t {
 
   client_writeable_range_t() {}
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(std::list<client_writeable_range_t*>& ls);
@@ -449,7 +449,7 @@ public:
   bool operator!=(const inline_data_t& o) const {
     return !(*this == o);
   }
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator& bl);
 };
 WRITE_CLASS_ENCODER(inline_data_t)
@@ -610,7 +610,7 @@ struct inode_t {
     old_pools.insert(l);
   }
 
-  void encode(bufferlist &bl, uint64_t features) const;
+  template <class TT> void encode(TT &bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(std::list<inode_t*>& ls);
@@ -633,7 +633,7 @@ private:
 
 // These methods may be moved back to mdstypes.cc when we have pmr
 template<template<typename> class Allocator>
-void inode_t<Allocator>::encode(bufferlist &bl, uint64_t features) const
+template <class TT> void inode_t<Allocator>::encode(TT &bl, uint64_t features) const
 {
   ENCODE_START(15, 6, bl);
 
@@ -951,7 +951,7 @@ struct old_inode_t {
   inode_t<Allocator> inode;
   xattr_map<Allocator> xattrs;
 
-  void encode(bufferlist &bl, uint64_t features) const;
+  template <class TT> void encode(TT &bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(std::list<old_inode_t*>& ls);
@@ -959,7 +959,7 @@ struct old_inode_t {
 
 // These methods may be moved back to mdstypes.cc when we have pmr
 template<template<typename> class Allocator>
-void old_inode_t<Allocator>::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void old_inode_t<Allocator>::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(2, 2, bl);
   encode(first, bl);
@@ -1035,7 +1035,7 @@ struct fnode_t {
   version_t localized_scrub_version = 0;
   utime_t localized_scrub_stamp;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<fnode_t*>& ls);
@@ -1048,7 +1048,7 @@ struct old_rstat_t {
   snapid_t first;
   nest_info_t rstat, accounted_rstat;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& p);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<old_rstat_t*>& ls);
@@ -1095,7 +1095,7 @@ public:
     _vec.clear();
   }
   feature_bitset_t& operator-=(const feature_bitset_t& other);
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator &p);
   void print(ostream& out) const;
 private:
@@ -1147,7 +1147,7 @@ struct client_metadata_t {
     features.clear();
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& p);
   void dump(Formatter *f) const;
 };
@@ -1177,7 +1177,7 @@ struct session_info_t {
     client_metadata.clear();
   }
 
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& p);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<session_info_t*>& ls);
@@ -1200,7 +1200,7 @@ struct dentry_key_t {
 
   // encode into something that can be decoded as a string.
   // name_ (head) or name_%x (!head)
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     string key;
     encode(key);
     using ceph::encode;
@@ -1270,7 +1270,7 @@ struct string_snap_t {
   string_snap_t(std::string_view n, snapid_t s) : name(n), snapid(s) {}
   string_snap_t(const char *n, snapid_t s) : name(n), snapid(s) {}
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& p);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<string_snap_t*>& ls);
@@ -1298,7 +1298,7 @@ struct mds_table_pending_t {
   __s32 mds = 0;
   version_t tid = 0;
   mds_table_pending_t() {}
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<mds_table_pending_t*>& ls);
@@ -1314,7 +1314,7 @@ struct metareqid_t {
   uint64_t tid = 0;
   metareqid_t() {}
   metareqid_t(entity_name_t n, ceph_tid_t t) : name(n), tid(t) {}
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(name, bl);
     encode(tid, bl);
@@ -1381,7 +1381,7 @@ struct cap_reconnect_t {
     snap_follows = sf;
     flockbl.claim(lb);
   }
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   void encode_old(bufferlist& bl) const;
   void decode_old(bufferlist::const_iterator& bl);
@@ -1428,7 +1428,7 @@ struct old_cap_reconnect_t {
     return n;
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(path, bl);
     encode(capinfo, bl);
@@ -1452,7 +1452,7 @@ struct dirfrag_t {
   dirfrag_t() {}
   dirfrag_t(inodeno_t i, frag_t f) : ino(i), frag(f) { }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(ino, bl);
     encode(frag, bl);
@@ -1518,7 +1518,7 @@ public:
       d.reset();
     }
   }
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator& p);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<inode_load_vec_t*>& ls);
@@ -1551,7 +1551,7 @@ public:
       vec{DecayCounter(rate), DecayCounter(rate), DecayCounter(rate), DecayCounter(rate), DecayCounter(rate)}
   {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(2, 2, bl);
     for (const auto &i : vec) {
       encode(i, bl);
@@ -1655,7 +1655,7 @@ struct mds_load_t {
   double cpu_load_avg = 0.0;
 
   double mds_load() const;  // defiend in MDBalancer.cc
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(std::list<mds_load_t*>& ls);
@@ -1736,7 +1736,7 @@ public:
 
   MDSCacheObjectInfo() {}
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<MDSCacheObjectInfo*>& ls);

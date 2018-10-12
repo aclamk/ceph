@@ -53,7 +53,7 @@ public:
    : pad_size(0), action(NONE), ino(0), size(0)
   {}
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &p);
 
   static Action str_to_type(std::string_view str) {

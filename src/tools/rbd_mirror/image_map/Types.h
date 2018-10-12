@@ -70,7 +70,7 @@ struct PolicyMetaNone {
   PolicyMetaNone() {
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
   }
 
   void decode(__u8 version, bufferlist::const_iterator& it) {
@@ -86,7 +86,7 @@ struct PolicyMetaUnknown {
   PolicyMetaUnknown() {
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ceph_abort();
   }
 
@@ -112,7 +112,7 @@ struct PolicyData {
 
   PolicyMetaType get_policy_meta_type() const;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 

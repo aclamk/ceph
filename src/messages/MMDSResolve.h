@@ -30,7 +30,7 @@ public:
     bufferlist inode_caps;
     bool committing;
     slave_request() : committing(false) {}
-    void encode(bufferlist &bl) const {
+    template <class TT> void encode(TT &bl) const {
       using ceph::encode;
       encode(inode_caps, bl);
       encode(committing, bl);
@@ -53,7 +53,7 @@ public:
     table_client(int _type, const set<version_t>& commits)
       : type(_type), pending_commits(commits) {}
 
-    void encode(bufferlist& bl) const {
+    template <class TT> void encode(TT& bl) const {
       using ceph::encode;
       encode(type, bl);
       encode(pending_commits, bl);

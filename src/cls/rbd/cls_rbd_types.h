@@ -86,7 +86,7 @@ struct MirrorPeer {
     return (!uuid.empty() && !cluster_name.empty() && !client_name.empty());
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &it);
   void dump(Formatter *f) const;
 
@@ -114,7 +114,7 @@ struct MirrorImage {
   std::string global_image_id;
   MirrorImageState state = MIRROR_IMAGE_STATE_DISABLING;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &it);
   void dump(Formatter *f) const;
 
@@ -165,7 +165,7 @@ struct MirrorImageStatus {
   utime_t last_update;
   bool up = false;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &it);
   void dump(Formatter *f) const;
 
@@ -190,7 +190,7 @@ struct ChildImageSpec {
     : pool_id(pool_id), image_id(image_id) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &it);
   void dump(Formatter *f) const;
 
@@ -222,7 +222,7 @@ struct GroupImageSpec {
   std::string image_id;
   int64_t pool_id = -1;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &it);
   void dump(Formatter *f) const;
 
@@ -247,7 +247,7 @@ struct GroupImageStatus {
   GroupImageSpec spec;
   GroupImageLinkState state = GROUP_IMAGE_LINK_STATE_INCOMPLETE;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &it);
   void dump(Formatter *f) const;
 
@@ -266,7 +266,7 @@ struct GroupSpec {
   std::string group_id;
   int64_t pool_id = -1;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &it);
   void dump(Formatter *f) const;
   bool is_valid() const;
@@ -288,7 +288,7 @@ struct UserSnapshotNamespace {
 
   UserSnapshotNamespace() {}
 
-  void encode(bufferlist& bl) const {}
+  template <class TT> void encode(TT& bl) const {}
   void decode(bufferlist::const_iterator& it) {}
 
   void dump(Formatter *f) const {}
@@ -318,7 +318,7 @@ struct GroupSnapshotNamespace {
   int64_t group_pool = 0;
   string group_snapshot_id;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
 
   void dump(Formatter *f) const;
@@ -355,7 +355,7 @@ struct TrashSnapshotNamespace {
     : original_name(original_name),
       original_snapshot_namespace_type(original_snapshot_namespace_type) {}
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 
@@ -373,7 +373,7 @@ struct UnknownSnapshotNamespace {
 
   UnknownSnapshotNamespace() {}
 
-  void encode(bufferlist& bl) const {}
+  template <class TT> void encode(TT& bl) const {}
   void decode(bufferlist::const_iterator& it) {}
   void dump(Formatter *f) const {}
 
@@ -405,7 +405,7 @@ struct SnapshotNamespace : public SnapshotNamespaceVariant {
   SnapshotNamespace(T&& t) : SnapshotNamespaceVariant(std::forward<T>(t)) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 
@@ -442,7 +442,7 @@ struct SnapshotInfo {
       child_count(child_count) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 
@@ -481,7 +481,7 @@ struct ImageSnapshotSpec {
 					 image_id(_image_id),
 					 snap_id(_snap_id) {}
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
 
   void dump(Formatter *f) const;
@@ -504,7 +504,7 @@ struct GroupSnapshot {
 
   vector<ImageSnapshotSpec> snaps;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 
@@ -565,7 +565,7 @@ struct TrashImageSpec {
       deferment_end_time(deferment_end_time) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 
@@ -593,7 +593,7 @@ struct MirrorImageMap {
   utime_t mapped_time;
   bufferlist data;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &it);
   void dump(Formatter *f) const;
 
@@ -672,7 +672,7 @@ struct MigrationSpec {
       state_description(state_description) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 

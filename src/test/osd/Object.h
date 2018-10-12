@@ -44,7 +44,7 @@ public:
   bool operator!=(const ContDesc &rhs) {
     return !((*this) == rhs);
   }
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bp);
 };
 WRITE_CLASS_ENCODER(ContDesc)

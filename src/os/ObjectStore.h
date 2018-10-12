@@ -426,7 +426,7 @@ public:
       TransactionData(const TransactionData& other) = default;
       TransactionData& operator=(const TransactionData& other) = default;
 
-      void encode(bufferlist& bl) const {
+      template <class TT> void encode(TT& bl) const {
         bl.append((char*)this, sizeof(TransactionData));
       }
       void decode(bufferlist::const_iterator &bl) {
@@ -1418,7 +1418,7 @@ public:
       data.ops++;
     }
 
-    void encode(bufferlist& bl) const {
+    template <class TT> void encode(TT& bl) const {
       //layout: data_bl + op_bl + coll_index + object_index + data
       ENCODE_START(9, 9, bl);
       encode(data_bl, bl);

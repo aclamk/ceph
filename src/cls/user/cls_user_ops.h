@@ -13,7 +13,7 @@ struct cls_user_set_buckets_op {
 
   cls_user_set_buckets_op() : add(false) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entries, bl);
     encode(add, bl);
@@ -39,7 +39,7 @@ struct cls_user_remove_bucket_op {
 
   cls_user_remove_bucket_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(bucket, bl);
     ENCODE_FINISH(bl);
@@ -65,7 +65,7 @@ struct cls_user_list_buckets_op {
   cls_user_list_buckets_op()
     : max_entries(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(marker, bl);
     encode(max_entries, bl);
@@ -95,7 +95,7 @@ struct cls_user_list_buckets_ret {
 
   cls_user_list_buckets_ret() : truncated(false) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entries, bl);
     encode(marker, bl);
@@ -120,7 +120,7 @@ WRITE_CLASS_ENCODER(cls_user_list_buckets_ret)
 struct cls_user_get_header_op {
   cls_user_get_header_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     ENCODE_FINISH(bl);
   }
@@ -139,7 +139,7 @@ struct cls_user_reset_stats_op {
   real_time time;
   cls_user_reset_stats_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(time, bl);
     ENCODE_FINISH(bl);
@@ -161,7 +161,7 @@ struct cls_user_get_header_ret {
 
   cls_user_get_header_ret() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(header, bl);
     ENCODE_FINISH(bl);
@@ -183,7 +183,7 @@ struct cls_user_complete_stats_sync_op {
 
   cls_user_complete_stats_sync_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(time, bl);
     ENCODE_FINISH(bl);

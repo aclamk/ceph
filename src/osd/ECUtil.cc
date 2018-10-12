@@ -176,13 +176,16 @@ void ECUtil::HashInfo::append(uint64_t old_size,
   total_chunk_size += size_to_append;
 }
 
-void ECUtil::HashInfo::encode(bufferlist &bl) const
+template <class TT> void ECUtil::HashInfo::encode(TT &bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(total_chunk_size, bl);
   encode(cumulative_shard_hashes, bl);
   ENCODE_FINISH(bl);
 }
+template void ECUtil::HashInfo::encode<bufferlist&>(bufferlist &bl) const;
+template void ECUtil::HashInfo::encode<encode_size&>(encode_size &bl) const;
+template void ECUtil::HashInfo::encode<encode_helper&>(encode_helper &bl) const;
 
 void ECUtil::HashInfo::decode(bufferlist::const_iterator &bl)
 {

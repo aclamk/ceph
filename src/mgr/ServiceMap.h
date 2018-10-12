@@ -24,7 +24,7 @@ struct ServiceMap {
     utime_t start_stamp;       ///< timestamp daemon started/registered
     std::map<std::string,std::string> metadata;  ///< static metadata
 
-    void encode(bufferlist& bl, uint64_t features) const;
+    template <class TT> void encode(TT& bl, uint64_t features) const;
     void decode(bufferlist::const_iterator& p);
     void dump(Formatter *f) const;
     static void generate_test_instances(std::list<Daemon*>& ls);
@@ -34,7 +34,7 @@ struct ServiceMap {
     map<std::string,Daemon> daemons;
     std::string summary;   ///< summary status string for 'ceph -s'
 
-    void encode(bufferlist& bl, uint64_t features) const;
+    template <class TT> void encode(TT& bl, uint64_t features) const;
     void decode(bufferlist::const_iterator& p);
     void dump(Formatter *f) const;
     static void generate_test_instances(std::list<Service*>& ls);
@@ -70,7 +70,7 @@ struct ServiceMap {
   utime_t modified;
   map<std::string,Service> services;
 
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& p);
   void dump(Formatter *f) const;
   static void generate_test_instances(std::list<ServiceMap*>& ls);

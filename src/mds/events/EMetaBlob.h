@@ -101,7 +101,7 @@ public:
     ~fullbit() {}
     fullbit& operator=(const fullbit&) = delete;
 
-    void encode(bufferlist& bl, uint64_t features) const;
+    template <class TT> void encode(TT& bl, uint64_t features) const;
     void decode(bufferlist::const_iterator &bl);
     void dump(Formatter *f) const;
     static void generate_test_instances(list<EMetaBlob::fullbit*>& ls);
@@ -150,7 +150,7 @@ public:
     remotebit(): dnfirst(0), dnlast(0), dnv(0), ino(0),
 	d_type('\0'), dirty(false) {}
 
-    void encode(bufferlist& bl) const;
+    template <class TT> void encode(TT& bl) const;
     void decode(bufferlist::const_iterator &bl);
     void print(ostream& out) const {
       out << " remotebit dn " << dn << " [" << dnfirst << "," << dnlast << "] dnv " << dnv
@@ -176,7 +176,7 @@ public:
     explicit nullbit(bufferlist::const_iterator &p) { decode(p); }
     nullbit(): dnfirst(0), dnlast(0), dnv(0), dirty(false) {}
 
-    void encode(bufferlist& bl) const;
+    template <class TT> void encode(TT& bl) const;
     void decode(bufferlist::const_iterator &bl);
     void dump(Formatter *f) const;
     static void generate_test_instances(list<nullbit*>& ls);
@@ -293,7 +293,7 @@ public:
       dn_decoded = true;
     }
 
-    void encode(bufferlist& bl, uint64_t features) const;
+    template <class TT> void encode(TT& bl, uint64_t features) const;
     void decode(bufferlist::const_iterator &bl);
     void dump(Formatter *f) const;
     static void generate_test_instances(list<dirlump*>& ls);
@@ -333,7 +333,7 @@ private:
   vector<pair<metareqid_t,uint64_t> > client_flushes;
 
  public:
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& bl);
   void get_inodes(std::set<inodeno_t> &inodes) const;
   void get_paths(std::vector<std::string> &paths) const;

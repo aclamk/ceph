@@ -16,7 +16,7 @@
 
 #include "common/Formatter.h"
 
-void Anchor::encode(bufferlist &bl) const
+template <class TT> void Anchor::encode(TT &bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(ino, bl);
@@ -25,6 +25,9 @@ void Anchor::encode(bufferlist &bl) const
   encode(d_type, bl);
   ENCODE_FINISH(bl);
 }
+template void Anchor::encode<bufferlist&>(bufferlist &bl) const;
+template void Anchor::encode<encode_size&>(encode_size &bl) const;
+template void Anchor::encode<encode_helper&>(encode_helper &bl) const;
 
 void Anchor::decode(bufferlist::const_iterator &bl)
 {

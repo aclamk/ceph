@@ -77,7 +77,7 @@ struct ECSubWrite {
     updated_hit_set_history = other.updated_hit_set_history;
     backfill_or_async_recovery = other.backfill_or_async_recovery;
   }
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<ECSubWrite*>& o);
@@ -95,7 +95,7 @@ struct ECSubWriteReply {
   bool committed;
   bool applied;
   ECSubWriteReply() : tid(0), committed(false), applied(false) {}
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<ECSubWriteReply*>& o);
@@ -108,7 +108,7 @@ struct ECSubRead {
   map<hobject_t, list<boost::tuple<uint64_t, uint64_t, uint32_t> >> to_read;
   set<hobject_t> attrs_to_read;
   map<hobject_t, vector<pair<int, int>>> subchunks;
-  void encode(bufferlist &bl, uint64_t features) const;
+  template <class TT> void encode(TT &bl, uint64_t features) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<ECSubRead*>& o);
@@ -121,7 +121,7 @@ struct ECSubReadReply {
   map<hobject_t, list<pair<uint64_t, bufferlist> >> buffers_read;
   map<hobject_t, map<string, bufferlist>> attrs_read;
   map<hobject_t, int> errors;
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<ECSubReadReply*>& o);

@@ -121,7 +121,7 @@ namespace rgw {
       fh_hk.object = XXH64(_o.c_str(), _o.length(), seed);
     }
 
-    void encode(buffer::list& bl) const {
+    template <class TT> void encode(TT& bl) const {
       ENCODE_START(2, 1, bl);
       encode(fh_hk.bucket, bl);
       encode(fh_hk.object, bl);
@@ -617,7 +617,7 @@ namespace rgw {
       state.atime = ts;
     }
 
-    void encode(buffer::list& bl) const {
+    template <class TT> void encode(TT& bl) const {
       ENCODE_START(2, 1, bl);
       encode(uint32_t(fh.fh_type), bl);
       encode(state.dev, bl);

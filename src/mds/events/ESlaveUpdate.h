@@ -34,7 +34,7 @@ struct link_rollback {
 
   link_rollback() : ino(0), was_inc(false) {}
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<link_rollback*>& ls);
@@ -55,7 +55,7 @@ struct rmdir_rollback {
   string dest_dname;
   bufferlist snapbl;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<rmdir_rollback*>& ls);
@@ -74,7 +74,7 @@ struct rename_rollback {
     
     drec() : remote_d_type((char)S_IFREG) {}
 
-    void encode(bufferlist& bl) const;
+    template <class TT> void encode(TT& bl) const;
     void decode(bufferlist::const_iterator& bl);
     void dump(Formatter *f) const;
     static void generate_test_instances(list<drec*>& ls);
@@ -88,7 +88,7 @@ struct rename_rollback {
   bufferlist srci_snapbl;
   bufferlist desti_snapbl;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<rename_rollback*>& ls);

@@ -89,7 +89,7 @@ namespace rgw {
       JSONDecoder::decode_json(RGWToken::type_name, *this, &p);
     }
 
-    void encode(bufferlist& bl) const {
+    template <class TT> void encode(TT& bl) const {
       uint32_t ver = version();
       string typestr{from_type(type)};
       ENCODE_START(1, 1, bl);

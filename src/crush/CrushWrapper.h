@@ -1567,7 +1567,7 @@ public:
     return false;
   }
 
-  void encode(bufferlist &bl, uint64_t features) const;
+  template <class TT> void encode(TT &bl, uint64_t features) const;
   void decode(bufferlist::const_iterator &blp);
   void decode_crush_bucket(crush_bucket** bptr, bufferlist::const_iterator &blp);
   void dump(Formatter *f) const;

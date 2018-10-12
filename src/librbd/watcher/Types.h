@@ -23,7 +23,7 @@ struct ClientId {
   ClientId() : gid(0), handle(0) {}
   ClientId(uint64_t gid, uint64_t handle) : gid(gid), handle(handle) {}
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 
@@ -50,7 +50,7 @@ struct NotifyResponse {
   std::map<ClientId, bufferlist> acks;
   std::vector<ClientId> timeouts;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
 };
 

@@ -46,7 +46,7 @@ struct old_rgw_bucket {
   old_rgw_bucket(const char *t, const char *n, const char *dp, const char *ip, const char *m, const char *id, const char *h) :
     tenant(t), name(n), data_pool(dp), index_pool(ip), marker(m), bucket_id(id) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
      ENCODE_START(8, 3, bl);
     encode(name, bl);
     encode(data_pool, bl);
@@ -378,7 +378,7 @@ public:
     return in_extra_data;
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(5, 3, bl);
     encode(bucket.name, bl);
     encode(loc, bl);

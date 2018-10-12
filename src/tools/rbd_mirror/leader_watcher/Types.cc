@@ -59,8 +59,11 @@ private:
 
 } // anonymous namespace
 
-void HeartbeatPayload::encode(bufferlist &bl) const {
+template <class TT> void HeartbeatPayload::encode(TT &bl) const {
 }
+template void HeartbeatPayload::encode<bufferlist&>(bufferlist &bl) const;
+template void HeartbeatPayload::encode<encode_size&>(encode_size &bl) const;
+template void HeartbeatPayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void HeartbeatPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
 }
@@ -68,8 +71,11 @@ void HeartbeatPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
 void HeartbeatPayload::dump(Formatter *f) const {
 }
 
-void LockAcquiredPayload::encode(bufferlist &bl) const {
+template <class TT> void LockAcquiredPayload::encode(TT &bl) const {
 }
+template void LockAcquiredPayload::encode<bufferlist&>(bufferlist &bl) const;
+template void LockAcquiredPayload::encode<encode_size&>(encode_size &bl) const;
+template void LockAcquiredPayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void LockAcquiredPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
 }
@@ -77,8 +83,11 @@ void LockAcquiredPayload::decode(__u8 version, bufferlist::const_iterator &iter)
 void LockAcquiredPayload::dump(Formatter *f) const {
 }
 
-void LockReleasedPayload::encode(bufferlist &bl) const {
+template <class TT> void LockReleasedPayload::encode(TT &bl) const {
 }
+template void LockReleasedPayload::encode<bufferlist&>(bufferlist &bl) const;
+template void LockReleasedPayload::encode<encode_size&>(encode_size &bl) const;
+template void LockReleasedPayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void LockReleasedPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
 }
@@ -86,9 +95,12 @@ void LockReleasedPayload::decode(__u8 version, bufferlist::const_iterator &iter)
 void LockReleasedPayload::dump(Formatter *f) const {
 }
 
-void UnknownPayload::encode(bufferlist &bl) const {
+template <class TT> void UnknownPayload::encode(TT &bl) const {
   ceph_abort();
 }
+template void UnknownPayload::encode<bufferlist&>(bufferlist &bl) const;
+template void UnknownPayload::encode<encode_size&>(encode_size &bl) const;
+template void UnknownPayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void UnknownPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
 }
@@ -96,11 +108,14 @@ void UnknownPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
 void UnknownPayload::dump(Formatter *f) const {
 }
 
-void NotifyMessage::encode(bufferlist& bl) const {
+template <class TT> void NotifyMessage::encode(TT& bl) const {
   ENCODE_START(1, 1, bl);
   boost::apply_visitor(EncodePayloadVisitor(bl), payload);
   ENCODE_FINISH(bl);
 }
+template void NotifyMessage::encode<bufferlist&>(bufferlist& bl) const;
+template void NotifyMessage::encode<encode_size&>(encode_size& bl) const;
+template void NotifyMessage::encode<encode_helper&>(encode_helper& bl) const;
 
 void NotifyMessage::decode(bufferlist::const_iterator& iter) {
   DECODE_START(1, iter);

@@ -81,11 +81,14 @@ private:
 
 } // anonymous namespace
 
-void Dependency::encode(bufferlist &bl) const {
+template <class TT> void Dependency::encode(TT &bl) const {
   using ceph::encode;
   encode(id, bl);
   encode(time_delta, bl);
 }
+template void Dependency::encode<bufferlist&>(bufferlist &bl) const;
+template void Dependency::encode<encode_size&>(encode_size &bl) const;
+template void Dependency::encode<encode_helper&>(encode_helper &bl) const;
 
 void Dependency::decode(bufferlist::const_iterator &it) {
   decode(1, it);
@@ -111,12 +114,15 @@ void Dependency::generate_test_instances(std::list<Dependency *> &o) {
   o.push_back(new Dependency(1, 123456789));
 }
 
-void ActionBase::encode(bufferlist &bl) const {
+template <class TT> void ActionBase::encode(TT &bl) const {
   using ceph::encode;
   encode(id, bl);
   encode(thread_id, bl);
   encode(dependencies, bl);
 }
+template void ActionBase::encode<bufferlist&>(bufferlist &bl) const;
+template void ActionBase::encode<encode_size&>(encode_size &bl) const;
+template void ActionBase::encode<encode_helper&>(encode_helper &bl) const;
 
 void ActionBase::decode(__u8 version, bufferlist::const_iterator &it) {
   using ceph::decode;
@@ -158,11 +164,14 @@ void ActionBase::dump(Formatter *f) const {
   f->close_section();
 }
 
-void ImageActionBase::encode(bufferlist &bl) const {
+template <class TT> void ImageActionBase::encode(TT &bl) const {
   using ceph::encode;
   ActionBase::encode(bl);
   encode(imagectx_id, bl);
 }
+template void ImageActionBase::encode<bufferlist&>(bufferlist &bl) const;
+template void ImageActionBase::encode<encode_size&>(encode_size &bl) const;
+template void ImageActionBase::encode<encode_helper&>(encode_helper &bl) const;
 
 void ImageActionBase::decode(__u8 version, bufferlist::const_iterator &it) {
   using ceph::decode;
@@ -178,12 +187,15 @@ void ImageActionBase::dump(Formatter *f) const {
   f->dump_unsigned("imagectx_id", imagectx_id);
 }
 
-void IoActionBase::encode(bufferlist &bl) const {
+template <class TT> void IoActionBase::encode(TT &bl) const {
   using ceph::encode;
   ImageActionBase::encode(bl);
   encode(offset, bl);
   encode(length, bl);
 }
+template void IoActionBase::encode<bufferlist&>(bufferlist &bl) const;
+template void IoActionBase::encode<encode_size&>(encode_size &bl) const;
+template void IoActionBase::encode<encode_helper&>(encode_helper &bl) const;
 
 void IoActionBase::decode(__u8 version, bufferlist::const_iterator &it) {
   using ceph::decode;
@@ -202,13 +214,16 @@ void IoActionBase::dump(Formatter *f) const {
   f->dump_unsigned("length", length);
 }
 
-void OpenImageAction::encode(bufferlist &bl) const {
+template <class TT> void OpenImageAction::encode(TT &bl) const {
   using ceph::encode;
   ImageActionBase::encode(bl);
   encode(name, bl);
   encode(snap_name, bl);
   encode(read_only, bl);
 }
+template void OpenImageAction::encode<bufferlist&>(bufferlist &bl) const;
+template void OpenImageAction::encode<encode_size&>(encode_size &bl) const;
+template void OpenImageAction::encode<encode_helper&>(encode_helper &bl) const;
 
 void OpenImageAction::decode(__u8 version, bufferlist::const_iterator &it) {
   using ceph::decode;
@@ -230,13 +245,16 @@ void OpenImageAction::dump(Formatter *f) const {
   f->dump_bool("read_only", read_only);
 }
 
-void AioOpenImageAction::encode(bufferlist &bl) const {
+template <class TT> void AioOpenImageAction::encode(TT &bl) const {
   using ceph::encode;
   ImageActionBase::encode(bl);
   encode(name, bl);
   encode(snap_name, bl);
   encode(read_only, bl);
 }
+template void AioOpenImageAction::encode<bufferlist&>(bufferlist &bl) const;
+template void AioOpenImageAction::encode<encode_size&>(encode_size &bl) const;
+template void AioOpenImageAction::encode<encode_helper&>(encode_helper &bl) const;
 
 void AioOpenImageAction::decode(__u8 version, bufferlist::const_iterator &it) {
   using ceph::decode;
@@ -258,9 +276,12 @@ void AioOpenImageAction::dump(Formatter *f) const {
   f->dump_bool("read_only", read_only);
 }
 
-void UnknownAction::encode(bufferlist &bl) const {
+template <class TT> void UnknownAction::encode(TT &bl) const {
   ceph_abort();
 }
+template void UnknownAction::encode<bufferlist&>(bufferlist &bl) const;
+template void UnknownAction::encode<encode_size&>(encode_size &bl) const;
+template void UnknownAction::encode<encode_helper&>(encode_helper &bl) const;
 
 void UnknownAction::decode(__u8 version, bufferlist::const_iterator &it) {
 }
@@ -268,11 +289,14 @@ void UnknownAction::decode(__u8 version, bufferlist::const_iterator &it) {
 void UnknownAction::dump(Formatter *f) const {
 }
 
-void ActionEntry::encode(bufferlist &bl) const {
+template <class TT> void ActionEntry::encode(TT &bl) const {
   ENCODE_START(1, 1, bl);
   boost::apply_visitor(EncodeVisitor(bl), action);
   ENCODE_FINISH(bl);
 }
+template void ActionEntry::encode<bufferlist&>(bufferlist &bl) const;
+template void ActionEntry::encode<encode_size&>(encode_size &bl) const;
+template void ActionEntry::encode<encode_helper&>(encode_helper &bl) const;
 
 void ActionEntry::decode(bufferlist::const_iterator &it) {
   DECODE_START(1, it);

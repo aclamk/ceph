@@ -57,7 +57,7 @@ private:
     inode_strong(int n, int cw, int dl, int nl, int dftl) :
       nonce(n), caps_wanted(cw),
       filelock(dl), nestlock(nl), dftlock(dftl) { }
-    void encode(bufferlist &bl) const {
+    template <class TT> void encode(TT &bl) const {
       using ceph::encode;
       encode(nonce, bl);
       encode(caps_wanted, bl);
@@ -81,7 +81,7 @@ private:
     int8_t  dir_rep = 0;
     dirfrag_strong() {}
     dirfrag_strong(int n, int dr) : nonce(n), dir_rep(dr) {}
-    void encode(bufferlist &bl) const {
+    template <class TT> void encode(TT &bl) const {
       using ceph::encode;
       encode(nonce, bl);
       encode(dir_rep, bl);
@@ -108,7 +108,7 @@ private:
     bool is_primary() const { return ino > 0; }
     bool is_remote() const { return remote_ino > 0; }
     bool is_null() const { return ino == 0 && remote_ino == 0; }
-    void encode(bufferlist &bl) const {
+    template <class TT> void encode(TT &bl) const {
       using ceph::encode;
       encode(first, bl);
       encode(ino, bl);
@@ -134,7 +134,7 @@ private:
     inodeno_t ino;
     dn_weak() : ino(0) {}
     dn_weak(snapid_t f, inodeno_t pi) : first(f), ino(pi) {}
-    void encode(bufferlist &bl) const {
+    template <class TT> void encode(TT &bl) const {
       using ceph::encode;
       encode(first, bl);
       encode(ino, bl);
@@ -152,7 +152,7 @@ private:
 
   struct lock_bls {
     bufferlist file, nest, dft;
-    void encode(bufferlist& bl) const {
+    template <class TT> void encode(TT& bl) const {
       using ceph::encode;
       encode(file, bl);
       encode(nest, bl);
@@ -196,7 +196,7 @@ private:
     slave_reqid() : attempt(0) {}
     slave_reqid(const metareqid_t& r, __u32 a)
       : reqid(r), attempt(a) {}
-    void encode(bufferlist& bl) const {
+    template <class TT> void encode(TT& bl) const {
       using ceph::encode;
       encode(reqid, bl);
       encode(attempt, bl);

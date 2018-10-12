@@ -12,7 +12,7 @@ struct object_id_wrapper : public librados::object_id_t {
   explicit object_id_wrapper(const hobject_t& hoid)
     : object_id_t{hoid.oid.name, hoid.nspace, hoid.get_key(), hoid.snap}
   {}
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
 };
 
@@ -25,7 +25,7 @@ inline void decode(object_id_t& obj, bufferlist::const_iterator& bp) {
 }
 
 struct osd_shard_wrapper : public librados::osd_shard_t {
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bp);
 };
 
@@ -95,7 +95,7 @@ public:
   void clear_data_digest_mismatch_info() {
     errors &= ~err_t::DATA_DIGEST_MISMATCH_INFO;
   }
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bp);
 };
 
@@ -142,7 +142,7 @@ struct inconsistent_obj_wrapper : librados::inconsistent_obj_t {
 			int &shallow_errors, int &deep_errors,
 			const pg_shard_t &primary);
   void set_version(uint64_t ver) { version = ver; }
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bp);
 };
 
@@ -171,7 +171,7 @@ struct inconsistent_snapset_wrapper : public librados::inconsistent_snapset_t {
   void set_snapset_error();
   void set_size_mismatch();
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bp);
 };
 
@@ -189,7 +189,7 @@ struct scrub_ls_arg_t {
   uint32_t get_snapsets;
   librados::object_id_t start_after;
   uint64_t max_return;
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
 };
 
@@ -198,7 +198,7 @@ WRITE_CLASS_ENCODER(scrub_ls_arg_t);
 struct scrub_ls_result_t {
   epoch_t interval;
   std::vector<bufferlist> vals;
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
 };
 

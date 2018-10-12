@@ -200,7 +200,7 @@ public:
   void decode_footer(bufferlist::const_iterator& it);
   uint64_t get_footer_offset() const;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 
@@ -425,7 +425,7 @@ uint64_t BitVector<_b>::get_footer_offset() const {
 }
 
 template <uint8_t _b>
-void BitVector<_b>::encode(bufferlist& bl) const {
+template <class TT> void BitVector<_b>::encode(TT& bl) const {
   encode_header(bl);
   encode_data(bl, 0, m_data.length());
   encode_footer(bl);

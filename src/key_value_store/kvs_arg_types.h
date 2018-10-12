@@ -21,7 +21,7 @@ struct assert_size_args {
 		  //CEPH_OSD_CMPXATTR_OP_LT, or
 		  //CEPH_OSD_CMPXATTR_OP_GT
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1,1,bl);
     encode(bound, bl);
     encode(comparator, bl);
@@ -41,7 +41,7 @@ struct idata_from_key_args {
   index_data idata;
   index_data next_idata;
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1,1,bl);
     encode(key, bl);
     encode(idata, bl);
@@ -62,7 +62,7 @@ struct idata_from_idata_args {
   index_data idata;
   index_data next_idata;
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1,1,bl);
     encode(idata, bl);
     encode(next_idata, bl);
@@ -82,7 +82,7 @@ struct omap_set_args {
   uint64_t bound;
   bool exclusive;
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1,1,bl);
     encode(omap, bl);
     encode(bound, bl);
@@ -103,7 +103,7 @@ struct omap_rm_args {
   std::set<string> omap;
   uint64_t bound;
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1,1,bl);
     encode(omap, bl);
     encode(bound, bl);
@@ -123,7 +123,7 @@ struct rebalance_args {
   uint64_t bound;
   uint64_t comparator;
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1,1,bl);
     encode(odata, bl);
     encode(bound, bl);

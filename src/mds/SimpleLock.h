@@ -559,7 +559,7 @@ public:
   }
 
   // encode/decode
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 2, bl);
     encode(state, bl);
     if (have_more())

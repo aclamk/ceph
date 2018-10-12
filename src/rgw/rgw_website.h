@@ -28,7 +28,7 @@ struct RGWRedirectInfo
   std::string hostname;
   uint16_t http_redirect_code = 0;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(protocol, bl);
     encode(hostname, bl);
@@ -55,7 +55,7 @@ struct RGWBWRedirectInfo
   std::string replace_key_prefix_with;
   std::string replace_key_with;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(redirect, bl);
     encode(replace_key_prefix_with, bl);
@@ -82,7 +82,7 @@ struct RGWBWRoutingRuleCondition
   std::string key_prefix_equals;
   uint16_t http_error_code_returned_equals = 0;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(key_prefix_equals, bl);
     encode(http_error_code_returned_equals, bl);
@@ -112,7 +112,7 @@ struct RGWBWRoutingRule
   RGWBWRoutingRuleCondition condition;
   RGWBWRedirectInfo redirect_info;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(condition, bl);
     encode(redirect_info, bl);
@@ -149,7 +149,7 @@ struct RGWBWRoutingRules
 {
   std::list<RGWBWRoutingRule> rules;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(rules, bl);
     ENCODE_FINISH(bl);
@@ -186,7 +186,7 @@ struct RGWBucketWebsiteConf
     : listing_enabled(false) {
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(index_doc_suffix, bl);
     encode(error_doc, bl);

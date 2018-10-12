@@ -38,7 +38,7 @@ class JournalPointer {
   // The backup journal, if any (may be 0)
   inodeno_t back;
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(front, bl);
     encode(back, bl);

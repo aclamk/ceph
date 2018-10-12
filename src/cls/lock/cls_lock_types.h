@@ -43,7 +43,7 @@ namespace rados {
         locker_id_t() {}
         locker_id_t(entity_name_t& _n, const string& _c) : locker(_n), cookie(_c) {}
 
-        void encode(bufferlist &bl) const {
+        template <class TT> void encode(TT &bl) const {
           ENCODE_START(1, 1, bl);
           encode(locker, bl);
           encode(cookie, bl);
@@ -78,7 +78,7 @@ namespace rados {
         locker_info_t(const utime_t& _e, const entity_addr_t& _a,
                       const string& _d) :  expiration(_e), addr(_a), description(_d) {}
 
-        void encode(bufferlist &bl, uint64_t features) const {
+        template <class TT> void encode(TT &bl, uint64_t features) const {
           ENCODE_START(1, 1, bl);
           encode(expiration, bl);
           encode(addr, bl, features);
@@ -104,7 +104,7 @@ namespace rados {
                                                  //      as long as set of non expired lockers
                                                  //      is bigger than 0.
 
-        void encode(bufferlist &bl, uint64_t features) const {
+        template <class TT> void encode(TT &bl, uint64_t features) const {
           ENCODE_START(1, 1, bl);
           encode(lockers, bl, features);
           uint8_t t = (uint8_t)lock_type;

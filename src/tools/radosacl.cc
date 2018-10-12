@@ -38,7 +38,7 @@ void buf_to_hex(const unsigned char *buf, int len, char *str)
 struct ACLID {
   char id[ID_SIZE + 1];
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     bl.append((const char *)id, ID_SIZE);
   }
   void decode(bufferlist::const_iterator& iter) {
@@ -65,7 +65,7 @@ class ObjectACLs {
 
 public:
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(acls_map, bl);
   }

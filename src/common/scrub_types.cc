@@ -2,7 +2,7 @@
 
 using namespace librados;
 
-void object_id_wrapper::encode(bufferlist& bl) const
+template <class TT> void object_id_wrapper::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(name, bl);
@@ -11,6 +11,9 @@ void object_id_wrapper::encode(bufferlist& bl) const
   encode(snap, bl);
   ENCODE_FINISH(bl);
 }
+template void object_id_wrapper::encode<bufferlist&>(bufferlist& bl) const;
+template void object_id_wrapper::encode<encode_size&>(encode_size& bl) const;
+template void object_id_wrapper::encode<encode_helper&>(encode_helper& bl) const;
 
 void object_id_wrapper::decode(bufferlist::const_iterator& bp)
 {
@@ -29,13 +32,16 @@ static void encode(const object_id_t& obj, bufferlist& bl)
 }
 }
 
-void osd_shard_wrapper::encode(bufferlist& bl) const
+template <class TT> void osd_shard_wrapper::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(osd, bl);
   encode(shard, bl);
   ENCODE_FINISH(bl);
 }
+template void osd_shard_wrapper::encode<bufferlist&>(bufferlist& bl) const;
+template void osd_shard_wrapper::encode<encode_size&>(encode_size& bl) const;
+template void osd_shard_wrapper::encode<encode_helper&>(encode_helper& bl) const;
 
 void osd_shard_wrapper::decode(bufferlist::const_iterator& bp)
 {
@@ -69,7 +75,7 @@ void shard_info_wrapper::set_object(const ScrubMap::object& object)
   }
 }
 
-void shard_info_wrapper::encode(bufferlist& bl) const
+template <class TT> void shard_info_wrapper::encode(TT& bl) const
 {
   ENCODE_START(3, 3, bl);
   encode(errors, bl);
@@ -86,6 +92,9 @@ void shard_info_wrapper::encode(bufferlist& bl) const
   encode(selected_oi, bl);
   ENCODE_FINISH(bl);
 }
+template void shard_info_wrapper::encode<bufferlist&>(bufferlist& bl) const;
+template void shard_info_wrapper::encode<encode_size&>(encode_size& bl) const;
+template void shard_info_wrapper::encode<encode_helper&>(encode_helper& bl) const;
 
 void shard_info_wrapper::decode(bufferlist::const_iterator& bp)
 {
@@ -148,7 +157,7 @@ namespace librados {
   }
 }
 
-void inconsistent_obj_wrapper::encode(bufferlist& bl) const
+template <class TT> void inconsistent_obj_wrapper::encode(TT& bl) const
 {
   ENCODE_START(2, 2, bl);
   encode(errors, bl);
@@ -158,6 +167,9 @@ void inconsistent_obj_wrapper::encode(bufferlist& bl) const
   encode(union_shards.errors, bl);
   ENCODE_FINISH(bl);
 }
+template void inconsistent_obj_wrapper::encode<bufferlist&>(bufferlist& bl) const;
+template void inconsistent_obj_wrapper::encode<encode_size&>(encode_size& bl) const;
+template void inconsistent_obj_wrapper::encode<encode_helper&>(encode_helper& bl) const;
 
 void inconsistent_obj_wrapper::decode(bufferlist::const_iterator& bp)
 {
@@ -227,7 +239,7 @@ void inconsistent_snapset_wrapper::set_size_mismatch()
   errors |= inc_snapset_t::SIZE_MISMATCH;
 }
 
-void inconsistent_snapset_wrapper::encode(bufferlist& bl) const
+template <class TT> void inconsistent_snapset_wrapper::encode(TT& bl) const
 {
   ENCODE_START(2, 1, bl);
   encode(errors, bl);
@@ -237,6 +249,9 @@ void inconsistent_snapset_wrapper::encode(bufferlist& bl) const
   encode(ss_bl, bl);
   ENCODE_FINISH(bl);
 }
+template void inconsistent_snapset_wrapper::encode<bufferlist&>(bufferlist& bl) const;
+template void inconsistent_snapset_wrapper::encode<encode_size&>(encode_size& bl) const;
+template void inconsistent_snapset_wrapper::encode<encode_helper&>(encode_helper& bl) const;
 
 void inconsistent_snapset_wrapper::decode(bufferlist::const_iterator& bp)
 {
@@ -251,7 +266,7 @@ void inconsistent_snapset_wrapper::decode(bufferlist::const_iterator& bp)
   DECODE_FINISH(bp);
 }
 
-void scrub_ls_arg_t::encode(bufferlist& bl) const
+template <class TT> void scrub_ls_arg_t::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(interval, bl);
@@ -262,6 +277,9 @@ void scrub_ls_arg_t::encode(bufferlist& bl) const
   encode(max_return, bl);
   ENCODE_FINISH(bl);
 }
+template void scrub_ls_arg_t::encode<bufferlist&>(bufferlist& bl) const;
+template void scrub_ls_arg_t::encode<encode_size&>(encode_size& bl) const;
+template void scrub_ls_arg_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void scrub_ls_arg_t::decode(bufferlist::const_iterator& bp)
 {
@@ -275,13 +293,16 @@ void scrub_ls_arg_t::decode(bufferlist::const_iterator& bp)
   DECODE_FINISH(bp);
 }
 
-void scrub_ls_result_t::encode(bufferlist& bl) const
+template <class TT> void scrub_ls_result_t::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(interval, bl);
   encode(vals, bl);
   ENCODE_FINISH(bl);
 }
+template void scrub_ls_result_t::encode<bufferlist&>(bufferlist& bl) const;
+template void scrub_ls_result_t::encode<encode_size&>(encode_size& bl) const;
+template void scrub_ls_result_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void scrub_ls_result_t::decode(bufferlist::const_iterator& bp)
 {

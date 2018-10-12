@@ -182,7 +182,7 @@ TEST(denc, string)
 
 struct legacy_t {
   int32_t a = 1;
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(a, bl);
   }

@@ -75,7 +75,7 @@ struct osd_info_t {
 		 up_from(0), up_thru(0), down_at(0), lost_at(0) {}
 
   void dump(Formatter *f) const;
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   static void generate_test_instances(list<osd_info_t*>& o);
 };
@@ -94,7 +94,7 @@ struct osd_xinfo_t {
                   features(0), old_weight(0) {}
 
   void dump(Formatter *f) const;
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   static void generate_test_instances(list<osd_xinfo_t*>& o);
 };
@@ -109,7 +109,7 @@ struct PGTempMap {
   typedef btree::btree_map<pg_t,int32_t*> map_t;
   map_t map;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     uint32_t n = map.size();
     encode(n, bl);
@@ -257,7 +257,7 @@ struct PGTempMap {
   // trivial implementation
   mempool::osdmap::map<pg_t,mempool::osdmap::vector<int32_t> > pg_temp;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     encode(pg_temp, bl);
   }
   void decode(bufferlist::const_iterator& p) {
@@ -419,7 +419,7 @@ public:
 
     void encode_client_old(bufferlist& bl) const;
     void encode_classic(bufferlist& bl, uint64_t features) const;
-    void encode(bufferlist& bl, uint64_t features=CEPH_FEATURES_ALL) const;
+    template <class TT> void encode(TT& bl, uint64_t features=CEPH_FEATURES_ALL) const;
     void decode_classic(bufferlist::const_iterator &p);
     void decode(bufferlist::const_iterator &bl);
     void dump(Formatter *f) const;
@@ -1031,7 +1031,7 @@ private:
   void decode_classic(bufferlist::const_iterator& p);
   void post_decode();
 public:
-  void encode(bufferlist& bl, uint64_t features=CEPH_FEATURES_ALL) const;
+  template <class TT> void encode(TT& bl, uint64_t features=CEPH_FEATURES_ALL) const;
   void decode(bufferlist& bl);
   void decode(bufferlist::const_iterator& bl);
 

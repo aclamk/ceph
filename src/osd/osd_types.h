@@ -157,7 +157,7 @@ struct pg_shard_t {
     return osd == -1;
   }
   string get_osd() const { return (osd == NO_OSD ? "NONE" : to_string(osd)); }
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const {
     f->dump_unsigned("osd", osd);
@@ -261,7 +261,7 @@ struct object_locator_t {
     return pool == -1;
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& p);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<object_locator_t*>& o);
@@ -315,7 +315,7 @@ public:
       obj = redirect_object;
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<request_redirect_t*>& o);
@@ -352,7 +352,7 @@ typedef uint32_t ps_t;
 // old (v1) pg_t encoding (wrap old struct ceph_pg)
 struct old_pg_t {
   ceph_pg v;
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ::encode_raw(v, bl);
   }
   void decode(bufferlist::const_iterator& bl) {
@@ -437,7 +437,7 @@ struct pg_t {
   hobject_t get_hobj_start() const;
   hobject_t get_hobj_end(unsigned pg_num) const;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     __u8 v = 1;
     encode(v, bl);
@@ -569,7 +569,7 @@ struct spg_t {
     return ghobject_t::make_pgmeta(pgid.pool(), pgid.ps(), shard);
   }
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(pgid, bl);
     encode(shard, bl);
@@ -715,7 +715,7 @@ public:
     return false;
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   size_t encoded_size() const;
 
@@ -845,7 +845,7 @@ public:
     ritoa<uint32_t, 10, 10>(epoch, key + 10);
   }
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
 #if defined(CEPH_LITTLE_ENDIAN)
     bl.append((char *)this, sizeof(version_t) + sizeof(epoch_t));
 #else
@@ -919,7 +919,7 @@ struct objectstore_perf_stat_t {
     os_apply_latency_ns -= o.os_apply_latency_ns;
   }
   void dump(Formatter *f) const;
-  void encode(bufferlist &bl, uint64_t features) const;
+  template <class TT> void encode(TT &bl, uint64_t features) const;
   void decode(bufferlist::const_iterator &bl);
   static void generate_test_instances(std::list<objectstore_perf_stat_t*>& o);
 };
@@ -976,7 +976,7 @@ struct osd_stat_t {
   }
 
   void dump(Formatter *f) const;
-  void encode(bufferlist &bl, uint64_t features) const;
+  template <class TT> void encode(TT &bl, uint64_t features) const;
   void decode(bufferlist::const_iterator &bl);
   static void generate_test_instances(std::list<osd_stat_t*>& o);
 };
@@ -1065,7 +1065,7 @@ struct pool_snap_info_t {
   string name;
 
   void dump(Formatter *f) const;
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& bl);
   static void generate_test_instances(list<pool_snap_info_t*>& o);
 };
@@ -1151,7 +1151,7 @@ public:
   void dump(const std::string& name, Formatter *f) const;
 
   void dump(Formatter *f) const;
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
 
 private:
@@ -1718,7 +1718,7 @@ public:
   /// choose a random hash position within a pg
   uint32_t get_random_pg_position(pg_t pgid, uint32_t seed) const;
 
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& bl);
 
   static void generate_test_instances(list<pg_pool_t*>& o);
@@ -1972,7 +1972,7 @@ struct object_stat_sum_t {
       ,
       "object_stat_sum_t have padding");
   }
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   static void generate_test_instances(list<object_stat_sum_t*>& o);
 };
@@ -1996,7 +1996,7 @@ struct object_stat_collection_t {
   }
 
   void dump(Formatter *f) const;
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   static void generate_test_instances(list<object_stat_collection_t*>& o);
 
@@ -2173,7 +2173,7 @@ struct pg_stat_t {
   bool is_acting_osd(int32_t osd, bool primary) const;
   void dump(Formatter *f) const;
   void dump_brief(Formatter *f) const;
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   static void generate_test_instances(list<pg_stat_t*>& o);
 };
@@ -2230,7 +2230,7 @@ struct pool_stat_t {
   }
 
   void dump(Formatter *f) const;
-  void encode(bufferlist &bl, uint64_t features) const;
+  template <class TT> void encode(TT &bl, uint64_t features) const;
   void decode(bufferlist::const_iterator &bl);
   static void generate_test_instances(list<pool_stat_t*>& o);
 };
@@ -2262,7 +2262,7 @@ struct pg_hit_set_info_t {
   explicit pg_hit_set_info_t(bool using_gmt = true)
     : using_gmt(using_gmt) {}
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<pg_hit_set_info_t*>& o);
@@ -2286,7 +2286,7 @@ struct pg_hit_set_history_t {
       l.history == r.history;
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<pg_hit_set_history_t*>& o);
@@ -2422,7 +2422,7 @@ struct pg_history_t {
     return modified;
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& p);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<pg_history_t*>& o);
@@ -2516,7 +2516,7 @@ struct pg_info_t {
   bool has_missing() const { return last_complete != last_update; }
   bool is_incomplete() const { return !last_backfill.is_max(); }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& p);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<pg_info_t*>& o);
@@ -2640,7 +2640,7 @@ struct pg_fast_info_t {
     return true;
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(last_update, bl);
     encode(last_complete, bl);
@@ -2714,7 +2714,7 @@ struct pg_notify_t {
       info(info), to(to), from(from) {
     ceph_assert(from == info.pgid.shard);
   }
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &p);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<pg_notify_t*> &o);
@@ -2756,7 +2756,7 @@ public:
 	maybe_went_rw(maybe_went_rw), primary(primary), up_primary(up_primary)
       {}
 
-    void encode(bufferlist& bl) const;
+    template <class TT> void encode(TT& bl) const;
     void decode(bufferlist::const_iterator& bl);
     void dump(Formatter *f) const;
     static void generate_test_instances(list<pg_interval_t*>& o);
@@ -2809,7 +2809,7 @@ public:
     return past_intervals->add_interval(ec_pool, interval);
   }
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     if (past_intervals) {
       __u8 type = 2;
@@ -3238,7 +3238,7 @@ struct pg_query_t {
     ceph_assert(t == LOG);
   }
   
-  void encode(bufferlist &bl, uint64_t features) const;
+  template <class TT> void encode(TT &bl, uint64_t features) const;
   void decode(bufferlist::const_iterator &bl);
 
   void dump(Formatter *f) const;
@@ -3417,7 +3417,7 @@ public:
     if (bl.length() > 0)
       bl.rebuild();
   }
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<ObjectModDesc*>& o);
@@ -3548,7 +3548,7 @@ struct pg_log_entry_t {
   void encode_with_checksum(bufferlist& bl) const;
   void decode_with_checksum(bufferlist::const_iterator& p);
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<pg_log_entry_t*>& o);
@@ -3578,7 +3578,7 @@ struct pg_log_dup_t {
   {}
 
   string get_key_name() const;
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<pg_log_dup_t*>& o);
@@ -3807,7 +3807,7 @@ public:
 
   ostream& print(ostream& out) const;
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl, int64_t pool = -1);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<pg_log_t*>& o);
@@ -3840,7 +3840,7 @@ struct pg_missing_item {
     set_delete(is_delete);
   }
 
-  void encode(bufferlist& bl, uint64_t features) const {
+  template <class TT> void encode(TT& bl, uint64_t features) const {
     using ceph::encode;
     if (HAVE_FEATURE(features, OSD_RECOVERY_DELETES)) {
       // encoding a zeroed eversion_t to differentiate between this and
@@ -4138,7 +4138,7 @@ public:
     rmissing.clear();
   }
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(4, 2, bl);
     encode(missing, bl, may_include_deletes ? CEPH_FEATURE_OSD_RECOVERY_DELETES : 0);
     encode(may_include_deletes, bl);
@@ -4301,7 +4301,7 @@ struct pg_nls_response_t {
   collection_list_handle_t handle;
   list<librados::ListObjectImpl> entries;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(handle, bl);
     __u32 n = (__u32)entries.size();
@@ -4370,7 +4370,7 @@ struct pg_ls_response_t {
   collection_list_handle_t handle; 
   list<pair<object_t, string> > entries;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     __u8 v = 1;
     encode(v, bl);
@@ -4432,7 +4432,7 @@ struct object_copy_cursor_t {
   }
 
   static void generate_test_instances(list<object_copy_cursor_t*>& o);
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
 };
@@ -4486,7 +4486,7 @@ public:
     truncate_size(0) {}
 
   static void generate_test_instances(list<object_copy_data_t*>& o);
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
 };
@@ -4505,7 +4505,7 @@ struct pg_create_t {
   pg_create_t(unsigned c, pg_t p, int s)
     : created(c), parent(p), split_bits(s) {}
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<pg_create_t*>& o);
@@ -4582,7 +4582,7 @@ public:
     mounted(0), clean_thru(0) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<OSDSuperblock*>& o);
@@ -4632,7 +4632,7 @@ struct SnapSet {
   /// get space accounted to clone
   uint64_t get_clone_bytes(snapid_t clone) const;
     
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<SnapSet*>& o);  
@@ -4670,7 +4670,7 @@ struct watch_info_t {
   watch_info_t() : cookie(0), timeout_seconds(0) { }
   watch_info_t(uint64_t c, uint32_t t, const entity_addr_t& a) : cookie(c), timeout_seconds(t), addr(a) {}
 
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<watch_info_t*>& o);
@@ -4759,7 +4759,7 @@ struct chunk_info_t {
   bool has_fingerprint() const {
     return test_flag(FLAG_HAS_FINGERPRINT);
   }
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   friend ostream& operator<<(ostream& out, const chunk_info_t& ci);
@@ -4808,7 +4808,7 @@ struct object_manifest_t {
     chunk_map.clear();
   }
   static void generate_test_instances(list<object_manifest_t*>& o);
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   friend ostream& operator<<(ostream& out, const object_info_t& oi);
@@ -4951,7 +4951,7 @@ struct object_info_t {
     clear_omap_digest();
   }
 
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& bl);
   void decode(bufferlist& bl) {
     auto p = std::cbegin(bl);
@@ -5000,7 +5000,7 @@ struct ObjectRecoveryInfo {
   ObjectRecoveryInfo() : size(0) { }
 
   static void generate_test_instances(list<ObjectRecoveryInfo*>& o);
-  void encode(bufferlist &bl, uint64_t features) const;
+  template <class TT> void encode(TT &bl, uint64_t features) const;
   void decode(bufferlist::const_iterator &bl, int64_t pool = -1);
   ostream &print(ostream &out) const;
   void dump(Formatter *f) const;
@@ -5029,7 +5029,7 @@ struct ObjectRecoveryProgress {
   }
 
   static void generate_test_instances(list<ObjectRecoveryProgress*>& o);
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   ostream &print(ostream &out) const;
   void dump(Formatter *f) const;
@@ -5041,7 +5041,7 @@ struct PushReplyOp {
   hobject_t soid;
 
   static void generate_test_instances(list<PushReplyOp*>& o);
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   ostream &print(ostream &out) const;
   void dump(Formatter *f) const;
@@ -5058,7 +5058,7 @@ struct PullOp {
   ObjectRecoveryProgress recovery_progress;
 
   static void generate_test_instances(list<PullOp*>& o);
-  void encode(bufferlist &bl, uint64_t features) const;
+  template <class TT> void encode(TT &bl, uint64_t features) const;
   void decode(bufferlist::const_iterator &bl);
   ostream &print(ostream &out) const;
   void dump(Formatter *f) const;
@@ -5082,7 +5082,7 @@ struct PushOp {
   ObjectRecoveryProgress after_progress;
 
   static void generate_test_instances(list<PushOp*>& o);
-  void encode(bufferlist &bl, uint64_t features) const;
+  template <class TT> void encode(TT &bl, uint64_t features) const;
   void decode(bufferlist::const_iterator &bl);
   ostream &print(ostream &out) const;
   void dump(Formatter *f) const;
@@ -5120,7 +5120,7 @@ struct ScrubMap {
       read_error(false), stat_error(false), ec_hash_mismatch(false),
       ec_size_mismatch(false), large_omap_object_found(false) {}
 
-    void encode(bufferlist& bl) const;
+    template <class TT> void encode(TT& bl) const;
     void decode(bufferlist::const_iterator& bl);
     void dump(Formatter *f) const;
     static void generate_test_instances(list<object*>& o);
@@ -5146,7 +5146,7 @@ struct ScrubMap {
     swap(incr_since, r.incr_since);
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl, int64_t pool=-1);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<ScrubMap*>& o);
@@ -5276,7 +5276,7 @@ struct watch_item_t {
     : name(name), cookie(cookie), timeout_seconds(timeout),
     addr(addr) { }
 
-  void encode(bufferlist &bl, uint64_t features) const {
+  template <class TT> void encode(TT &bl, uint64_t features) const {
     ENCODE_START(2, 1, bl);
     encode(name, bl);
     encode(cookie, bl);
@@ -5309,7 +5309,7 @@ struct obj_watch_item_t {
 struct obj_list_watch_response_t {
   list<watch_item_t> entries;
 
-  void encode(bufferlist& bl, uint64_t features) const {
+  template <class TT> void encode(TT& bl, uint64_t features) const {
     ENCODE_START(1, 1, bl);
     encode(entries, bl, features);
     ENCODE_FINISH(bl);
@@ -5362,7 +5362,7 @@ struct clone_info {
 
   clone_info() : cloneid(CEPH_NOSNAP), size(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(cloneid, bl);
     encode(snaps, bl);
@@ -5424,7 +5424,7 @@ struct obj_list_snap_response_t {
   vector<clone_info> clones;   // ascending
   snapid_t seq;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(clones, bl);
     encode(seq, bl);
@@ -5558,7 +5558,7 @@ struct pool_pg_num_history_t {
     }
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(epoch, bl);
     encode(pg_nums, bl);

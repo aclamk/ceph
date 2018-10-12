@@ -83,7 +83,7 @@ public:
 
   ~RGWRole() = default;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(id, bl);
     encode(name, bl);

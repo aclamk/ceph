@@ -495,7 +495,7 @@ struct JSONFormattable {
     }
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode((uint8_t)type, bl);
     encode(str, bl);

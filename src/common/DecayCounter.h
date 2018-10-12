@@ -57,7 +57,7 @@ public:
   DecayCounter() : DecayCounter(DecayRate()) {}
   explicit DecayCounter(const DecayRate &rate) : last_decay(clock::now()), rate(rate) {}
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& p);
   void dump(Formatter *f) const;
   static void generate_test_instances(std::list<DecayCounter*>& ls);

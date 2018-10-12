@@ -24,7 +24,7 @@ struct EntityAuth {
   CryptoKey key;
   map<string, bufferlist> caps;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     __u8 struct_v = 2;
     using ceph::encode;
     encode(struct_v, bl);
@@ -56,7 +56,7 @@ struct AuthCapsInfo {
 
   AuthCapsInfo() : allow_all(false) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     __u8 struct_v = 1;
     encode(struct_v, bl);
@@ -98,7 +98,7 @@ struct AuthTicket {
     renew_after += ttl / 2.0;
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     __u8 struct_v = 2;
     encode(struct_v, bl);
@@ -157,7 +157,7 @@ struct ExpiringCryptoKey {
   CryptoKey key;
   utime_t expiration;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     __u8 struct_v = 1;
     encode(struct_v, bl);
@@ -185,7 +185,7 @@ struct RotatingSecrets {
   
   RotatingSecrets() : max_ver(0) {}
   
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     __u8 struct_v = 1;
     encode(struct_v, bl);

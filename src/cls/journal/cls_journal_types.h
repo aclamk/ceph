@@ -36,7 +36,7 @@ struct ObjectPosition {
             entry_tid == rhs.entry_tid);
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& iter);
   void dump(Formatter *f) const;
 
@@ -62,7 +62,7 @@ struct ObjectSetPosition {
   ObjectSetPosition(const ObjectPositions &_object_positions)
     : object_positions(_object_positions) {}
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& iter);
   void dump(Formatter *f) const;
 
@@ -100,7 +100,7 @@ struct Client {
     return (id < rhs.id);
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& iter);
   void dump(Formatter *f) const;
 
@@ -127,7 +127,7 @@ struct Tag {
     return (tid < rhs.tid);
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& iter);
   void dump(Formatter *f) const;
 

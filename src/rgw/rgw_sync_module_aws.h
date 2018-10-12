@@ -9,7 +9,7 @@ struct rgw_sync_aws_multipart_part_info {
   uint64_t size{0};
   string etag;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(part_num, bl);
     encode(ofs, bl);
@@ -36,7 +36,7 @@ struct rgw_sync_aws_src_obj_properties {
   uint64_t pg_ver{0};
   uint64_t versioned_epoch{0};
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(mtime, bl);
     encode(etag, bl);
@@ -70,7 +70,7 @@ struct rgw_sync_aws_multipart_upload_info {
 
   std::map<int, rgw_sync_aws_multipart_part_info> parts;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(upload_id, bl);
     encode(obj_size, bl);

@@ -8,7 +8,7 @@
 
 #include "Object.h"
 
-void ContDesc::encode(bufferlist &bl) const
+template <class TT> void ContDesc::encode(TT &bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(objnum, bl);
@@ -18,6 +18,9 @@ void ContDesc::encode(bufferlist &bl) const
   encode(oid, bl);
   ENCODE_FINISH(bl);
 }
+template void ContDesc::encode<bufferlist&>(bufferlist &bl) const;
+template void ContDesc::encode<encode_size&>(encode_size &bl) const;
+template void ContDesc::encode<encode_helper&>(encode_helper &bl) const;
 
 void ContDesc::decode(bufferlist::const_iterator &bl)
 {

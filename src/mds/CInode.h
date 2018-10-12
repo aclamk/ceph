@@ -98,7 +98,7 @@ public:
   static object_t get_object_name(inodeno_t ino, frag_t fg, const char *suffix);
 
   /* Full serialization for use in ".inode" root inode objects */
-  void encode(bufferlist &bl, uint64_t features, const bufferlist *snap_blob=NULL) const;
+  template <class TT> void encode(TT &bl, uint64_t features, const bufferlist *snap_blob=NULL) const;
   void decode(bufferlist::const_iterator &bl, bufferlist& snap_blob);
 
   /* Serialization without ENCODE_START/FINISH blocks for use embedded in dentry */
@@ -118,7 +118,7 @@ public:
   // FIXME bufferlist not part of mempool
   bufferlist snap_blob;  // Encoded copy of SnapRealm, because we can't
 			 // rehydrate it without full MDCache
-  void encode(bufferlist &bl, uint64_t features) const {
+  template <class TT> void encode(TT &bl, uint64_t features) const {
     InodeStoreBase::encode(bl, features, &snap_blob);
   }
   void decode(bufferlist::const_iterator &bl) {
@@ -138,7 +138,7 @@ WRITE_CLASS_ENCODER_FEATURES(InodeStore)
 // just for ceph-dencoder
 class InodeStoreBare : public InodeStore {
 public:
-  void encode(bufferlist &bl, uint64_t features) const {
+  template <class TT> void encode(TT &bl, uint64_t features) const {
     InodeStore::encode_bare(bl, features);
   }
   void decode(bufferlist::const_iterator &bl) {

@@ -68,7 +68,7 @@ struct TrimCounters {
     BucketCounter(const std::string& bucket, int count)
       : bucket(bucket), count(count) {}
 
-    void encode(bufferlist& bl) const;
+    template <class TT> void encode(TT& bl) const;
     void decode(bufferlist::const_iterator& p);
   };
   using Vector = std::vector<BucketCounter>;
@@ -77,7 +77,7 @@ struct TrimCounters {
   struct Request {
     uint16_t max_buckets; //< maximum number of bucket counters to return
 
-    void encode(bufferlist& bl) const;
+    template <class TT> void encode(TT& bl) const;
     void decode(bufferlist::const_iterator& p);
   };
 
@@ -85,7 +85,7 @@ struct TrimCounters {
   struct Response {
     Vector bucket_counters;
 
-    void encode(bufferlist& bl) const;
+    template <class TT> void encode(TT& bl) const;
     void decode(bufferlist::const_iterator& p);
   };
 
@@ -111,13 +111,16 @@ std::ostream& operator<<(std::ostream& out, const TrimCounters::BucketCounter& r
   return out << rhs.bucket << ":" << rhs.count;
 }
 
-void TrimCounters::BucketCounter::encode(bufferlist& bl) const
+template <class TT> void TrimCounters::BucketCounter::encode(TT& bl) const
 {
   using ceph::encode;
   // no versioning to save space
   encode(bucket, bl);
   encode(count, bl);
 }
+template void TrimCounters::BucketCounter::encode<bufferlist&>(bufferlist& bl) const;
+template void TrimCounters::BucketCounter::encode<encode_size&>(encode_size& bl) const;
+template void TrimCounters::BucketCounter::encode<encode_helper&>(encode_helper& bl) const;
 void TrimCounters::BucketCounter::decode(bufferlist::const_iterator& p)
 {
   using ceph::decode;
@@ -126,12 +129,15 @@ void TrimCounters::BucketCounter::decode(bufferlist::const_iterator& p)
 }
 WRITE_CLASS_ENCODER(TrimCounters::BucketCounter);
 
-void TrimCounters::Request::encode(bufferlist& bl) const
+template <class TT> void TrimCounters::Request::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(max_buckets, bl);
   ENCODE_FINISH(bl);
 }
+template void TrimCounters::Request::encode<bufferlist&>(bufferlist& bl) const;
+template void TrimCounters::Request::encode<encode_size&>(encode_size& bl) const;
+template void TrimCounters::Request::encode<encode_helper&>(encode_helper& bl) const;
 void TrimCounters::Request::decode(bufferlist::const_iterator& p)
 {
   DECODE_START(1, p);
@@ -140,12 +146,15 @@ void TrimCounters::Request::decode(bufferlist::const_iterator& p)
 }
 WRITE_CLASS_ENCODER(TrimCounters::Request);
 
-void TrimCounters::Response::encode(bufferlist& bl) const
+template <class TT> void TrimCounters::Response::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(bucket_counters, bl);
   ENCODE_FINISH(bl);
 }
+template void TrimCounters::Response::encode<bufferlist&>(bufferlist& bl) const;
+template void TrimCounters::Response::encode<encode_size&>(encode_size& bl) const;
+template void TrimCounters::Response::encode<encode_helper&>(encode_helper& bl) const;
 void TrimCounters::Response::decode(bufferlist::const_iterator& p)
 {
   DECODE_START(1, p);
@@ -170,11 +179,11 @@ void TrimCounters::Handler::handle(bufferlist::const_iterator& input,
 /// counters can be reset
 struct TrimComplete {
   struct Request {
-    void encode(bufferlist& bl) const;
+    template <class TT> void encode(TT& bl) const;
     void decode(bufferlist::const_iterator& p);
   };
   struct Response {
-    void encode(bufferlist& bl) const;
+    template <class TT> void encode(TT& bl) const;
     void decode(bufferlist::const_iterator& p);
   };
 
@@ -191,11 +200,14 @@ struct TrimComplete {
   };
 };
 
-void TrimComplete::Request::encode(bufferlist& bl) const
+template <class TT> void TrimComplete::Request::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   ENCODE_FINISH(bl);
 }
+template void TrimComplete::Request::encode<bufferlist&>(bufferlist& bl) const;
+template void TrimComplete::Request::encode<encode_size&>(encode_size& bl) const;
+template void TrimComplete::Request::encode<encode_helper&>(encode_helper& bl) const;
 void TrimComplete::Request::decode(bufferlist::const_iterator& p)
 {
   DECODE_START(1, p);
@@ -203,11 +215,14 @@ void TrimComplete::Request::decode(bufferlist::const_iterator& p)
 }
 WRITE_CLASS_ENCODER(TrimComplete::Request);
 
-void TrimComplete::Response::encode(bufferlist& bl) const
+template <class TT> void TrimComplete::Response::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   ENCODE_FINISH(bl);
 }
+template void TrimComplete::Response::encode<bufferlist&>(bufferlist& bl) const;
+template void TrimComplete::Response::encode<encode_size&>(encode_size& bl) const;
+template void TrimComplete::Response::encode<encode_helper&>(encode_helper& bl) const;
 void TrimComplete::Response::decode(bufferlist::const_iterator& p)
 {
   DECODE_START(1, p);

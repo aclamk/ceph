@@ -159,7 +159,7 @@ public:
       return *(uint64_t*)fsid.bytes();
     }
 
-    void encode(bufferlist& bl) const {
+    template <class TT> void encode(TT& bl) const {
       using ceph::encode;
       __u32 v = 4;
       encode(v, bl);

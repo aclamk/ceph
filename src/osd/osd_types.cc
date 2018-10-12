@@ -141,13 +141,16 @@ string ceph_osd_alloc_hint_flag_string(unsigned flags)
   return string("-");
 }
 
-void pg_shard_t::encode(bufferlist &bl) const
+template <class TT> void pg_shard_t::encode(TT &bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(osd, bl);
   encode(shard, bl);
   ENCODE_FINISH(bl);
 }
+template void pg_shard_t::encode<bufferlist&>(bufferlist &bl) const;
+template void pg_shard_t::encode<encode_size&>(encode_size &bl) const;
+template void pg_shard_t::encode<encode_helper&>(encode_helper &bl) const;
 void pg_shard_t::decode(bufferlist::const_iterator &bl)
 {
   DECODE_START(1, bl);
@@ -181,7 +184,7 @@ void osd_reqid_t::generate_test_instances(list<osd_reqid_t*>& o)
 
 // -- object_locator_t --
 
-void object_locator_t::encode(bufferlist& bl) const
+template <class TT> void object_locator_t::encode(TT& bl) const
 {
   // verify that nobody's corrupted the locator
   ceph_assert(hash == -1 || key.empty());
@@ -197,6 +200,9 @@ void object_locator_t::encode(bufferlist& bl) const
     encode_compat = std::max<std::uint8_t>(encode_compat, 6); // need to interpret the hash
   ENCODE_FINISH_NEW_COMPAT(bl, encode_compat);
 }
+template void object_locator_t::encode<bufferlist&>(bufferlist& bl) const;
+template void object_locator_t::encode<encode_size&>(encode_size& bl) const;
+template void object_locator_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void object_locator_t::decode(bufferlist::const_iterator& p)
 {
@@ -243,7 +249,7 @@ void object_locator_t::generate_test_instances(list<object_locator_t*>& o)
 }
 
 // -- request_redirect_t --
-void request_redirect_t::encode(bufferlist& bl) const
+template <class TT> void request_redirect_t::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(redirect_locator, bl);
@@ -251,6 +257,9 @@ void request_redirect_t::encode(bufferlist& bl) const
   encode(osd_instructions, bl);
   ENCODE_FINISH(bl);
 }
+template void request_redirect_t::encode<bufferlist&>(bufferlist& bl) const;
+template void request_redirect_t::encode<encode_size&>(encode_size& bl) const;
+template void request_redirect_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void request_redirect_t::decode(bufferlist::const_iterator& bl)
 {
@@ -287,7 +296,7 @@ void objectstore_perf_stat_t::dump(Formatter *f) const
   f->dump_unsigned("apply_latency_ns", os_apply_latency_ns);
 }
 
-void objectstore_perf_stat_t::encode(bufferlist &bl, uint64_t features) const
+template <class TT> void objectstore_perf_stat_t::encode(TT &bl, uint64_t features) const
 {
   uint8_t target_v = 2;
   if (!HAVE_FEATURE(features, OS_PERF_STAT_NS)) {
@@ -306,6 +315,9 @@ void objectstore_perf_stat_t::encode(bufferlist &bl, uint64_t features) const
   }
   ENCODE_FINISH(bl);
 }
+template void objectstore_perf_stat_t::encode<bufferlist&>(bufferlist &bl, uint64_t features) const;
+template void objectstore_perf_stat_t::encode<encode_size&>(encode_size &bl, uint64_t features) const;
+template void objectstore_perf_stat_t::encode<encode_helper&>(encode_helper &bl, uint64_t features) const;
 
 void objectstore_perf_stat_t::decode(bufferlist::const_iterator &bl)
 {
@@ -359,7 +371,7 @@ void osd_stat_t::dump(Formatter *f) const
   f->close_section();
 }
 
-void osd_stat_t::encode(bufferlist &bl, uint64_t features) const
+template <class TT> void osd_stat_t::encode(TT &bl, uint64_t features) const
 {
   ENCODE_START(8, 2, bl);
   encode(kb, bl);
@@ -379,6 +391,9 @@ void osd_stat_t::encode(bufferlist &bl, uint64_t features) const
   encode(kb_used_meta, bl);
   ENCODE_FINISH(bl);
 }
+template void osd_stat_t::encode<bufferlist&>(bufferlist &bl, uint64_t features) const;
+template void osd_stat_t::encode<encode_size&>(encode_size &bl, uint64_t features) const;
+template void osd_stat_t::encode<encode_helper&>(encode_helper &bl, uint64_t features) const;
 
 void osd_stat_t::decode(bufferlist::const_iterator &bl)
 {
@@ -700,7 +715,7 @@ bool coll_t::parse(const std::string& s)
   return false;
 }
 
-void coll_t::encode(bufferlist& bl) const
+template <class TT> void coll_t::encode(TT& bl) const
 {
   using ceph::encode;
   // when changing this, remember to update encoded_size() too.
@@ -718,6 +733,9 @@ void coll_t::encode(bufferlist& bl) const
     encode(snap, bl);
   }
 }
+template void coll_t::encode<bufferlist&>(bufferlist& bl) const;
+template void coll_t::encode<encode_size&>(encode_size& bl) const;
+template void coll_t::encode<encode_helper&>(encode_helper& bl) const;
 
 size_t coll_t::encoded_size() const
 {
@@ -992,7 +1010,7 @@ void pool_snap_info_t::dump(Formatter *f) const
   f->dump_string("name", name);
 }
 
-void pool_snap_info_t::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void pool_snap_info_t::encode(TT& bl, uint64_t features) const
 {
   using ceph::encode;
   if ((features & CEPH_FEATURE_PGPOOL3) == 0) {
@@ -1009,6 +1027,9 @@ void pool_snap_info_t::encode(bufferlist& bl, uint64_t features) const
   encode(name, bl);
   ENCODE_FINISH(bl);
 }
+template void pool_snap_info_t::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void pool_snap_info_t::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void pool_snap_info_t::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void pool_snap_info_t::decode(bufferlist::const_iterator& bl)
 {
@@ -1154,7 +1175,7 @@ private:
   bufferlist& bl;
 };
 
-void pool_opts_t::encode(bufferlist& bl) const {
+template <class TT> void pool_opts_t::encode(TT& bl) const {
   ENCODE_START(1, 1, bl);
   uint32_t n = static_cast<uint32_t>(opts.size());
   encode(n, bl);
@@ -1164,6 +1185,9 @@ void pool_opts_t::encode(bufferlist& bl) const {
   }
   ENCODE_FINISH(bl);
 }
+template void pool_opts_t::encode<bufferlist&>(bufferlist& bl) const;
+template void pool_opts_t::encode<encode_size&>(encode_size& bl) const;
+template void pool_opts_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void pool_opts_t::decode(bufferlist::const_iterator& bl) {
   DECODE_START(1, bl);
@@ -1532,7 +1556,7 @@ uint32_t pg_pool_t::get_random_pg_position(pg_t pg, uint32_t seed) const
   return r;
 }
 
-void pg_pool_t::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void pg_pool_t::encode(TT& bl, uint64_t features) const
 {
   using ceph::encode;
   if ((features & CEPH_FEATURE_PGPOOL3) == 0) {
@@ -1736,6 +1760,9 @@ void pg_pool_t::encode(bufferlist& bl, uint64_t features) const
   }
   ENCODE_FINISH(bl);
 }
+template void pg_pool_t::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void pg_pool_t::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void pg_pool_t::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void pg_pool_t::decode(bufferlist::const_iterator& bl)
 {
@@ -2099,7 +2126,7 @@ void object_stat_sum_t::dump(Formatter *f) const
   f->dump_int("num_objects_manifest", num_objects_manifest);
 }
 
-void object_stat_sum_t::encode(bufferlist& bl) const
+template <class TT> void object_stat_sum_t::encode(TT& bl) const
 {
   ENCODE_START(18, 14, bl);
 #if defined(CEPH_LITTLE_ENDIAN)
@@ -2145,6 +2172,9 @@ void object_stat_sum_t::encode(bufferlist& bl) const
 #endif
   ENCODE_FINISH(bl);
 }
+template void object_stat_sum_t::encode<bufferlist&>(bufferlist& bl) const;
+template void object_stat_sum_t::encode<encode_size&>(encode_size& bl) const;
+template void object_stat_sum_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void object_stat_sum_t::decode(bufferlist::const_iterator& bl)
 {
@@ -2379,13 +2409,16 @@ void object_stat_collection_t::dump(Formatter *f) const
   f->close_section();
 }
 
-void object_stat_collection_t::encode(bufferlist& bl) const
+template <class TT> void object_stat_collection_t::encode(TT& bl) const
 {
   ENCODE_START(2, 2, bl);
   encode(sum, bl);
   encode((__u32)0, bl);
   ENCODE_FINISH(bl);
 }
+template void object_stat_collection_t::encode<bufferlist&>(bufferlist& bl) const;
+template void object_stat_collection_t::encode<encode_size&>(encode_size& bl) const;
+template void object_stat_collection_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void object_stat_collection_t::decode(bufferlist::const_iterator& bl)
 {
@@ -2509,7 +2542,7 @@ void pg_stat_t::dump_brief(Formatter *f) const
   f->dump_int("acting_primary", acting_primary);
 }
 
-void pg_stat_t::encode(bufferlist &bl) const
+template <class TT> void pg_stat_t::encode(TT &bl) const
 {
   ENCODE_START(25, 22, bl);
   encode(version, bl);
@@ -2559,6 +2592,9 @@ void pg_stat_t::encode(bufferlist &bl) const
   encode(manifest_stats_invalid, bl);
   ENCODE_FINISH(bl);
 }
+template void pg_stat_t::encode<bufferlist&>(bufferlist &bl) const;
+template void pg_stat_t::encode<encode_size&>(encode_size &bl) const;
+template void pg_stat_t::encode<encode_helper&>(encode_helper &bl) const;
 
 void pg_stat_t::decode(bufferlist::const_iterator &bl)
 {
@@ -2739,7 +2775,7 @@ void pool_stat_t::dump(Formatter *f) const
   f->dump_int("acting", acting);
 }
 
-void pool_stat_t::encode(bufferlist &bl, uint64_t features) const
+template <class TT> void pool_stat_t::encode(TT &bl, uint64_t features) const
 {
   using ceph::encode;
   if ((features & CEPH_FEATURE_OSDENC) == 0) {
@@ -2759,6 +2795,9 @@ void pool_stat_t::encode(bufferlist &bl, uint64_t features) const
   encode(acting, bl);
   ENCODE_FINISH(bl);
 }
+template void pool_stat_t::encode<bufferlist&>(bufferlist &bl, uint64_t features) const;
+template void pool_stat_t::encode<encode_size&>(encode_size &bl, uint64_t features) const;
+template void pool_stat_t::encode<encode_helper&>(encode_helper &bl, uint64_t features) const;
 
 void pool_stat_t::decode(bufferlist::const_iterator &bl)
 {
@@ -2816,7 +2855,7 @@ void pool_stat_t::generate_test_instances(list<pool_stat_t*>& o)
 
 // -- pg_history_t --
 
-void pg_history_t::encode(bufferlist &bl) const
+template <class TT> void pg_history_t::encode(TT &bl) const
 {
   ENCODE_START(9, 4, bl);
   encode(epoch_created, bl);
@@ -2837,6 +2876,9 @@ void pg_history_t::encode(bufferlist &bl) const
   encode(epoch_pool_created, bl);
   ENCODE_FINISH(bl);
 }
+template void pg_history_t::encode<bufferlist&>(bufferlist &bl) const;
+template void pg_history_t::encode<encode_size&>(encode_size &bl) const;
+template void pg_history_t::encode<encode_helper&>(encode_helper &bl) const;
 
 void pg_history_t::decode(bufferlist::const_iterator &bl)
 {
@@ -2933,7 +2975,7 @@ void pg_history_t::generate_test_instances(list<pg_history_t*>& o)
 
 // -- pg_info_t --
 
-void pg_info_t::encode(bufferlist &bl) const
+template <class TT> void pg_info_t::encode(TT &bl) const
 {
   ENCODE_START(32, 26, bl);
   encode(pgid.pgid, bl);
@@ -2957,6 +2999,9 @@ void pg_info_t::encode(bufferlist &bl) const
   encode(last_interval_started, bl);
   ENCODE_FINISH(bl);
 }
+template void pg_info_t::encode<bufferlist&>(bufferlist &bl) const;
+template void pg_info_t::encode<encode_size&>(encode_size &bl) const;
+template void pg_info_t::encode<encode_helper&>(encode_helper &bl) const;
 
 void pg_info_t::decode(bufferlist::const_iterator &bl)
 {
@@ -3051,7 +3096,7 @@ void pg_info_t::generate_test_instances(list<pg_info_t*>& o)
 }
 
 // -- pg_notify_t --
-void pg_notify_t::encode(bufferlist &bl) const
+template <class TT> void pg_notify_t::encode(TT &bl) const
 {
   ENCODE_START(2, 2, bl);
   encode(query_epoch, bl);
@@ -3061,6 +3106,9 @@ void pg_notify_t::encode(bufferlist &bl) const
   encode(from, bl);
   ENCODE_FINISH(bl);
 }
+template void pg_notify_t::encode<bufferlist&>(bufferlist &bl) const;
+template void pg_notify_t::encode<encode_size&>(encode_size &bl) const;
+template void pg_notify_t::encode<encode_helper&>(encode_helper &bl) const;
 
 void pg_notify_t::decode(bufferlist::const_iterator &bl)
 {
@@ -3106,7 +3154,7 @@ ostream &operator<<(ostream &lhs, const pg_notify_t &notify)
 
 // -- pg_interval_t --
 
-void PastIntervals::pg_interval_t::encode(bufferlist& bl) const
+template <class TT> void PastIntervals::pg_interval_t::encode(TT& bl) const
 {
   ENCODE_START(4, 2, bl);
   encode(first, bl);
@@ -3118,6 +3166,9 @@ void PastIntervals::pg_interval_t::encode(bufferlist& bl) const
   encode(up_primary, bl);
   ENCODE_FINISH(bl);
 }
+template void PastIntervals::pg_interval_t::encode<bufferlist&>(bufferlist& bl) const;
+template void PastIntervals::pg_interval_t::encode<encode_size&>(encode_size& bl) const;
+template void PastIntervals::pg_interval_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void PastIntervals::pg_interval_t::decode(bufferlist::const_iterator& bl)
 {
@@ -3209,7 +3260,7 @@ struct compact_interval_t {
     f->dump_stream("acting") << acting;
     f->close_section();
   }
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(first, bl);
     encode(last, bl);
@@ -3757,7 +3808,7 @@ ostream& operator<<(ostream& out, const PastIntervals::pg_interval_t& i)
 
 // -- pg_query_t --
 
-void pg_query_t::encode(bufferlist &bl, uint64_t features) const {
+template <class TT> void pg_query_t::encode(TT &bl, uint64_t features) const {
   ENCODE_START(3, 3, bl);
   encode(type, bl);
   encode(since, bl);
@@ -3767,6 +3818,9 @@ void pg_query_t::encode(bufferlist &bl, uint64_t features) const {
   encode(from, bl);
   ENCODE_FINISH(bl);
 }
+template void pg_query_t::encode<bufferlist&>(bufferlist &bl, uint64_t features) const;
+template void pg_query_t::encode<encode_size&>(encode_size &bl, uint64_t features) const;
+template void pg_query_t::encode<encode_helper&>(encode_helper &bl, uint64_t features) const;
 
 void pg_query_t::decode(bufferlist::const_iterator &bl) {
   DECODE_START(3, bl);
@@ -3956,7 +4010,7 @@ void ObjectModDesc::generate_test_instances(list<ObjectModDesc*>& o)
   o.back()->append(1000);
 }
 
-void ObjectModDesc::encode(bufferlist &_bl) const
+template <class TT> void ObjectModDesc::encode(TT &_bl) const
 {
   ENCODE_START(max_required_version, max_required_version, _bl);
   encode(can_local_rollback, _bl);
@@ -3964,6 +4018,9 @@ void ObjectModDesc::encode(bufferlist &_bl) const
   encode(bl, _bl);
   ENCODE_FINISH(_bl);
 }
+template void ObjectModDesc::encode<bufferlist&>(bufferlist &_bl) const;
+template void ObjectModDesc::encode<encode_size&>(encode_size &_bl) const;
+template void ObjectModDesc::encode<encode_helper&>(encode_helper &_bl) const;
 void ObjectModDesc::decode(bufferlist::const_iterator &_bl)
 {
   DECODE_START(2, _bl);
@@ -4007,7 +4064,7 @@ void pg_log_entry_t::decode_with_checksum(bufferlist::const_iterator& p)
   this->decode(q);
 }
 
-void pg_log_entry_t::encode(bufferlist &bl) const
+template <class TT> void pg_log_entry_t::encode(TT &bl) const
 {
   ENCODE_START(11, 4, bl);
   encode(op, bl);
@@ -4038,6 +4095,9 @@ void pg_log_entry_t::encode(bufferlist &bl) const
     encode(return_code, bl);
   ENCODE_FINISH(bl);
 }
+template void pg_log_entry_t::encode<bufferlist&>(bufferlist &bl) const;
+template void pg_log_entry_t::encode<encode_size&>(encode_size &bl) const;
+template void pg_log_entry_t::encode<encode_helper&>(encode_helper &bl) const;
 
 void pg_log_entry_t::decode(bufferlist::const_iterator &bl)
 {
@@ -4183,7 +4243,7 @@ std::string pg_log_dup_t::get_key_name() const
   return key;
 }
 
-void pg_log_dup_t::encode(bufferlist &bl) const
+template <class TT> void pg_log_dup_t::encode(TT &bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(reqid, bl);
@@ -4192,6 +4252,9 @@ void pg_log_dup_t::encode(bufferlist &bl) const
   encode(return_code, bl);
   ENCODE_FINISH(bl);
 }
+template void pg_log_dup_t::encode<bufferlist&>(bufferlist &bl) const;
+template void pg_log_dup_t::encode<encode_size&>(encode_size &bl) const;
+template void pg_log_dup_t::encode<encode_helper&>(encode_helper &bl) const;
 
 void pg_log_dup_t::decode(bufferlist::const_iterator &bl)
 {
@@ -4270,7 +4333,7 @@ void pg_log_t::filter_log(spg_t import_pgid, const OSDMap &curmap,
   }
 }
 
-void pg_log_t::encode(bufferlist& bl) const
+template <class TT> void pg_log_t::encode(TT& bl) const
 {
   ENCODE_START(7, 3, bl);
   encode(head, bl);
@@ -4281,6 +4344,9 @@ void pg_log_t::encode(bufferlist& bl) const
   encode(dups, bl);
   ENCODE_FINISH(bl);
 }
+template void pg_log_t::encode<bufferlist&>(bufferlist& bl) const;
+template void pg_log_t::encode<encode_size&>(encode_size& bl) const;
+template void pg_log_t::encode<encode_helper&>(encode_helper& bl) const;
  
 void pg_log_t::decode(bufferlist::const_iterator &bl, int64_t pool)
 {
@@ -4431,7 +4497,7 @@ ostream& operator<<(ostream& out, const pg_missing_item& i)
 
 // -- object_copy_cursor_t --
 
-void object_copy_cursor_t::encode(bufferlist& bl) const
+template <class TT> void object_copy_cursor_t::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(attr_complete, bl);
@@ -4441,6 +4507,9 @@ void object_copy_cursor_t::encode(bufferlist& bl) const
   encode(omap_complete, bl);
   ENCODE_FINISH(bl);
 }
+template void object_copy_cursor_t::encode<bufferlist&>(bufferlist& bl) const;
+template void object_copy_cursor_t::encode<encode_size&>(encode_size& bl) const;
+template void object_copy_cursor_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void object_copy_cursor_t::decode(bufferlist::const_iterator &bl)
 {
@@ -4480,7 +4549,7 @@ void object_copy_cursor_t::generate_test_instances(list<object_copy_cursor_t*>& 
 
 // -- object_copy_data_t --
 
-void object_copy_data_t::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void object_copy_data_t::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(7, 5, bl);
   encode(size, bl);
@@ -4500,6 +4569,9 @@ void object_copy_data_t::encode(bufferlist& bl, uint64_t features) const
   encode(truncate_size, bl);
   ENCODE_FINISH(bl);
 }
+template void object_copy_data_t::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void object_copy_data_t::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void object_copy_data_t::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void object_copy_data_t::decode(bufferlist::const_iterator& bl)
 {
@@ -4633,7 +4705,7 @@ void object_copy_data_t::dump(Formatter *f) const
 
 // -- pg_create_t --
 
-void pg_create_t::encode(bufferlist &bl) const
+template <class TT> void pg_create_t::encode(TT &bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(created, bl);
@@ -4641,6 +4713,9 @@ void pg_create_t::encode(bufferlist &bl) const
   encode(split_bits, bl);
   ENCODE_FINISH(bl);
 }
+template void pg_create_t::encode<bufferlist&>(bufferlist &bl) const;
+template void pg_create_t::encode<encode_size&>(encode_size &bl) const;
+template void pg_create_t::encode<encode_helper&>(encode_helper &bl) const;
 
 void pg_create_t::decode(bufferlist::const_iterator &bl)
 {
@@ -4667,7 +4742,7 @@ void pg_create_t::generate_test_instances(list<pg_create_t*>& o)
 
 // -- pg_hit_set_info_t --
 
-void pg_hit_set_info_t::encode(bufferlist& bl) const
+template <class TT> void pg_hit_set_info_t::encode(TT& bl) const
 {
   ENCODE_START(2, 1, bl);
   encode(begin, bl);
@@ -4676,6 +4751,9 @@ void pg_hit_set_info_t::encode(bufferlist& bl) const
   encode(using_gmt, bl);
   ENCODE_FINISH(bl);
 }
+template void pg_hit_set_info_t::encode<bufferlist&>(bufferlist& bl) const;
+template void pg_hit_set_info_t::encode<encode_size&>(encode_size& bl) const;
+template void pg_hit_set_info_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void pg_hit_set_info_t::decode(bufferlist::const_iterator& p)
 {
@@ -4710,7 +4788,7 @@ void pg_hit_set_info_t::generate_test_instances(list<pg_hit_set_info_t*>& ls)
 
 // -- pg_hit_set_history_t --
 
-void pg_hit_set_history_t::encode(bufferlist& bl) const
+template <class TT> void pg_hit_set_history_t::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(current_last_update, bl);
@@ -4725,6 +4803,9 @@ void pg_hit_set_history_t::encode(bufferlist& bl) const
   encode(history, bl);
   ENCODE_FINISH(bl);
 }
+template void pg_hit_set_history_t::encode<bufferlist&>(bufferlist& bl) const;
+template void pg_hit_set_history_t::encode<encode_size&>(encode_size& bl) const;
+template void pg_hit_set_history_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void pg_hit_set_history_t::decode(bufferlist::const_iterator& p)
 {
@@ -4765,7 +4846,7 @@ void pg_hit_set_history_t::generate_test_instances(list<pg_hit_set_history_t*>& 
 
 // -- OSDSuperblock --
 
-void OSDSuperblock::encode(bufferlist &bl) const
+template <class TT> void OSDSuperblock::encode(TT &bl) const
 {
   ENCODE_START(8, 5, bl);
   encode(cluster_fsid, bl);
@@ -4782,6 +4863,9 @@ void OSDSuperblock::encode(bufferlist &bl) const
   encode((uint32_t)0, bl);  // map<int64_t,epoch_t> pool_last_epoch_marked_full
   ENCODE_FINISH(bl);
 }
+template void OSDSuperblock::encode<bufferlist&>(bufferlist &bl) const;
+template void OSDSuperblock::encode<encode_size&>(encode_size &bl) const;
+template void OSDSuperblock::encode<encode_helper&>(encode_helper &bl) const;
 
 void OSDSuperblock::decode(bufferlist::const_iterator &bl)
 {
@@ -4850,7 +4934,7 @@ void OSDSuperblock::generate_test_instances(list<OSDSuperblock*>& o)
 
 // -- SnapSet --
 
-void SnapSet::encode(bufferlist& bl) const
+template <class TT> void SnapSet::encode(TT& bl) const
 {
   ENCODE_START(3, 2, bl);
   encode(seq, bl);
@@ -4862,6 +4946,9 @@ void SnapSet::encode(bufferlist& bl) const
   encode(clone_snaps, bl);
   ENCODE_FINISH(bl);
 }
+template void SnapSet::encode<bufferlist&>(bufferlist& bl) const;
+template void SnapSet::encode<encode_size&>(encode_size& bl) const;
+template void SnapSet::encode<encode_helper&>(encode_helper& bl) const;
 
 void SnapSet::decode(bufferlist::const_iterator& bl)
 {
@@ -5014,7 +5101,7 @@ SnapSet SnapSet::get_filtered(const pg_pool_t &pinfo) const
 
 // -- watch_info_t --
 
-void watch_info_t::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void watch_info_t::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(4, 3, bl);
   encode(cookie, bl);
@@ -5022,6 +5109,9 @@ void watch_info_t::encode(bufferlist& bl, uint64_t features) const
   encode(addr, bl, features);
   ENCODE_FINISH(bl);
 }
+template void watch_info_t::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void watch_info_t::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void watch_info_t::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void watch_info_t::decode(bufferlist::const_iterator& bl)
 {
@@ -5067,7 +5157,7 @@ void watch_info_t::generate_test_instances(list<watch_info_t*>& o)
 
 // -- chunk_info_t --
 
-void chunk_info_t::encode(bufferlist& bl) const
+template <class TT> void chunk_info_t::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(offset, bl);
@@ -5077,6 +5167,9 @@ void chunk_info_t::encode(bufferlist& bl) const
   encode(_flags, bl);
   ENCODE_FINISH(bl);
 }
+template void chunk_info_t::encode<bufferlist&>(bufferlist& bl) const;
+template void chunk_info_t::encode<encode_size&>(encode_size& bl) const;
+template void chunk_info_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void chunk_info_t::decode(bufferlist::const_iterator& bl)
 {
@@ -5108,7 +5201,7 @@ ostream& operator<<(ostream& out, const chunk_info_t& ci)
 
 // -- object_manifest_t --
 
-void object_manifest_t::encode(bufferlist& bl) const
+template <class TT> void object_manifest_t::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(type, bl);
@@ -5125,6 +5218,9 @@ void object_manifest_t::encode(bufferlist& bl) const
   }
   ENCODE_FINISH(bl);
 }
+template void object_manifest_t::encode<bufferlist&>(bufferlist& bl) const;
+template void object_manifest_t::encode<encode_size&>(encode_size& bl) const;
+template void object_manifest_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void object_manifest_t::decode(bufferlist::const_iterator& bl)
 {
@@ -5198,7 +5294,7 @@ void object_info_t::copy_user_bits(const object_info_t& other)
   omap_digest = other.omap_digest;
 }
 
-void object_info_t::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void object_info_t::encode(TT& bl, uint64_t features) const
 {
   object_locator_t myoloc(soid);
   map<entity_name_t, watch_info_t> old_watchers;
@@ -5244,6 +5340,9 @@ void object_info_t::encode(bufferlist& bl, uint64_t features) const
   }
   ENCODE_FINISH(bl);
 }
+template void object_info_t::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void object_info_t::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void object_info_t::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void object_info_t::decode(bufferlist::const_iterator& bl)
 {
@@ -5407,7 +5506,7 @@ ostream& operator<<(ostream& out, const object_info_t& oi)
 }
 
 // -- ObjectRecovery --
-void ObjectRecoveryProgress::encode(bufferlist &bl) const
+template <class TT> void ObjectRecoveryProgress::encode(TT &bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(first, bl);
@@ -5417,6 +5516,9 @@ void ObjectRecoveryProgress::encode(bufferlist &bl) const
   encode(omap_complete, bl);
   ENCODE_FINISH(bl);
 }
+template void ObjectRecoveryProgress::encode<bufferlist&>(bufferlist &bl) const;
+template void ObjectRecoveryProgress::encode<encode_size&>(encode_size &bl) const;
+template void ObjectRecoveryProgress::encode<encode_helper&>(encode_helper &bl) const;
 
 void ObjectRecoveryProgress::decode(bufferlist::const_iterator &bl)
 {
@@ -5471,7 +5573,7 @@ void ObjectRecoveryProgress::dump(Formatter *f) const
   f->dump_string("omap_recovered_to", omap_recovered_to);
 }
 
-void ObjectRecoveryInfo::encode(bufferlist &bl, uint64_t features) const
+template <class TT> void ObjectRecoveryInfo::encode(TT &bl, uint64_t features) const
 {
   ENCODE_START(2, 1, bl);
   encode(soid, bl);
@@ -5483,6 +5585,9 @@ void ObjectRecoveryInfo::encode(bufferlist &bl, uint64_t features) const
   encode(clone_subset, bl);
   ENCODE_FINISH(bl);
 }
+template void ObjectRecoveryInfo::encode<bufferlist&>(bufferlist &bl, uint64_t features) const;
+template void ObjectRecoveryInfo::encode<encode_size&>(encode_size &bl, uint64_t features) const;
+template void ObjectRecoveryInfo::encode<encode_helper&>(encode_helper &bl, uint64_t features) const;
 
 void ObjectRecoveryInfo::decode(bufferlist::const_iterator &bl,
 				int64_t pool)
@@ -5568,12 +5673,15 @@ void PushReplyOp::generate_test_instances(list<PushReplyOp*> &o)
   o.back()->soid = hobject_t(sobject_t("asdf", CEPH_NOSNAP));
 }
 
-void PushReplyOp::encode(bufferlist &bl) const
+template <class TT> void PushReplyOp::encode(TT &bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(soid, bl);
   ENCODE_FINISH(bl);
 }
+template void PushReplyOp::encode<bufferlist&>(bufferlist &bl) const;
+template void PushReplyOp::encode<encode_size&>(encode_size &bl) const;
+template void PushReplyOp::encode<encode_helper&>(encode_helper &bl) const;
 
 void PushReplyOp::decode(bufferlist::const_iterator &bl)
 {
@@ -5618,7 +5726,7 @@ void PullOp::generate_test_instances(list<PullOp*> &o)
   o.back()->recovery_info.version = eversion_t(0, 0);
 }
 
-void PullOp::encode(bufferlist &bl, uint64_t features) const
+template <class TT> void PullOp::encode(TT &bl, uint64_t features) const
 {
   ENCODE_START(1, 1, bl);
   encode(soid, bl);
@@ -5626,6 +5734,9 @@ void PullOp::encode(bufferlist &bl, uint64_t features) const
   encode(recovery_progress, bl);
   ENCODE_FINISH(bl);
 }
+template void PullOp::encode<bufferlist&>(bufferlist &bl, uint64_t features) const;
+template void PullOp::encode<encode_size&>(encode_size &bl, uint64_t features) const;
+template void PullOp::encode<encode_helper&>(encode_helper &bl, uint64_t features) const;
 
 void PullOp::decode(bufferlist::const_iterator &bl)
 {
@@ -5683,7 +5794,7 @@ void PushOp::generate_test_instances(list<PushOp*> &o)
   o.back()->version = eversion_t(0, 0);
 }
 
-void PushOp::encode(bufferlist &bl, uint64_t features) const
+template <class TT> void PushOp::encode(TT &bl, uint64_t features) const
 {
   ENCODE_START(1, 1, bl);
   encode(soid, bl);
@@ -5698,6 +5809,9 @@ void PushOp::encode(bufferlist &bl, uint64_t features) const
   encode(before_progress, bl);
   ENCODE_FINISH(bl);
 }
+template void PushOp::encode<bufferlist&>(bufferlist &bl, uint64_t features) const;
+template void PushOp::encode<encode_size&>(encode_size &bl, uint64_t features) const;
+template void PushOp::encode<encode_helper&>(encode_helper &bl, uint64_t features) const;
 
 void PushOp::decode(bufferlist::const_iterator &bl)
 {
@@ -5796,7 +5910,7 @@ void ScrubMap::merge_incr(const ScrubMap &l)
   }
 }          
 
-void ScrubMap::encode(bufferlist& bl) const
+template <class TT> void ScrubMap::encode(TT& bl) const
 {
   ENCODE_START(3, 2, bl);
   encode(objects, bl);
@@ -5807,6 +5921,9 @@ void ScrubMap::encode(bufferlist& bl) const
   encode(incr_since, bl);
   ENCODE_FINISH(bl);
 }
+template void ScrubMap::encode<bufferlist&>(bufferlist& bl) const;
+template void ScrubMap::encode<encode_size&>(encode_size& bl) const;
+template void ScrubMap::encode<encode_helper&>(encode_helper& bl) const;
 
 void ScrubMap::decode(bufferlist::const_iterator& bl, int64_t pool)
 {
@@ -5869,7 +5986,7 @@ void ScrubMap::generate_test_instances(list<ScrubMap*>& o)
 
 // -- ScrubMap::object --
 
-void ScrubMap::object::encode(bufferlist& bl) const
+template <class TT> void ScrubMap::object::encode(TT& bl) const
 {
   bool compat_read_error = read_error || ec_hash_mismatch || ec_size_mismatch;
   ENCODE_START(9, 7, bl);
@@ -5892,6 +6009,9 @@ void ScrubMap::object::encode(bufferlist& bl) const
   encode(large_omap_object_value_size, bl);
   ENCODE_FINISH(bl);
 }
+template void ScrubMap::object::encode<bufferlist&>(bufferlist& bl) const;
+template void ScrubMap::object::encode<encode_size&>(encode_size& bl) const;
+template void ScrubMap::object::encode<encode_helper&>(encode_helper& bl) const;
 
 void ScrubMap::object::decode(bufferlist::const_iterator& bl)
 {

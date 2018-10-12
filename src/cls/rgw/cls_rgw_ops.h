@@ -9,7 +9,7 @@ struct rgw_cls_tag_timeout_op
 
   rgw_cls_tag_timeout_op() : tag_timeout(0) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(tag_timeout, bl);
     ENCODE_FINISH(bl);
@@ -36,7 +36,7 @@ struct rgw_cls_obj_prepare_op
 
   rgw_cls_obj_prepare_op() : op(CLS_RGW_OP_UNKNOWN), log_op(false), bilog_flags(0) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(7, 5, bl);
     uint8_t c = (uint8_t)op;
     encode(c, bl);
@@ -95,7 +95,7 @@ struct rgw_cls_obj_complete_op
 
   rgw_cls_obj_complete_op() : op(CLS_RGW_OP_ADD), log_op(false), bilog_flags(0) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(9, 7, bl);
     uint8_t c = (uint8_t)op;
     encode(c, bl);
@@ -177,7 +177,7 @@ struct rgw_cls_link_olh_op {
 
   rgw_cls_link_olh_op() : delete_marker(false), olh_epoch(0), log_op(false), bilog_flags(0), high_precision_time(false) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(5, 1, bl);
     encode(key, bl);
     encode(olh_tag, bl);
@@ -240,7 +240,7 @@ struct rgw_cls_unlink_instance_op {
 
   rgw_cls_unlink_instance_op() : olh_epoch(0), log_op(false), bilog_flags(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(3, 1, bl);
     encode(key, bl);
     encode(op_tag, bl);
@@ -281,7 +281,7 @@ struct rgw_cls_read_olh_log_op
 
   rgw_cls_read_olh_log_op() : ver_marker(0) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(olh, bl);
     encode(ver_marker, bl);
@@ -308,7 +308,7 @@ struct rgw_cls_read_olh_log_ret
 
   rgw_cls_read_olh_log_ret() : is_truncated(false) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(log, bl);
     encode(is_truncated, bl);
@@ -333,7 +333,7 @@ struct rgw_cls_trim_olh_log_op
 
   rgw_cls_trim_olh_log_op() : ver(0) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(olh, bl);
     encode(ver, bl);
@@ -358,7 +358,7 @@ struct rgw_cls_bucket_clear_olh_op {
 
   rgw_cls_bucket_clear_olh_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(key, bl);
     encode(olh_tag, bl);
@@ -386,7 +386,7 @@ struct rgw_cls_list_op
 
   rgw_cls_list_op() : num_entries(0), list_versions(false) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(5, 4, bl);
     encode(num_entries, bl);
     encode(filter_prefix, bl);
@@ -419,7 +419,7 @@ struct rgw_cls_list_ret {
 
   rgw_cls_list_ret() : is_truncated(false) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(2, 2, bl);
     encode(dir, bl);
     encode(is_truncated, bl);
@@ -443,7 +443,7 @@ struct rgw_cls_check_index_ret
 
   rgw_cls_check_index_ret() {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(existing_header, bl);
     encode(calculated_header, bl);
@@ -467,7 +467,7 @@ struct rgw_cls_bucket_update_stats_op
 
   rgw_cls_bucket_update_stats_op() {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(absolute, bl);
     encode(stats, bl);
@@ -487,7 +487,7 @@ WRITE_CLASS_ENCODER(rgw_cls_bucket_update_stats_op)
 struct rgw_cls_obj_remove_op {
   list<string> keep_attr_prefixes;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(keep_attr_prefixes, bl);
     ENCODE_FINISH(bl);
@@ -504,7 +504,7 @@ WRITE_CLASS_ENCODER(rgw_cls_obj_remove_op)
 struct rgw_cls_obj_store_pg_ver_op {
   string attr;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(attr, bl);
     ENCODE_FINISH(bl);
@@ -524,7 +524,7 @@ struct rgw_cls_obj_check_attrs_prefix {
 
   rgw_cls_obj_check_attrs_prefix() : fail_if_exist(false) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(check_prefix, bl);
     encode(fail_if_exist, bl);
@@ -547,7 +547,7 @@ struct rgw_cls_obj_check_mtime {
 
   rgw_cls_obj_check_mtime() : type(CLS_RGW_CHECK_TIME_MTIME_EQ), high_precision_time(false) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(mtime, bl);
     encode((uint8_t)type, bl);
@@ -573,7 +573,7 @@ struct rgw_cls_usage_log_add_op {
   rgw_usage_log_info info;
   rgw_user user;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(info, bl);
     encode(user.to_str(), bl);
@@ -599,7 +599,7 @@ struct rgw_cls_bi_get_op {
 
   rgw_cls_bi_get_op() : type(PlainIdx) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(key, bl);
     encode((uint8_t)type, bl);
@@ -622,7 +622,7 @@ struct rgw_cls_bi_get_ret {
 
   rgw_cls_bi_get_ret() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entry, bl);
     ENCODE_FINISH(bl);
@@ -641,7 +641,7 @@ struct rgw_cls_bi_put_op {
 
   rgw_cls_bi_put_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entry, bl);
     ENCODE_FINISH(bl);
@@ -662,7 +662,7 @@ struct rgw_cls_bi_list_op {
 
   rgw_cls_bi_list_op() : max(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(max, bl);
     encode(name, bl);
@@ -686,7 +686,7 @@ struct rgw_cls_bi_list_ret {
 
   rgw_cls_bi_list_ret() : is_truncated(false) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entries, bl);
     encode(is_truncated, bl);
@@ -710,7 +710,7 @@ struct rgw_cls_usage_log_read_op {
   string iter;  // should be empty for the first call, non empty for subsequent calls
   uint32_t max_entries;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(start_epoch, bl);
     encode(end_epoch, bl);
@@ -737,7 +737,7 @@ struct rgw_cls_usage_log_read_ret {
   bool truncated;
   string next_iter;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(usage, bl);
     encode(truncated, bl);
@@ -760,7 +760,7 @@ struct rgw_cls_usage_log_trim_op {
   uint64_t end_epoch;
   string user;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 2, bl);
     encode(start_epoch, bl);
     encode(end_epoch, bl);
@@ -783,7 +783,7 @@ struct cls_rgw_gc_set_entry_op {
   cls_rgw_gc_obj_info info;
   cls_rgw_gc_set_entry_op() : expiration_secs(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(expiration_secs, bl);
     encode(info, bl);
@@ -807,7 +807,7 @@ struct cls_rgw_gc_defer_entry_op {
   string tag;
   cls_rgw_gc_defer_entry_op() : expiration_secs(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(expiration_secs, bl);
     encode(tag, bl);
@@ -833,7 +833,7 @@ struct cls_rgw_gc_list_op {
 
   cls_rgw_gc_list_op() : max(0), expired_only(true) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(marker, bl);
     encode(max, bl);
@@ -863,7 +863,7 @@ struct cls_rgw_gc_list_ret {
 
   cls_rgw_gc_list_ret() : truncated(false) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(entries, bl);
     encode(next_marker, bl);
@@ -890,7 +890,7 @@ struct cls_rgw_gc_remove_op {
 
   cls_rgw_gc_remove_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(tags, bl);
     ENCODE_FINISH(bl);
@@ -913,7 +913,7 @@ struct cls_rgw_bi_log_list_op {
 
   cls_rgw_bi_log_list_op() : max(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(marker, bl);
     encode(max, bl);
@@ -938,7 +938,7 @@ struct cls_rgw_bi_log_trim_op {
 
   cls_rgw_bi_log_trim_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(start_marker, bl);
     encode(end_marker, bl);
@@ -963,7 +963,7 @@ struct cls_rgw_bi_log_list_ret {
 
   cls_rgw_bi_log_list_ret() : truncated(false) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entries, bl);
     encode(truncated, bl);
@@ -986,7 +986,7 @@ struct cls_rgw_lc_get_next_entry_op {
   string marker;
   cls_rgw_lc_get_next_entry_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(marker, bl);
     ENCODE_FINISH(bl);
@@ -1005,7 +1005,7 @@ struct cls_rgw_lc_get_next_entry_ret {
 
   cls_rgw_lc_get_next_entry_ret() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entry, bl);
     ENCODE_FINISH(bl);
@@ -1024,7 +1024,7 @@ struct cls_rgw_lc_rm_entry_op {
   pair<string, int> entry;
   cls_rgw_lc_rm_entry_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entry, bl);
     ENCODE_FINISH(bl);
@@ -1042,7 +1042,7 @@ struct cls_rgw_lc_set_entry_op {
   pair<string, int> entry;
   cls_rgw_lc_set_entry_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entry, bl);
     ENCODE_FINISH(bl);
@@ -1062,7 +1062,7 @@ struct cls_rgw_lc_put_head_op {
 
   cls_rgw_lc_put_head_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(head, bl);
     ENCODE_FINISH(bl);
@@ -1082,7 +1082,7 @@ struct cls_rgw_lc_get_head_ret {
 
   cls_rgw_lc_get_head_ret() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(head, bl);
     ENCODE_FINISH(bl);
@@ -1103,7 +1103,7 @@ struct cls_rgw_lc_list_entries_op {
 
   cls_rgw_lc_list_entries_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(marker, bl);
     encode(max_entries, bl);
@@ -1126,7 +1126,7 @@ struct cls_rgw_lc_list_entries_ret {
 
   cls_rgw_lc_list_entries_ret() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(entries, bl);
     encode(is_truncated, bl);
@@ -1150,7 +1150,7 @@ struct cls_rgw_reshard_add_op {
 
   cls_rgw_reshard_add_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entry, bl);
     ENCODE_FINISH(bl);
@@ -1172,7 +1172,7 @@ struct cls_rgw_reshard_list_op {
 
   cls_rgw_reshard_list_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(max, bl);
     encode(marker, bl);
@@ -1197,7 +1197,7 @@ struct cls_rgw_reshard_list_ret {
 
   cls_rgw_reshard_list_ret() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entries, bl);
     encode(is_truncated, bl);
@@ -1220,7 +1220,7 @@ struct cls_rgw_reshard_get_op {
 
   cls_rgw_reshard_get_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entry, bl);
     ENCODE_FINISH(bl);
@@ -1241,7 +1241,7 @@ struct cls_rgw_reshard_get_ret {
 
   cls_rgw_reshard_get_ret() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entry, bl);
     ENCODE_FINISH(bl);
@@ -1264,7 +1264,7 @@ struct cls_rgw_reshard_remove_op {
 
   cls_rgw_reshard_remove_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(tenant, bl);
     encode(bucket_name, bl);
@@ -1287,7 +1287,7 @@ WRITE_CLASS_ENCODER(cls_rgw_reshard_remove_op)
 struct cls_rgw_set_bucket_resharding_op  {
   cls_rgw_bucket_instance_entry entry;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entry, bl);
     ENCODE_FINISH(bl);
@@ -1304,7 +1304,7 @@ struct cls_rgw_set_bucket_resharding_op  {
 WRITE_CLASS_ENCODER(cls_rgw_set_bucket_resharding_op)
 
 struct cls_rgw_clear_bucket_resharding_op {
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     ENCODE_FINISH(bl);
   }
@@ -1321,7 +1321,7 @@ WRITE_CLASS_ENCODER(cls_rgw_clear_bucket_resharding_op)
 struct cls_rgw_guard_bucket_resharding_op  {
   int ret_err{0};
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(ret_err, bl);
     ENCODE_FINISH(bl);
@@ -1340,7 +1340,7 @@ WRITE_CLASS_ENCODER(cls_rgw_guard_bucket_resharding_op)
 
 struct cls_rgw_get_bucket_resharding_op  {
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     ENCODE_FINISH(bl);
   }
@@ -1358,7 +1358,7 @@ WRITE_CLASS_ENCODER(cls_rgw_get_bucket_resharding_op)
 struct cls_rgw_get_bucket_resharding_ret  {
   cls_rgw_bucket_instance_entry new_instance;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(new_instance, bl);
     ENCODE_FINISH(bl);

@@ -76,11 +76,14 @@ PolicyMetaType PolicyData::get_policy_meta_type() const {
   return boost::apply_visitor(GetTypeVisitor<PolicyMetaType>(), policy_meta);
 }
 
-void PolicyData::encode(bufferlist& bl) const {
+template <class TT> void PolicyData::encode(TT& bl) const {
   ENCODE_START(1, 1, bl);
   boost::apply_visitor(EncodeVisitor(bl), policy_meta);
   ENCODE_FINISH(bl);
 }
+template void PolicyData::encode<bufferlist&>(bufferlist& bl) const;
+template void PolicyData::encode<encode_size&>(encode_size& bl) const;
+template void PolicyData::encode<encode_helper&>(encode_helper& bl) const;
 
 void PolicyData::decode(bufferlist::const_iterator& it) {
   DECODE_START(1, it);

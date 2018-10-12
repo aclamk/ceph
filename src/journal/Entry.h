@@ -36,7 +36,7 @@ public:
     return m_data;
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &iter);
   void dump(ceph::Formatter *f) const;
 

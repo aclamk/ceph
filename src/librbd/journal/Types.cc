@@ -71,12 +71,15 @@ private:
 
 } // anonymous namespace
 
-void AioDiscardEvent::encode(bufferlist& bl) const {
+template <class TT> void AioDiscardEvent::encode(TT& bl) const {
   using ceph::encode;
   encode(offset, bl);
   encode(length, bl);
   encode(skip_partial_discard, bl);
 }
+template void AioDiscardEvent::encode<bufferlist&>(bufferlist& bl) const;
+template void AioDiscardEvent::encode<encode_size&>(encode_size& bl) const;
+template void AioDiscardEvent::encode<encode_helper&>(encode_helper& bl) const;
 
 void AioDiscardEvent::decode(__u8 version, bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -97,12 +100,15 @@ uint32_t AioWriteEvent::get_fixed_size() {
   return EventEntry::get_fixed_size() + 16 /* offset, length */;
 }
 
-void AioWriteEvent::encode(bufferlist& bl) const {
+template <class TT> void AioWriteEvent::encode(TT& bl) const {
   using ceph::encode;
   encode(offset, bl);
   encode(length, bl);
   encode(data, bl);
 }
+template void AioWriteEvent::encode<bufferlist&>(bufferlist& bl) const;
+template void AioWriteEvent::encode<encode_size&>(encode_size& bl) const;
+template void AioWriteEvent::encode<encode_helper&>(encode_helper& bl) const;
 
 void AioWriteEvent::decode(__u8 version, bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -116,12 +122,15 @@ void AioWriteEvent::dump(Formatter *f) const {
   f->dump_unsigned("length", length);
 }
 
-void AioWriteSameEvent::encode(bufferlist& bl) const {
+template <class TT> void AioWriteSameEvent::encode(TT& bl) const {
   using ceph::encode;
   encode(offset, bl);
   encode(length, bl);
   encode(data, bl);
 }
+template void AioWriteSameEvent::encode<bufferlist&>(bufferlist& bl) const;
+template void AioWriteSameEvent::encode<encode_size&>(encode_size& bl) const;
+template void AioWriteSameEvent::encode<encode_helper&>(encode_helper& bl) const;
 
 void AioWriteSameEvent::decode(__u8 version, bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -139,13 +148,16 @@ uint32_t AioCompareAndWriteEvent::get_fixed_size() {
   return EventEntry::get_fixed_size() + 32 /* offset, length */;
 }
 
-void AioCompareAndWriteEvent::encode(bufferlist& bl) const {
+template <class TT> void AioCompareAndWriteEvent::encode(TT& bl) const {
   using ceph::encode;
   encode(offset, bl);
   encode(length, bl);
   encode(cmp_data, bl);
   encode(write_data, bl);
 }
+template void AioCompareAndWriteEvent::encode<bufferlist&>(bufferlist& bl) const;
+template void AioCompareAndWriteEvent::encode<encode_size&>(encode_size& bl) const;
+template void AioCompareAndWriteEvent::encode<encode_helper&>(encode_helper& bl) const;
 
 void AioCompareAndWriteEvent::decode(__u8 version, bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -160,8 +172,11 @@ void AioCompareAndWriteEvent::dump(Formatter *f) const {
   f->dump_unsigned("length", length);
 }
 
-void AioFlushEvent::encode(bufferlist& bl) const {
+template <class TT> void AioFlushEvent::encode(TT& bl) const {
 }
+template void AioFlushEvent::encode<bufferlist&>(bufferlist& bl) const;
+template void AioFlushEvent::encode<encode_size&>(encode_size& bl) const;
+template void AioFlushEvent::encode<encode_helper&>(encode_helper& bl) const;
 
 void AioFlushEvent::decode(__u8 version, bufferlist::const_iterator& it) {
 }
@@ -169,10 +184,13 @@ void AioFlushEvent::decode(__u8 version, bufferlist::const_iterator& it) {
 void AioFlushEvent::dump(Formatter *f) const {
 }
 
-void OpEventBase::encode(bufferlist& bl) const {
+template <class TT> void OpEventBase::encode(TT& bl) const {
   using ceph::encode;
   encode(op_tid, bl);
 }
+template void OpEventBase::encode<bufferlist&>(bufferlist& bl) const;
+template void OpEventBase::encode<encode_size&>(encode_size& bl) const;
+template void OpEventBase::encode<encode_helper&>(encode_helper& bl) const;
 
 void OpEventBase::decode(__u8 version, bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -183,12 +201,15 @@ void OpEventBase::dump(Formatter *f) const {
   f->dump_unsigned("op_tid", op_tid);
 }
 
-void OpFinishEvent::encode(bufferlist& bl) const {
+template <class TT> void OpFinishEvent::encode(TT& bl) const {
   OpEventBase::encode(bl);
   using ceph::encode;
   encode(op_tid, bl);
   encode(r, bl);
 }
+template void OpFinishEvent::encode<bufferlist&>(bufferlist& bl) const;
+template void OpFinishEvent::encode<encode_size&>(encode_size& bl) const;
+template void OpFinishEvent::encode<encode_helper&>(encode_helper& bl) const;
 
 void OpFinishEvent::decode(__u8 version, bufferlist::const_iterator& it) {
   OpEventBase::decode(version, it);
@@ -203,12 +224,15 @@ void OpFinishEvent::dump(Formatter *f) const {
   f->dump_int("result", r);
 }
 
-void SnapEventBase::encode(bufferlist& bl) const {
+template <class TT> void SnapEventBase::encode(TT& bl) const {
   using ceph::encode;
   OpEventBase::encode(bl);
   encode(snap_name, bl);
   encode(snap_namespace, bl);
 }
+template void SnapEventBase::encode<bufferlist&>(bufferlist& bl) const;
+template void SnapEventBase::encode<encode_size&>(encode_size& bl) const;
+template void SnapEventBase::encode<encode_helper&>(encode_helper& bl) const;
 
 void SnapEventBase::decode(__u8 version, bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -226,9 +250,12 @@ void SnapEventBase::dump(Formatter *f) const {
   snap_namespace.dump(f);
 }
 
-void SnapCreateEvent::encode(bufferlist &bl) const {
+template <class TT> void SnapCreateEvent::encode(TT &bl) const {
   SnapEventBase::encode(bl);
 }
+template void SnapCreateEvent::encode<bufferlist&>(bufferlist &bl) const;
+template void SnapCreateEvent::encode<encode_size&>(encode_size &bl) const;
+template void SnapCreateEvent::encode<encode_helper&>(encode_helper &bl) const;
 
 void SnapCreateEvent::decode(__u8 version, bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -242,11 +269,14 @@ void SnapCreateEvent::dump(Formatter *f) const {
   SnapEventBase::dump(f);
 }
 
-void SnapLimitEvent::encode(bufferlist &bl) const {
+template <class TT> void SnapLimitEvent::encode(TT &bl) const {
   OpEventBase::encode(bl);
   using ceph::encode;
   encode(limit, bl);
 }
+template void SnapLimitEvent::encode<bufferlist&>(bufferlist &bl) const;
+template void SnapLimitEvent::encode<encode_size&>(encode_size &bl) const;
+template void SnapLimitEvent::encode<encode_helper&>(encode_helper &bl) const;
 
 void SnapLimitEvent::decode(__u8 version, bufferlist::const_iterator& it) {
   OpEventBase::decode(version, it);
@@ -259,13 +289,16 @@ void SnapLimitEvent::dump(Formatter *f) const {
   f->dump_unsigned("limit", limit);
 }
 
-void SnapRenameEvent::encode(bufferlist& bl) const {
+template <class TT> void SnapRenameEvent::encode(TT& bl) const {
   OpEventBase::encode(bl);
   using ceph::encode;
   encode(dst_snap_name, bl);
   encode(snap_id, bl);
   encode(src_snap_name, bl);
 }
+template void SnapRenameEvent::encode<bufferlist&>(bufferlist& bl) const;
+template void SnapRenameEvent::encode<encode_size&>(encode_size& bl) const;
+template void SnapRenameEvent::encode<encode_helper&>(encode_helper& bl) const;
 
 void SnapRenameEvent::decode(__u8 version, bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -284,11 +317,14 @@ void SnapRenameEvent::dump(Formatter *f) const {
   f->dump_string("dest_snap_name", dst_snap_name);
 }
 
-void RenameEvent::encode(bufferlist& bl) const {
+template <class TT> void RenameEvent::encode(TT& bl) const {
   OpEventBase::encode(bl);
   using ceph::encode;
   encode(image_name, bl);
 }
+template void RenameEvent::encode<bufferlist&>(bufferlist& bl) const;
+template void RenameEvent::encode<encode_size&>(encode_size& bl) const;
+template void RenameEvent::encode<encode_helper&>(encode_helper& bl) const;
 
 void RenameEvent::decode(__u8 version, bufferlist::const_iterator& it) {
   OpEventBase::decode(version, it);
@@ -301,11 +337,14 @@ void RenameEvent::dump(Formatter *f) const {
   f->dump_string("image_name", image_name);
 }
 
-void ResizeEvent::encode(bufferlist& bl) const {
+template <class TT> void ResizeEvent::encode(TT& bl) const {
   OpEventBase::encode(bl);
   using ceph::encode;
   encode(size, bl);
 }
+template void ResizeEvent::encode<bufferlist&>(bufferlist& bl) const;
+template void ResizeEvent::encode<encode_size&>(encode_size& bl) const;
+template void ResizeEvent::encode<encode_helper&>(encode_helper& bl) const;
 
 void ResizeEvent::decode(__u8 version, bufferlist::const_iterator& it) {
   OpEventBase::decode(version, it);
@@ -318,8 +357,11 @@ void ResizeEvent::dump(Formatter *f) const {
   f->dump_unsigned("size", size);
 }
 
-void DemotePromoteEvent::encode(bufferlist& bl) const {
+template <class TT> void DemotePromoteEvent::encode(TT& bl) const {
 }
+template void DemotePromoteEvent::encode<bufferlist&>(bufferlist& bl) const;
+template void DemotePromoteEvent::encode<encode_size&>(encode_size& bl) const;
+template void DemotePromoteEvent::encode<encode_helper&>(encode_helper& bl) const;
 
 void DemotePromoteEvent::decode(__u8 version, bufferlist::const_iterator& it) {
 }
@@ -327,12 +369,15 @@ void DemotePromoteEvent::decode(__u8 version, bufferlist::const_iterator& it) {
 void DemotePromoteEvent::dump(Formatter *f) const {
 }
 
-void UpdateFeaturesEvent::encode(bufferlist& bl) const {
+template <class TT> void UpdateFeaturesEvent::encode(TT& bl) const {
   OpEventBase::encode(bl);
   using ceph::encode;
   encode(features, bl);
   encode(enabled, bl);
 }
+template void UpdateFeaturesEvent::encode<bufferlist&>(bufferlist& bl) const;
+template void UpdateFeaturesEvent::encode<encode_size&>(encode_size& bl) const;
+template void UpdateFeaturesEvent::encode<encode_helper&>(encode_helper& bl) const;
 
 void UpdateFeaturesEvent::decode(__u8 version, bufferlist::const_iterator& it) {
   OpEventBase::decode(version, it);
@@ -347,12 +392,15 @@ void UpdateFeaturesEvent::dump(Formatter *f) const {
   f->dump_bool("enabled", enabled);
 }
 
-void MetadataSetEvent::encode(bufferlist& bl) const {
+template <class TT> void MetadataSetEvent::encode(TT& bl) const {
   OpEventBase::encode(bl);
   using ceph::encode;
   encode(key, bl);
   encode(value, bl);
 }
+template void MetadataSetEvent::encode<bufferlist&>(bufferlist& bl) const;
+template void MetadataSetEvent::encode<encode_size&>(encode_size& bl) const;
+template void MetadataSetEvent::encode<encode_helper&>(encode_helper& bl) const;
 
 void MetadataSetEvent::decode(__u8 version, bufferlist::const_iterator& it) {
   OpEventBase::decode(version, it);
@@ -367,11 +415,14 @@ void MetadataSetEvent::dump(Formatter *f) const {
   f->dump_string("value", value);
 }
 
-void MetadataRemoveEvent::encode(bufferlist& bl) const {
+template <class TT> void MetadataRemoveEvent::encode(TT& bl) const {
   OpEventBase::encode(bl);
   using ceph::encode;
   encode(key, bl);
 }
+template void MetadataRemoveEvent::encode<bufferlist&>(bufferlist& bl) const;
+template void MetadataRemoveEvent::encode<encode_size&>(encode_size& bl) const;
+template void MetadataRemoveEvent::encode<encode_helper&>(encode_helper& bl) const;
 
 void MetadataRemoveEvent::decode(__u8 version, bufferlist::const_iterator& it) {
   OpEventBase::decode(version, it);
@@ -384,9 +435,12 @@ void MetadataRemoveEvent::dump(Formatter *f) const {
   f->dump_string("key", key);
 }
 
-void UnknownEvent::encode(bufferlist& bl) const {
+template <class TT> void UnknownEvent::encode(TT& bl) const {
   ceph_abort();
 }
+template void UnknownEvent::encode<bufferlist&>(bufferlist& bl) const;
+template void UnknownEvent::encode<encode_size&>(encode_size& bl) const;
+template void UnknownEvent::encode<encode_helper&>(encode_helper& bl) const;
 
 void UnknownEvent::decode(__u8 version, bufferlist::const_iterator& it) {
 }
@@ -398,12 +452,15 @@ EventType EventEntry::get_event_type() const {
   return boost::apply_visitor(GetTypeVisitor<EventType>(), event);
 }
 
-void EventEntry::encode(bufferlist& bl) const {
+template <class TT> void EventEntry::encode(TT& bl) const {
   ENCODE_START(4, 1, bl);
   boost::apply_visitor(EncodeVisitor(bl), event);
   ENCODE_FINISH(bl);
   encode_metadata(bl);
 }
+template void EventEntry::encode<bufferlist&>(bufferlist& bl) const;
+template void EventEntry::encode<encode_size&>(encode_size& bl) const;
+template void EventEntry::encode<encode_helper&>(encode_helper& bl) const;
 
 void EventEntry::decode(bufferlist::const_iterator& it) {
   DECODE_START(1, it);
@@ -553,11 +610,14 @@ void EventEntry::generate_test_instances(std::list<EventEntry *> &o) {
 
 // Journal Client
 
-void ImageClientMeta::encode(bufferlist& bl) const {
+template <class TT> void ImageClientMeta::encode(TT& bl) const {
   using ceph::encode;
   encode(tag_class, bl);
   encode(resync_requested, bl);
 }
+template void ImageClientMeta::encode<bufferlist&>(bufferlist& bl) const;
+template void ImageClientMeta::encode<encode_size&>(encode_size& bl) const;
+template void ImageClientMeta::encode<encode_helper&>(encode_helper& bl) const;
 
 void ImageClientMeta::decode(__u8 version, bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -570,13 +630,16 @@ void ImageClientMeta::dump(Formatter *f) const {
   f->dump_bool("resync_requested", resync_requested);
 }
 
-void MirrorPeerSyncPoint::encode(bufferlist& bl) const {
+template <class TT> void MirrorPeerSyncPoint::encode(TT& bl) const {
   using ceph::encode;
   encode(snap_name, bl);
   encode(from_snap_name, bl);
   encode(object_number, bl);
   encode(snap_namespace, bl);
 }
+template void MirrorPeerSyncPoint::encode<bufferlist&>(bufferlist& bl) const;
+template void MirrorPeerSyncPoint::encode<encode_size&>(encode_size& bl) const;
+template void MirrorPeerSyncPoint::encode<encode_helper&>(encode_helper& bl) const;
 
 void MirrorPeerSyncPoint::decode(__u8 version, bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -597,7 +660,7 @@ void MirrorPeerSyncPoint::dump(Formatter *f) const {
   snap_namespace.dump(f);
 }
 
-void MirrorPeerClientMeta::encode(bufferlist& bl) const {
+template <class TT> void MirrorPeerClientMeta::encode(TT& bl) const {
   using ceph::encode;
   encode(image_id, bl);
   encode(static_cast<uint32_t>(state), bl);
@@ -608,6 +671,9 @@ void MirrorPeerClientMeta::encode(bufferlist& bl) const {
   }
   encode(snap_seqs, bl);
 }
+template void MirrorPeerClientMeta::encode<bufferlist&>(bufferlist& bl) const;
+template void MirrorPeerClientMeta::encode<encode_size&>(encode_size& bl) const;
+template void MirrorPeerClientMeta::encode<encode_helper&>(encode_helper& bl) const;
 
 void MirrorPeerClientMeta::decode(__u8 version, bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -650,8 +716,11 @@ void MirrorPeerClientMeta::dump(Formatter *f) const {
   f->close_section();
 }
 
-void CliClientMeta::encode(bufferlist& bl) const {
+template <class TT> void CliClientMeta::encode(TT& bl) const {
 }
+template void CliClientMeta::encode<bufferlist&>(bufferlist& bl) const;
+template void CliClientMeta::encode<encode_size&>(encode_size& bl) const;
+template void CliClientMeta::encode<encode_helper&>(encode_helper& bl) const;
 
 void CliClientMeta::decode(__u8 version, bufferlist::const_iterator& it) {
 }
@@ -659,9 +728,12 @@ void CliClientMeta::decode(__u8 version, bufferlist::const_iterator& it) {
 void CliClientMeta::dump(Formatter *f) const {
 }
 
-void UnknownClientMeta::encode(bufferlist& bl) const {
+template <class TT> void UnknownClientMeta::encode(TT& bl) const {
   ceph_abort();
 }
+template void UnknownClientMeta::encode<bufferlist&>(bufferlist& bl) const;
+template void UnknownClientMeta::encode<encode_size&>(encode_size& bl) const;
+template void UnknownClientMeta::encode<encode_helper&>(encode_helper& bl) const;
 
 void UnknownClientMeta::decode(__u8 version, bufferlist::const_iterator& it) {
 }
@@ -673,11 +745,14 @@ ClientMetaType ClientData::get_client_meta_type() const {
   return boost::apply_visitor(GetTypeVisitor<ClientMetaType>(), client_meta);
 }
 
-void ClientData::encode(bufferlist& bl) const {
+template <class TT> void ClientData::encode(TT& bl) const {
   ENCODE_START(2, 1, bl);
   boost::apply_visitor(EncodeVisitor(bl), client_meta);
   ENCODE_FINISH(bl);
 }
+template void ClientData::encode<bufferlist&>(bufferlist& bl) const;
+template void ClientData::encode<encode_size&>(encode_size& bl) const;
+template void ClientData::encode<encode_helper&>(encode_helper& bl) const;
 
 void ClientData::decode(bufferlist::const_iterator& it) {
   DECODE_START(1, it);
@@ -721,13 +796,16 @@ void ClientData::generate_test_instances(std::list<ClientData *> &o) {
 
 // Journal Tag
 
-void TagPredecessor::encode(bufferlist& bl) const {
+template <class TT> void TagPredecessor::encode(TT& bl) const {
   using ceph::encode;
   encode(mirror_uuid, bl);
   encode(commit_valid, bl);
   encode(tag_tid, bl);
   encode(entry_tid, bl);
 }
+template void TagPredecessor::encode<bufferlist&>(bufferlist& bl) const;
+template void TagPredecessor::encode<encode_size&>(encode_size& bl) const;
+template void TagPredecessor::encode<encode_helper&>(encode_helper& bl) const;
 
 void TagPredecessor::decode(bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -744,11 +822,14 @@ void TagPredecessor::dump(Formatter *f) const {
   f->dump_unsigned("entry_tid", entry_tid);
 }
 
-void TagData::encode(bufferlist& bl) const {
+template <class TT> void TagData::encode(TT& bl) const {
   using ceph::encode;
   encode(mirror_uuid, bl);
   predecessor.encode(bl);
 }
+template void TagData::encode<bufferlist&>(bufferlist& bl) const;
+template void TagData::encode<encode_size&>(encode_size& bl) const;
+template void TagData::encode<encode_helper&>(encode_helper& bl) const;
 
 void TagData::decode(bufferlist::const_iterator& it) {
   using ceph::decode;

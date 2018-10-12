@@ -25,7 +25,7 @@ struct rgw_user {
       id(std::move(id)) {
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(tenant, bl);
     encode(id, bl);

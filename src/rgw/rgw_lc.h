@@ -45,7 +45,7 @@ public:
   LCExpiration() {}
   ~LCExpiration() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(3, 2, bl);
     encode(days, bl);
     encode(date, bl);
@@ -129,7 +129,7 @@ class LCFilter
     return !obj_tags.empty();
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(prefix, bl);
     encode(obj_tags, bl);
@@ -229,7 +229,7 @@ public:
 
   bool valid();
   
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
      ENCODE_START(5, 1, bl);
      encode(id, bl);
      encode(prefix, bl);
@@ -300,7 +300,7 @@ public:
 
 //  int get_perm(string& id, int perm_mask);
 //  int get_group_perm(ACLGroupTypeEnum group, int perm_mask);
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(rule_map, bl);
     ENCODE_FINISH(bl);

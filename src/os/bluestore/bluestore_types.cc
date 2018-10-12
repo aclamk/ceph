@@ -19,7 +19,7 @@
 
 // bluestore_bdev_label_t
 
-void bluestore_bdev_label_t::encode(bufferlist& bl) const
+template <class TT> void bluestore_bdev_label_t::encode(TT& bl) const
 {
   // be slightly friendly to someone who looks at the device
   bl.append("bluestore block device\n");
@@ -33,6 +33,9 @@ void bluestore_bdev_label_t::encode(bufferlist& bl) const
   encode(meta, bl);
   ENCODE_FINISH(bl);
 }
+template void bluestore_bdev_label_t::encode<bufferlist&>(bufferlist& bl) const;
+template void bluestore_bdev_label_t::encode<encode_size&>(encode_size& bl) const;
+template void bluestore_bdev_label_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void bluestore_bdev_label_t::decode(bufferlist::const_iterator& p)
 {

@@ -46,7 +46,7 @@ struct RGWOrphanSearchStage {
   explicit RGWOrphanSearchStage(RGWOrphanSearchStageId _stage) : stage(_stage), shard(0) {}
   RGWOrphanSearchStage(RGWOrphanSearchStageId _stage, int _shard, const string& _marker) : stage(_stage), shard(_shard), marker(_marker) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode((int)stage, bl);
     encode(shard, bl);
@@ -74,7 +74,7 @@ struct RGWOrphanSearchInfo {
   uint16_t num_shards;
   utime_t start_time;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(job_name, bl);
     encode(pool.to_str(), bl);
@@ -104,7 +104,7 @@ struct RGWOrphanSearchState {
 
   RGWOrphanSearchState() : stage(ORPHAN_SEARCH_STAGE_UNKNOWN) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(info, bl);
     encode(stage, bl);

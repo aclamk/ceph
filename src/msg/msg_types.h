@@ -155,7 +155,7 @@ struct ceph_sockaddr_storage {
   __le16 ss_family;
   __u8 __ss_padding[128 - sizeof(__le16)];
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     struct ceph_sockaddr_storage ss = *this;
     ss.ss_family = htons(ss.ss_family);
     ::encode_raw(ss, bl);
@@ -434,7 +434,7 @@ struct entity_addr_t {
   // Apparently on BSD there is also an ss_len that we need to handle; this requires
   // broader study
 
-  void encode(bufferlist& bl, uint64_t features) const {
+  template <class TT> void encode(TT& bl, uint64_t features) const {
     using ceph::encode;
     if ((features & CEPH_FEATURE_MSG_ADDR2) == 0) {
       encode((__u32)0, bl);
@@ -579,7 +579,7 @@ struct entity_addrvec_t {
     return r;
   }
 
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<entity_addrvec_t*>& ls);
@@ -665,7 +665,7 @@ struct entity_inst_t {
     return i;
   }
 
-  void encode(bufferlist& bl, uint64_t features) const {
+  template <class TT> void encode(TT& bl, uint64_t features) const {
     using ceph::encode;
     encode(name, bl);
     encode(addr, bl, features);

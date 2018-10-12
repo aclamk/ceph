@@ -88,7 +88,7 @@ struct rgw_sync_error_info {
   rgw_sync_error_info() : error_code(0) {}
   rgw_sync_error_info(const string& _source_zone, uint32_t _error_code, const string& _message) : source_zone(_source_zone), error_code(_error_code), message(_message) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(source_zone, bl);
     encode(error_code, bl);

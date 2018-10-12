@@ -39,7 +39,7 @@ namespace rados {
 
         otp_info_t() {}
 
-        void encode(bufferlist &bl) const {
+        template <class TT> void encode(TT &bl) const {
           ENCODE_START(1, 1, bl);
           encode((uint8_t)type, bl);
           /* if we ever implement anything other than TOTP
@@ -85,7 +85,7 @@ namespace rados {
         ceph::real_time timestamp;
         OTPCheckResult result{OTP_CHECK_UNKNOWN};
 
-        void encode(bufferlist &bl) const {
+        template <class TT> void encode(TT &bl) const {
           ENCODE_START(1, 1, bl);
           encode(token, bl);
           encode(timestamp, bl);
@@ -109,7 +109,7 @@ namespace rados {
 
         otp_repo_t() {}
 
-        void encode(bufferlist &bl) const {
+        template <class TT> void encode(TT &bl) const {
           ENCODE_START(1, 1, bl);
           encode(entries, bl);
           ENCODE_FINISH(bl);

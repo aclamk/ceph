@@ -7,7 +7,7 @@
 
 // Daemon
 
-void ServiceMap::Daemon::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void ServiceMap::Daemon::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(1, 1, bl);
   encode(gid, bl);
@@ -17,6 +17,9 @@ void ServiceMap::Daemon::encode(bufferlist& bl, uint64_t features) const
   encode(metadata, bl);
   ENCODE_FINISH(bl);
 }
+template void ServiceMap::Daemon::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void ServiceMap::Daemon::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void ServiceMap::Daemon::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void ServiceMap::Daemon::decode(bufferlist::const_iterator& p)
 {
@@ -52,13 +55,16 @@ void ServiceMap::Daemon::generate_test_instances(std::list<Daemon*>& ls)
 
 // Service
 
-void ServiceMap::Service::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void ServiceMap::Service::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(1, 1, bl);
   encode(daemons, bl, features);
   encode(summary, bl);
   ENCODE_FINISH(bl);
 }
+template void ServiceMap::Service::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void ServiceMap::Service::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void ServiceMap::Service::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void ServiceMap::Service::decode(bufferlist::const_iterator& p)
 {
@@ -88,7 +94,7 @@ void ServiceMap::Service::generate_test_instances(std::list<Service*>& ls)
 
 // ServiceMap
 
-void ServiceMap::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void ServiceMap::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(1, 1, bl);
   encode(epoch, bl);
@@ -96,6 +102,9 @@ void ServiceMap::encode(bufferlist& bl, uint64_t features) const
   encode(services, bl, features);
   ENCODE_FINISH(bl);
 }
+template void ServiceMap::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void ServiceMap::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void ServiceMap::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void ServiceMap::decode(bufferlist::const_iterator& p)
 {

@@ -21,7 +21,7 @@
 struct dirfrag_rollback {
   fnode_t fnode;
   dirfrag_rollback() { }
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
 };
 WRITE_CLASS_ENCODER(dirfrag_rollback)

@@ -13,7 +13,7 @@ struct obj_version {
 
   obj_version() : ver(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(ver, bl);
     encode(tag, bl);
@@ -65,7 +65,7 @@ struct obj_version_cond {
   struct obj_version ver;
   VersionCond cond;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(ver, bl);
     uint32_t c = (uint32_t)cond;

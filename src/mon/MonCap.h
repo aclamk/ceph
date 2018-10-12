@@ -176,7 +176,7 @@ struct MonCap {
 		  bool op_may_read, bool op_may_write, bool op_may_exec,
 		  const entity_addr_t& addr) const;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<MonCap*>& ls);

@@ -29,11 +29,14 @@ private:
 
 } // anonymous namespace
 
-void ImageAddedPayload::encode(bufferlist &bl) const {
+template <class TT> void ImageAddedPayload::encode(TT &bl) const {
   using ceph::encode;
   encode(image_id, bl);
   encode(trash_image_spec, bl);
 }
+template void ImageAddedPayload::encode<bufferlist&>(bufferlist &bl) const;
+template void ImageAddedPayload::encode<encode_size&>(encode_size &bl) const;
+template void ImageAddedPayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void ImageAddedPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -48,10 +51,13 @@ void ImageAddedPayload::dump(Formatter *f) const {
   f->close_section();
 }
 
-void ImageRemovedPayload::encode(bufferlist &bl) const {
+template <class TT> void ImageRemovedPayload::encode(TT &bl) const {
   using ceph::encode;
   encode(image_id, bl);
 }
+template void ImageRemovedPayload::encode<bufferlist&>(bufferlist &bl) const;
+template void ImageRemovedPayload::encode<encode_size&>(encode_size &bl) const;
+template void ImageRemovedPayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void ImageRemovedPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -62,9 +68,12 @@ void ImageRemovedPayload::dump(Formatter *f) const {
   f->dump_string("image_id", image_id);
 }
 
-void UnknownPayload::encode(bufferlist &bl) const {
+template <class TT> void UnknownPayload::encode(TT &bl) const {
   ceph_abort();
 }
+template void UnknownPayload::encode<bufferlist&>(bufferlist &bl) const;
+template void UnknownPayload::encode<encode_size&>(encode_size &bl) const;
+template void UnknownPayload::encode<encode_helper&>(encode_helper &bl) const;
 
 void UnknownPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
 }
@@ -72,11 +81,14 @@ void UnknownPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
 void UnknownPayload::dump(Formatter *f) const {
 }
 
-void NotifyMessage::encode(bufferlist& bl) const {
+template <class TT> void NotifyMessage::encode(TT& bl) const {
   ENCODE_START(1, 1, bl);
   boost::apply_visitor(watcher::util::EncodePayloadVisitor(bl), payload);
   ENCODE_FINISH(bl);
 }
+template void NotifyMessage::encode<bufferlist&>(bufferlist& bl) const;
+template void NotifyMessage::encode<encode_size&>(encode_size& bl) const;
+template void NotifyMessage::encode<encode_helper&>(encode_helper& bl) const;
 
 void NotifyMessage::decode(bufferlist::const_iterator& iter) {
   DECODE_START(1, iter);

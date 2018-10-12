@@ -25,12 +25,15 @@ void pow2_hist_t::dump(Formatter *f) const
   f->dump_int("upper_bound", upper_bound());
 }
 
-void pow2_hist_t::encode(bufferlist& bl) const
+template <class TT> void pow2_hist_t::encode(TT& bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(h, bl);
   ENCODE_FINISH(bl);
 }
+template void pow2_hist_t::encode<bufferlist&>(bufferlist& bl) const;
+template void pow2_hist_t::encode<encode_size&>(encode_size& bl) const;
+template void pow2_hist_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void pow2_hist_t::decode(bufferlist::const_iterator& p)
 {

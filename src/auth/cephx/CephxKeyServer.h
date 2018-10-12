@@ -38,7 +38,7 @@ struct KeyServerData {
       extra_secrets(extra),
       rotating_ver(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
      __u8 struct_v = 1;
     using ceph::encode;
     encode(struct_v, bl);
@@ -131,7 +131,7 @@ struct KeyServerData {
     EntityName name;
     EntityAuth auth;
     
-    void encode(bufferlist& bl) const {
+    template <class TT> void encode(TT& bl) const {
       using ceph::encode;
       __u8 struct_v = 1;
       encode(struct_v, bl);
@@ -227,7 +227,7 @@ public:
 
   bool generate_secret(EntityName& name, CryptoKey& secret);
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(data, bl);
   }

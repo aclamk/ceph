@@ -65,7 +65,7 @@ struct rgw_bucket_pending_info {
 
   rgw_bucket_pending_info() : state(CLS_RGW_STATE_PENDING_MODIFY), op(0) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(2, 2, bl);
     uint8_t s = (uint8_t)state;
     encode(s, bl);
@@ -102,7 +102,7 @@ struct rgw_bucket_dir_entry_meta {
   rgw_bucket_dir_entry_meta() :
   category(0), size(0), accounted_size(0) { }
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(5, 3, bl);
     encode(category, bl);
     encode(size, bl);
@@ -221,7 +221,7 @@ struct rgw_bucket_entry_ver {
 
   rgw_bucket_entry_ver() : pool(-1), epoch(0) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode_packed_val(pool, bl);
     encode_packed_val(epoch, bl);
@@ -268,7 +268,7 @@ struct cls_rgw_obj_key {
   bool empty() {
     return name.empty();
   }
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(name, bl);
     encode(instance, bl);
@@ -315,7 +315,7 @@ struct rgw_bucket_dir_entry {
   rgw_bucket_dir_entry() :
     exists(false), index_ver(0), flags(0), versioned_epoch(0) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(8, 3, bl);
     encode(key.name, bl);
     encode(ver.epoch, bl);
@@ -395,7 +395,7 @@ struct rgw_cls_bi_entry {
 
   rgw_cls_bi_entry() : type(InvalidIdx) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode((uint8_t)type, bl);
     encode(idx, bl);
@@ -437,7 +437,7 @@ struct rgw_bucket_olh_log_entry {
   rgw_bucket_olh_log_entry() : epoch(0), op(CLS_RGW_OLH_OP_UNKNOWN), delete_marker(false) {}
 
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(epoch, bl);
     encode((__u8)op, bl);
@@ -474,7 +474,7 @@ struct rgw_bucket_olh_entry {
 
   rgw_bucket_olh_entry() : delete_marker(false), epoch(0), exists(false), pending_removal(false) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(key, bl);
     encode(delete_marker, bl);
@@ -518,7 +518,7 @@ struct rgw_bi_log_entry {
 
   rgw_bi_log_entry() : op(CLS_RGW_OP_UNKNOWN), state(CLS_RGW_STATE_PENDING_MODIFY), index_ver(0), bilog_flags(0) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(4, 1, bl);
     encode(id, bl);
     encode(object, bl);
@@ -581,7 +581,7 @@ struct rgw_bucket_category_stats {
 
   rgw_bucket_category_stats() : total_size(0), total_size_rounded(0), num_entries(0) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(3, 2, bl);
     encode(total_size, bl);
     encode(total_size_rounded, bl);
@@ -617,7 +617,7 @@ struct cls_rgw_bucket_instance_entry {
   string new_bucket_instance_id;
   int32_t num_shards{-1};
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode((uint8_t)reshard_status, bl);
     encode(new_bucket_instance_id, bl);
@@ -669,7 +669,7 @@ struct rgw_bucket_dir_header {
 
   rgw_bucket_dir_header() : tag_timeout(0), ver(0), master_ver(0), syncstopped(false) {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(7, 2, bl);
     encode(stats, bl);
     encode(tag_timeout, bl);
@@ -723,7 +723,7 @@ struct rgw_bucket_dir {
   struct rgw_bucket_dir_header header;
   std::map<string, struct rgw_bucket_dir_entry> m;
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(2, 2, bl);
     encode(header, bl);
     encode(m, bl);
@@ -749,7 +749,7 @@ struct rgw_usage_data {
   rgw_usage_data() : bytes_sent(0), bytes_received(0), ops(0), successful_ops(0) {}
   rgw_usage_data(uint64_t sent, uint64_t received) : bytes_sent(sent), bytes_received(received), ops(0), successful_ops(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(bytes_sent, bl);
     encode(bytes_received, bl);
@@ -789,7 +789,7 @@ struct rgw_usage_log_entry {
   rgw_usage_log_entry(string& o, string& b) : owner(o), bucket(b), epoch(0) {}
   rgw_usage_log_entry(string& o, string& p, string& b) : owner(o), payer(p), bucket(b), epoch(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(3, 1, bl);
     encode(owner.to_str(), bl);
     encode(bucket, bl);
@@ -867,7 +867,7 @@ WRITE_CLASS_ENCODER(rgw_usage_log_entry)
 struct rgw_usage_log_info {
   vector<rgw_usage_log_entry> entries;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entries, bl);
     ENCODE_FINISH(bl);
@@ -890,7 +890,7 @@ struct rgw_user_bucket {
   rgw_user_bucket() {}
   rgw_user_bucket(const string& u, const string& b) : user(u), bucket(b) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(user, bl);
     encode(bucket, bl);
@@ -929,7 +929,7 @@ struct cls_rgw_obj {
   cls_rgw_obj() {}
   cls_rgw_obj(string& _p, cls_rgw_obj_key& _k) : pool(_p), key(_k) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(pool, bl);
     encode(key.name, bl);
@@ -978,7 +978,7 @@ struct cls_rgw_obj_chain {
     objs.push_back(obj);
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(objs, bl);
     ENCODE_FINISH(bl);
@@ -1017,7 +1017,7 @@ struct cls_rgw_gc_obj_info
 
   cls_rgw_gc_obj_info() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(tag, bl);
     encode(chain, bl);
@@ -1057,7 +1057,7 @@ struct cls_rgw_lc_obj_head
 
   cls_rgw_lc_obj_head() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     uint64_t t = start_date;
     encode(t, bl);
@@ -1091,7 +1091,7 @@ struct cls_rgw_reshard_entry
 
   cls_rgw_reshard_entry() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(time, bl);
     encode(tenant, bl);

@@ -4472,7 +4472,7 @@ struct MirrorImageStatusOnDisk : cls::rbd::MirrorImageStatus {
     ENCODE_FINISH(bl);
   }
 
-  void encode(bufferlist &bl, uint64_t features) const {
+  template <class TT> void encode(TT &bl, uint64_t features) const {
     encode_meta(bl, features);
     cls::rbd::MirrorImageStatus::encode(bl);
   }

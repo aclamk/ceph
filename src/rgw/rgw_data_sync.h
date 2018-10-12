@@ -38,7 +38,7 @@ struct rgw_data_sync_info {
 
   uint64_t instance_id{0};
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(state, bl);
     encode(num_shards, bl);
@@ -109,7 +109,7 @@ struct rgw_data_sync_marker {
 
   rgw_data_sync_marker() : state(FullSync), total_entries(0), pos(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(state, bl);
     encode(marker, bl);
@@ -177,7 +177,7 @@ struct rgw_data_sync_status {
 
   rgw_data_sync_status() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(sync_info, bl);
     /* sync markers are encoded separately */
@@ -389,7 +389,7 @@ struct rgw_bucket_shard_full_sync_marker {
 
   void encode_attr(map<string, bufferlist>& attrs);
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(position, bl);
     encode(count, bl);
@@ -415,7 +415,7 @@ struct rgw_bucket_shard_inc_sync_marker {
 
   void encode_attr(map<string, bufferlist>& attrs);
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(position, bl);
     ENCODE_FINISH(bl);
@@ -451,7 +451,7 @@ struct rgw_bucket_shard_sync_info {
   void encode_all_attrs(map<string, bufferlist>& attrs);
   void encode_state_attr(map<string, bufferlist>& attrs);
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(state, bl);
     encode(full_marker, bl);

@@ -21,7 +21,7 @@ struct SequencerPosition {
 
   SequencerPosition(uint64_t s=0, int32_t t=0, int32_t o=0) : seq(s), trans(t), op(o) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(seq, bl);
     encode(trans, bl);

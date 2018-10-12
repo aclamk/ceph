@@ -119,7 +119,7 @@ struct MDSHealthMetric
   std::string message;
   std::map<std::string, std::string> metadata;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     ceph_assert(type != MDS_HEALTH_NULL);
     encode((uint16_t)type, bl);
@@ -159,7 +159,7 @@ struct MDSHealth
 {
   std::list<MDSHealthMetric> metrics;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(metrics, bl);
     ENCODE_FINISH(bl);

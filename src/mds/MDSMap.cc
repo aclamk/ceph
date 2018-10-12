@@ -596,7 +596,7 @@ std::string MDSMap::mds_info_t::human_name() const
   return out.str();
 }
 
-void MDSMap::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void MDSMap::encode(TT& bl, uint64_t features) const
 {
   std::map<mds_rank_t,int32_t> inc;  // Legacy field, fake it so that
                                      // old-mon peers have something sane
@@ -711,6 +711,9 @@ void MDSMap::encode(bufferlist& bl, uint64_t features) const
   encode(min_compat_client, bl);
   ENCODE_FINISH(bl);
 }
+template void MDSMap::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void MDSMap::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void MDSMap::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void MDSMap::sanitize(const std::function<bool(int64_t pool)>& pool_exists)
 {

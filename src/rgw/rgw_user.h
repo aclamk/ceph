@@ -34,7 +34,7 @@
 struct RGWUID
 {
   rgw_user user_id;
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     string s;
     user_id.to_str(s);
     using ceph::encode;

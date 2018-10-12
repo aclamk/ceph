@@ -102,7 +102,7 @@ struct key_data {
     return prefix + raw_key;
   }
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1,1,bl);
     encode(raw_key, bl);
     encode(prefix, bl);
@@ -173,7 +173,7 @@ struct object_data {
     size(0) 
   {}
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1,1,bl);
     encode(min_kdata, bl);
     encode(max_kdata, bl);
@@ -229,7 +229,7 @@ struct create_data {
     return *this;
   }
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1,1,bl);
     encode(min, bl);
     encode(max, bl);
@@ -276,7 +276,7 @@ struct delete_data {
   }
 
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1,1,bl);
     encode(min, bl);
     encode(max, bl);
@@ -352,7 +352,7 @@ struct index_data {
   //true if there is a prefix and now - ts > timeout.
   bool is_timed_out(utime_t now, utime_t timeout) const;
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1,1,bl);
     encode(prefix, bl);
     encode(min_kdata, bl);

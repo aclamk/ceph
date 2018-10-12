@@ -35,7 +35,7 @@ struct PayloadBase {
   PayloadBase(uint64_t request_id) : request_id(request_id) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -50,7 +50,7 @@ struct ImagePayloadBase : public PayloadBase {
     : PayloadBase(request_id), global_image_id(global_image_id) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -90,7 +90,7 @@ struct PeerImageRemovedPayload : public PayloadBase {
       global_image_id(global_image_id), peer_mirror_uuid(peer_mirror_uuid) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -105,7 +105,7 @@ struct SyncPayloadBase : public PayloadBase {
     : PayloadBase(request_id), sync_id(sync_id) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -138,7 +138,7 @@ struct UnknownPayload {
   UnknownPayload() {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &iter);
   void dump(Formatter *f) const;
 };
@@ -156,7 +156,7 @@ struct NotifyMessage {
 
   Payload payload;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 
@@ -180,7 +180,7 @@ struct NotifyAckPayload {
     : instance_id(instance_id), request_id(request_id), ret_val(ret_val) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };

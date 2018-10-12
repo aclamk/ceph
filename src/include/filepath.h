@@ -192,7 +192,7 @@ class filepath {
   }
 
   // encoding
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     __u8 struct_v = 1;
     encode(struct_v, bl);

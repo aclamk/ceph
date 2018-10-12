@@ -66,7 +66,7 @@ public:
    */
   int read(uint64_t offset, uint64_t len, const bufferlist& bl, std::ostream *err);
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(ceph::Formatter *f) const;
   static void generate_test_instances(std::list<SloppyCRCMap*>& ls);

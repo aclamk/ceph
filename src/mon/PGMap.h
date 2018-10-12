@@ -53,7 +53,7 @@ public:
     int32_t acting = 0;
     int32_t up = 0;
     int32_t primary = 0;
-    void encode(bufferlist& bl) const {
+    template <class TT> void encode(TT& bl) const {
       using ceph::encode;
       encode(acting, bl);
       encode(up, bl);
@@ -206,7 +206,7 @@ public:
     return 0;
   }
 
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& p);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<PGMapDigest*>& ls);
@@ -387,7 +387,7 @@ public:
   void stat_osd_add(int osd, const osd_stat_t &s);
   void stat_osd_sub(int osd, const osd_stat_t &s);
   
-  void encode(bufferlist &bl, uint64_t features=-1) const;
+  template <class TT> void encode(TT &bl, uint64_t features=-1) const;
   void decode(bufferlist::const_iterator &bl);
 
   /// encode subset of our data to a PGMapDigest

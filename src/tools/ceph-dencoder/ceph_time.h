@@ -16,7 +16,7 @@ class time_point_wrapper {
   time_point_wrapper() = default;
   explicit time_point_wrapper(const time_point& t) : t(t) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(t, bl);
   }
@@ -47,7 +47,7 @@ class timespan_wrapper {
   timespan_wrapper() = default;
   explicit timespan_wrapper(const ceph::timespan& d) : d(d) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(d, bl);
   }

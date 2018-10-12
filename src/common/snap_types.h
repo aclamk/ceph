@@ -30,7 +30,7 @@ struct SnapRealmInfo {
   snapid_t parent_since() const { return snapid_t(h.parent_since); }
   snapid_t created() const { return snapid_t(h.created); }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<SnapRealmInfo*>& o);
@@ -53,7 +53,7 @@ struct SnapContext {
   }
   bool empty() { return seq == 0; }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(seq, bl);
     encode(snaps, bl);

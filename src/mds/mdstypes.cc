@@ -13,7 +13,7 @@ const mds_rank_t MDS_RANK_NONE = mds_rank_t(-1);
  * frag_info_t
  */
 
-void frag_info_t::encode(bufferlist &bl) const
+template <class TT> void frag_info_t::encode(TT &bl) const
 {
   ENCODE_START(3, 2, bl);
   encode(version, bl);
@@ -23,6 +23,9 @@ void frag_info_t::encode(bufferlist &bl) const
   encode(change_attr, bl);
   ENCODE_FINISH(bl);
 }
+template void frag_info_t::encode<bufferlist&>(bufferlist &bl) const;
+template void frag_info_t::encode<encode_size&>(encode_size &bl) const;
+template void frag_info_t::encode<encode_helper&>(encode_helper &bl) const;
 
 void frag_info_t::decode(bufferlist::const_iterator &bl)
 {
@@ -74,7 +77,7 @@ ostream& operator<<(ostream &out, const frag_info_t &f)
  * nest_info_t
  */
 
-void nest_info_t::encode(bufferlist &bl) const
+template <class TT> void nest_info_t::encode(TT &bl) const
 {
   ENCODE_START(3, 2, bl);
   encode(version, bl);
@@ -90,6 +93,9 @@ void nest_info_t::encode(bufferlist &bl) const
   encode(rctime, bl);
   ENCODE_FINISH(bl);
 }
+template void nest_info_t::encode<bufferlist&>(bufferlist &bl) const;
+template void nest_info_t::encode<encode_size&>(encode_size &bl) const;
+template void nest_info_t::encode<encode_helper&>(encode_helper &bl) const;
 
 void nest_info_t::decode(bufferlist::const_iterator &bl)
 {
@@ -176,7 +182,7 @@ ostream& operator<<(ostream &out, const quota_info_t &n)
  * client_writeable_range_t
  */
 
-void client_writeable_range_t::encode(bufferlist &bl) const
+template <class TT> void client_writeable_range_t::encode(TT &bl) const
 {
   ENCODE_START(2, 2, bl);
   encode(range.first, bl);
@@ -184,6 +190,9 @@ void client_writeable_range_t::encode(bufferlist &bl) const
   encode(follows, bl);
   ENCODE_FINISH(bl);
 }
+template void client_writeable_range_t::encode<bufferlist&>(bufferlist &bl) const;
+template void client_writeable_range_t::encode<encode_size&>(encode_size &bl) const;
+template void client_writeable_range_t::encode<encode_helper&>(encode_helper &bl) const;
 
 void client_writeable_range_t::decode(bufferlist::const_iterator& bl)
 {
@@ -220,7 +229,7 @@ ostream& operator<<(ostream& out, const client_writeable_range_t& r)
 /*
  * inline_data_t
  */
-void inline_data_t::encode(bufferlist &bl) const
+template <class TT> void inline_data_t::encode(TT &bl) const
 {
   using ceph::encode;
   encode(version, bl);
@@ -229,6 +238,9 @@ void inline_data_t::encode(bufferlist &bl) const
   else
     encode(bufferlist(), bl);
 }
+template void inline_data_t::encode<bufferlist&>(bufferlist &bl) const;
+template void inline_data_t::encode<encode_size&>(encode_size &bl) const;
+template void inline_data_t::encode<encode_helper&>(encode_helper &bl) const;
 void inline_data_t::decode(bufferlist::const_iterator &p)
 {
   using ceph::decode;
@@ -245,7 +257,7 @@ void inline_data_t::decode(bufferlist::const_iterator &p)
 /*
  * fnode_t
  */
-void fnode_t::encode(bufferlist &bl) const
+template <class TT> void fnode_t::encode(TT &bl) const
 {
   ENCODE_START(4, 3, bl);
   encode(version, bl);
@@ -261,6 +273,9 @@ void fnode_t::encode(bufferlist &bl) const
   encode(localized_scrub_stamp, bl);
   ENCODE_FINISH(bl);
 }
+template void fnode_t::encode<bufferlist&>(bufferlist &bl) const;
+template void fnode_t::encode<encode_size&>(encode_size &bl) const;
+template void fnode_t::encode<encode_helper&>(encode_helper &bl) const;
 
 void fnode_t::decode(bufferlist::const_iterator &bl)
 {
@@ -325,7 +340,7 @@ void fnode_t::generate_test_instances(list<fnode_t*>& ls)
 /*
  * old_rstat_t
  */
-void old_rstat_t::encode(bufferlist& bl) const
+template <class TT> void old_rstat_t::encode(TT& bl) const
 {
   ENCODE_START(2, 2, bl);
   encode(first, bl);
@@ -333,6 +348,9 @@ void old_rstat_t::encode(bufferlist& bl) const
   encode(accounted_rstat, bl);
   ENCODE_FINISH(bl);
 }
+template void old_rstat_t::encode<bufferlist&>(bufferlist& bl) const;
+template void old_rstat_t::encode<encode_size&>(encode_size& bl) const;
+template void old_rstat_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void old_rstat_t::decode(bufferlist::const_iterator& bl)
 {
@@ -406,13 +424,16 @@ feature_bitset_t& feature_bitset_t::operator-=(const feature_bitset_t& other)
   return *this;
 }
 
-void feature_bitset_t::encode(bufferlist& bl) const {
+template <class TT> void feature_bitset_t::encode(TT& bl) const {
   using ceph::encode;
   using ceph::encode_nohead;
   uint32_t len = _vec.size() * sizeof(block_type);
   encode(len, bl);
   encode_nohead(_vec, bl);
 }
+template void feature_bitset_t::encode<bufferlist&>(bufferlist& bl) const;
+template void feature_bitset_t::encode<encode_size&>(encode_size& bl) const;
+template void feature_bitset_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void feature_bitset_t::decode(bufferlist::const_iterator &p) {
   using ceph::decode;
@@ -443,13 +464,16 @@ void feature_bitset_t::print(ostream& out) const
 /*
  * client_metadata_t
  */
-void client_metadata_t::encode(bufferlist& bl) const
+template <class TT> void client_metadata_t::encode(TT& bl) const
 {
   ENCODE_START(2, 1, bl);
   encode(kv_map, bl);
   encode(features, bl);
   ENCODE_FINISH(bl);
 }
+template void client_metadata_t::encode<bufferlist&>(bufferlist& bl) const;
+template void client_metadata_t::encode<encode_size&>(encode_size& bl) const;
+template void client_metadata_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void client_metadata_t::decode(bufferlist::const_iterator& p)
 {
@@ -470,7 +494,7 @@ void client_metadata_t::dump(Formatter *f) const
 /*
  * session_info_t
  */
-void session_info_t::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void session_info_t::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(7, 7, bl);
   encode(inst, bl, features);
@@ -482,6 +506,9 @@ void session_info_t::encode(bufferlist& bl, uint64_t features) const
   encode(client_metadata, bl);
   ENCODE_FINISH(bl);
 }
+template void session_info_t::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void session_info_t::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void session_info_t::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void session_info_t::decode(bufferlist::const_iterator& p)
 {
@@ -574,13 +601,16 @@ void session_info_t::generate_test_instances(list<session_info_t*>& ls)
 /*
  * string_snap_t
  */
-void string_snap_t::encode(bufferlist& bl) const
+template <class TT> void string_snap_t::encode(TT& bl) const
 {
   ENCODE_START(2, 2, bl);
   encode(name, bl);
   encode(snapid, bl);
   ENCODE_FINISH(bl);
 }
+template void string_snap_t::encode<bufferlist&>(bufferlist& bl) const;
+template void string_snap_t::encode<encode_size&>(encode_size& bl) const;
+template void string_snap_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void string_snap_t::decode(bufferlist::const_iterator& bl)
 {
@@ -611,7 +641,7 @@ void string_snap_t::generate_test_instances(list<string_snap_t*>& ls)
 /*
  * MDSCacheObjectInfo
  */
-void MDSCacheObjectInfo::encode(bufferlist& bl) const
+template <class TT> void MDSCacheObjectInfo::encode(TT& bl) const
 {
   ENCODE_START(2, 2, bl);
   encode(ino, bl);
@@ -620,6 +650,9 @@ void MDSCacheObjectInfo::encode(bufferlist& bl) const
   encode(snapid, bl);
   ENCODE_FINISH(bl);
 }
+template void MDSCacheObjectInfo::encode<bufferlist&>(bufferlist& bl) const;
+template void MDSCacheObjectInfo::encode<encode_size&>(encode_size& bl) const;
+template void MDSCacheObjectInfo::encode<encode_helper&>(encode_helper& bl) const;
 
 void MDSCacheObjectInfo::decode(bufferlist::const_iterator& p)
 {
@@ -657,7 +690,7 @@ void MDSCacheObjectInfo::generate_test_instances(list<MDSCacheObjectInfo*>& ls)
 /*
  * mds_table_pending_t
  */
-void mds_table_pending_t::encode(bufferlist& bl) const
+template <class TT> void mds_table_pending_t::encode(TT& bl) const
 {
   ENCODE_START(2, 2, bl);
   encode(reqid, bl);
@@ -665,6 +698,9 @@ void mds_table_pending_t::encode(bufferlist& bl) const
   encode(tid, bl);
   ENCODE_FINISH(bl);
 }
+template void mds_table_pending_t::encode<bufferlist&>(bufferlist& bl) const;
+template void mds_table_pending_t::encode<encode_size&>(encode_size& bl) const;
+template void mds_table_pending_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void mds_table_pending_t::decode(bufferlist::const_iterator& bl)
 {
@@ -695,7 +731,7 @@ void mds_table_pending_t::generate_test_instances(list<mds_table_pending_t*>& ls
 /*
  * inode_load_vec_t
  */
-void inode_load_vec_t::encode(bufferlist &bl) const
+template <class TT> void inode_load_vec_t::encode(TT &bl) const
 {
   ENCODE_START(2, 2, bl);
   for (const auto &i : vec) {
@@ -703,6 +739,9 @@ void inode_load_vec_t::encode(bufferlist &bl) const
   }
   ENCODE_FINISH(bl);
 }
+template void inode_load_vec_t::encode<bufferlist&>(bufferlist &bl) const;
+template void inode_load_vec_t::encode<encode_size&>(encode_size &bl) const;
+template void inode_load_vec_t::encode<encode_helper&>(encode_helper &bl) const;
 
 void inode_load_vec_t::decode(bufferlist::const_iterator &p)
 {
@@ -762,7 +801,7 @@ void dirfrag_load_vec_t::generate_test_instances(std::list<dirfrag_load_vec_t*>&
 /*
  * mds_load_t
  */
-void mds_load_t::encode(bufferlist &bl) const {
+template <class TT> void mds_load_t::encode(TT &bl) const {
   ENCODE_START(2, 2, bl);
   encode(auth, bl);
   encode(all, bl);
@@ -772,6 +811,9 @@ void mds_load_t::encode(bufferlist &bl) const {
   encode(cpu_load_avg, bl);
   ENCODE_FINISH(bl);
 }
+template void mds_load_t::encode<bufferlist&>(bufferlist &bl) const;
+template void mds_load_t::encode<encode_size&>(encode_size &bl) const;
+template void mds_load_t::encode<encode_helper&>(encode_helper &bl) const;
 
 void mds_load_t::decode(bufferlist::const_iterator &bl) {
   DECODE_START_LEGACY_COMPAT_LEN(2, 2, 2, bl);
@@ -806,12 +848,15 @@ void mds_load_t::generate_test_instances(std::list<mds_load_t*>& ls)
 /*
  * cap_reconnect_t
  */
-void cap_reconnect_t::encode(bufferlist& bl) const {
+template <class TT> void cap_reconnect_t::encode(TT& bl) const {
   ENCODE_START(2, 1, bl);
   encode_old(bl); // extract out when something changes
   encode(snap_follows, bl);
   ENCODE_FINISH(bl);
 }
+template void cap_reconnect_t::encode<bufferlist&>(bufferlist& bl) const;
+template void cap_reconnect_t::encode<encode_size&>(encode_size& bl) const;
+template void cap_reconnect_t::encode<encode_helper&>(encode_helper& bl) const;
 
 void cap_reconnect_t::encode_old(bufferlist& bl) const {
   using ceph::encode;

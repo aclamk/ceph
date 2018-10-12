@@ -17,7 +17,7 @@ struct rgw_meta_sync_info {
   std::string period; //< period id of current metadata log
   epoch_t realm_epoch = 0; //< realm epoch of period
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(state, bl);
     encode(num_shards, bl);
@@ -60,7 +60,7 @@ struct rgw_meta_sync_marker {
 
   rgw_meta_sync_marker() : state(FullSync), total_entries(0), pos(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(state, bl);
     encode(marker, bl);
@@ -98,7 +98,7 @@ struct rgw_meta_sync_status {
 
   rgw_meta_sync_status() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(sync_info, bl);
     encode(sync_markers, bl);

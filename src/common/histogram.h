@@ -119,7 +119,7 @@ public:
   void decay(int bits = 1);
 
   void dump(Formatter *f) const;
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &bl);
   static void generate_test_instances(std::list<pow2_hist_t*>& o);
 };

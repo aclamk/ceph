@@ -47,7 +47,7 @@ struct object_t {
     name.clear();
   }
   
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     using ceph::encode;
     encode(name, bl);
   }
@@ -167,7 +167,7 @@ struct sobject_t {
     o.snap = t;
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     using ceph::encode;
     encode(oid, bl);
     encode(snap, bl);

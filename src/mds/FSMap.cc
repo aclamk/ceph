@@ -378,7 +378,7 @@ void FSMap::get_health_checks(health_check_map_t *checks) const
   }
 }
 
-void FSMap::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void FSMap::encode(TT& bl, uint64_t features) const
 {
   if (features & CEPH_FEATURE_SERVER_JEWEL) {
     ENCODE_START(7, 6, bl);
@@ -428,6 +428,9 @@ void FSMap::encode(bufferlist& bl, uint64_t features) const
     }
   }
 }
+template void FSMap::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void FSMap::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void FSMap::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void FSMap::decode(bufferlist::const_iterator& p)
 {
@@ -622,7 +625,7 @@ void FSMap::sanitize(const std::function<bool(int64_t pool)>& pool_exists)
   }
 }
 
-void Filesystem::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void Filesystem::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(1, 1, bl);
   encode(fscid, bl);
@@ -631,6 +634,9 @@ void Filesystem::encode(bufferlist& bl, uint64_t features) const
   encode(mdsmap_bl, bl);
   ENCODE_FINISH(bl);
 }
+template void Filesystem::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void Filesystem::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void Filesystem::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void Filesystem::decode(bufferlist::const_iterator& p)
 {

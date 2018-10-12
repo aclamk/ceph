@@ -11,7 +11,7 @@ struct cls_statelog_add_op {
 
   cls_statelog_add_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entries, bl);
     ENCODE_FINISH(bl);
@@ -35,7 +35,7 @@ struct cls_statelog_list_op {
 
   cls_statelog_list_op() : max_entries(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(object, bl);
     encode(client_id, bl);
@@ -64,7 +64,7 @@ struct cls_statelog_list_ret {
 
   cls_statelog_list_ret() : truncated(false) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(entries, bl);
     encode(marker, bl);
@@ -94,7 +94,7 @@ struct cls_statelog_remove_op {
 
   cls_statelog_remove_op() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(client_id, bl);
     encode(op_id, bl);
@@ -120,7 +120,7 @@ struct cls_statelog_check_state_op {
 
   cls_statelog_check_state_op() : state(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(client_id, bl);
     encode(op_id, bl);

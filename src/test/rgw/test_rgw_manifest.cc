@@ -38,7 +38,7 @@ struct OldObjManifestPart {
 
   OldObjManifestPart() : loc_ofs(0), size(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 2, bl);
     encode(loc, bl);
     encode(loc_ofs, bl);
@@ -85,7 +85,7 @@ public:
     obj_size = std::max(obj_size, ofs + part.size);
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 2, bl);
     encode(obj_size, bl);
     encode(objs, bl);

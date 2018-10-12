@@ -186,7 +186,7 @@ double buffer_basic()
 
 struct DummyBlock {
   int a = 1, b = 2, c = 3, d = 4;
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode(a, bl);
     encode(b, bl);

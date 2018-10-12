@@ -390,7 +390,7 @@ void EMetaBlob::update_segment(LogSegment *ls)
 
 // EMetaBlob::fullbit
 
-void EMetaBlob::fullbit::encode(bufferlist& bl, uint64_t features) const {
+template <class TT> void EMetaBlob::fullbit::encode(TT& bl, uint64_t features) const {
   ENCODE_START(8, 5, bl);
   encode(dn, bl);
   encode(dnfirst, bl);
@@ -416,6 +416,9 @@ void EMetaBlob::fullbit::encode(bufferlist& bl, uint64_t features) const {
   encode(oldest_snap, bl);
   ENCODE_FINISH(bl);
 }
+template void EMetaBlob::fullbit::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void EMetaBlob::fullbit::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void EMetaBlob::fullbit::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void EMetaBlob::fullbit::decode(bufferlist::const_iterator &bl) {
   DECODE_START_LEGACY_COMPAT_LEN(7, 5, 5, bl);
@@ -583,7 +586,7 @@ void EMetaBlob::fullbit::update_inode(MDSRank *mds, CInode *in)
 
 // EMetaBlob::remotebit
 
-void EMetaBlob::remotebit::encode(bufferlist& bl) const
+template <class TT> void EMetaBlob::remotebit::encode(TT& bl) const
 {
   ENCODE_START(2, 2, bl);
   encode(dn, bl);
@@ -595,6 +598,9 @@ void EMetaBlob::remotebit::encode(bufferlist& bl) const
   encode(dirty, bl);
   ENCODE_FINISH(bl);
 }
+template void EMetaBlob::remotebit::encode<bufferlist&>(bufferlist& bl) const;
+template void EMetaBlob::remotebit::encode<encode_size&>(encode_size& bl) const;
+template void EMetaBlob::remotebit::encode<encode_helper&>(encode_helper& bl) const;
 
 void EMetaBlob::remotebit::decode(bufferlist::const_iterator &bl)
 {
@@ -649,7 +655,7 @@ generate_test_instances(list<EMetaBlob::remotebit*>& ls)
 
 // EMetaBlob::nullbit
 
-void EMetaBlob::nullbit::encode(bufferlist& bl) const
+template <class TT> void EMetaBlob::nullbit::encode(TT& bl) const
 {
   ENCODE_START(2, 2, bl);
   encode(dn, bl);
@@ -659,6 +665,9 @@ void EMetaBlob::nullbit::encode(bufferlist& bl) const
   encode(dirty, bl);
   ENCODE_FINISH(bl);
 }
+template void EMetaBlob::nullbit::encode<bufferlist&>(bufferlist& bl) const;
+template void EMetaBlob::nullbit::encode<encode_size&>(encode_size& bl) const;
+template void EMetaBlob::nullbit::encode<encode_helper&>(encode_helper& bl) const;
 
 void EMetaBlob::nullbit::decode(bufferlist::const_iterator &bl)
 {
@@ -690,7 +699,7 @@ void EMetaBlob::nullbit::generate_test_instances(list<nullbit*>& ls)
 
 // EMetaBlob::dirlump
 
-void EMetaBlob::dirlump::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void EMetaBlob::dirlump::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(2, 2, bl);
   encode(fnode, bl);
@@ -702,6 +711,9 @@ void EMetaBlob::dirlump::encode(bufferlist& bl, uint64_t features) const
   encode(dnbl, bl);
   ENCODE_FINISH(bl);
 }
+template void EMetaBlob::dirlump::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void EMetaBlob::dirlump::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void EMetaBlob::dirlump::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void EMetaBlob::dirlump::decode(bufferlist::const_iterator &bl)
 {
@@ -761,7 +773,7 @@ void EMetaBlob::dirlump::generate_test_instances(list<dirlump*>& ls)
 /**
  * EMetaBlob proper
  */
-void EMetaBlob::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void EMetaBlob::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(8, 5, bl);
   encode(lump_order, bl);
@@ -791,6 +803,9 @@ void EMetaBlob::encode(bufferlist& bl, uint64_t features) const
   encode(client_flushes, bl);
   ENCODE_FINISH(bl);
 }
+template void EMetaBlob::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void EMetaBlob::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void EMetaBlob::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 void EMetaBlob::decode(bufferlist::const_iterator &bl)
 {
   DECODE_START_LEGACY_COMPAT_LEN(7, 5, 5, bl);
@@ -1666,7 +1681,7 @@ void ESession::replay(MDSRank *mds)
   update_segment();
 }
 
-void ESession::encode(bufferlist &bl, uint64_t features) const
+template <class TT> void ESession::encode(TT &bl, uint64_t features) const
 {
   ENCODE_START(5, 5, bl);
   encode(stamp, bl);
@@ -1678,6 +1693,9 @@ void ESession::encode(bufferlist &bl, uint64_t features) const
   encode(client_metadata, bl);
   ENCODE_FINISH(bl);
 }
+template void ESession::encode<bufferlist&>(bufferlist &bl, uint64_t features) const;
+template void ESession::encode<encode_size&>(encode_size &bl, uint64_t features) const;
+template void ESession::encode<encode_helper&>(encode_helper &bl, uint64_t features) const;
 
 void ESession::decode(bufferlist::const_iterator &bl)
 {
@@ -1717,7 +1735,7 @@ void ESession::generate_test_instances(list<ESession*>& ls)
 // -----------------------
 // ESessions
 
-void ESessions::encode(bufferlist &bl, uint64_t features) const
+template <class TT> void ESessions::encode(TT &bl, uint64_t features) const
 {
   ENCODE_START(2, 1, bl);
   encode(client_map, bl, features);
@@ -1726,6 +1744,9 @@ void ESessions::encode(bufferlist &bl, uint64_t features) const
   encode(client_metadata_map, bl);
   ENCODE_FINISH(bl);
 }
+template void ESessions::encode<bufferlist&>(bufferlist &bl, uint64_t features) const;
+template void ESessions::encode<encode_size&>(encode_size &bl, uint64_t features) const;
+template void ESessions::encode<encode_helper&>(encode_helper &bl, uint64_t features) const;
 
 void ESessions::decode_old(bufferlist::const_iterator &bl)
 {
@@ -1790,7 +1811,7 @@ void ESessions::replay(MDSRank *mds)
 // -----------------------
 // ETableServer
 
-void ETableServer::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void ETableServer::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(3, 3, bl);
   encode(stamp, bl);
@@ -1803,6 +1824,9 @@ void ETableServer::encode(bufferlist& bl, uint64_t features) const
   encode(version, bl);
   ENCODE_FINISH(bl);
 }
+template void ETableServer::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void ETableServer::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void ETableServer::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void ETableServer::decode(bufferlist::const_iterator &bl)
 {
@@ -1893,7 +1917,7 @@ void ETableServer::replay(MDSRank *mds)
 // ---------------------
 // ETableClient
 
-void ETableClient::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void ETableClient::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(3, 3, bl);
   encode(stamp, bl);
@@ -1902,6 +1926,9 @@ void ETableClient::encode(bufferlist& bl, uint64_t features) const
   encode(tid, bl);
   ENCODE_FINISH(bl);
 }
+template void ETableClient::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void ETableClient::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void ETableClient::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void ETableClient::decode(bufferlist::const_iterator &bl)
 {
@@ -1978,7 +2005,7 @@ void ESnap::replay(MDSRank *mds)
 // -----------------------
 // EUpdate
 
-void EUpdate::encode(bufferlist &bl, uint64_t features) const
+template <class TT> void EUpdate::encode(TT &bl, uint64_t features) const
 {
   ENCODE_START(4, 4, bl);
   encode(stamp, bl);
@@ -1990,6 +2017,9 @@ void EUpdate::encode(bufferlist &bl, uint64_t features) const
   encode(had_slaves, bl);
   ENCODE_FINISH(bl);
 }
+template void EUpdate::encode<bufferlist&>(bufferlist &bl, uint64_t features) const;
+template void EUpdate::encode<encode_size&>(encode_size &bl, uint64_t features) const;
+template void EUpdate::encode<encode_helper&>(encode_helper &bl, uint64_t features) const;
  
 void EUpdate::decode(bufferlist::const_iterator &bl)
 {
@@ -2074,7 +2104,7 @@ void EUpdate::replay(MDSRank *mds)
 // ------------------------
 // EOpen
 
-void EOpen::encode(bufferlist &bl, uint64_t features) const {
+template <class TT> void EOpen::encode(TT &bl, uint64_t features) const {
   ENCODE_START(4, 3, bl);
   encode(stamp, bl);
   encode(metablob, bl, features);
@@ -2082,6 +2112,9 @@ void EOpen::encode(bufferlist &bl, uint64_t features) const {
   encode(snap_inos, bl);
   ENCODE_FINISH(bl);
 } 
+template void EOpen::encode<bufferlist&>(bufferlist &bl, uint64_t features) const;
+template void EOpen::encode<encode_size&>(encode_size &bl, uint64_t features) const;
+template void EOpen::encode<encode_helper&>(encode_helper &bl, uint64_t features) const;
 
 void EOpen::decode(bufferlist::const_iterator &bl) {
   DECODE_START_LEGACY_COMPAT_LEN(3, 3, 3, bl);
@@ -2158,13 +2191,16 @@ void ECommitted::replay(MDSRank *mds)
   }
 }
 
-void ECommitted::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void ECommitted::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(3, 3, bl);
   encode(stamp, bl);
   encode(reqid, bl);
   ENCODE_FINISH(bl);
 } 
+template void ECommitted::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void ECommitted::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void ECommitted::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void ECommitted::decode(bufferlist::const_iterator& bl)
 {
@@ -2191,7 +2227,7 @@ void ECommitted::generate_test_instances(list<ECommitted*>& ls)
 // -----------------------
 // ESlaveUpdate
 
-void link_rollback::encode(bufferlist &bl) const
+template <class TT> void link_rollback::encode(TT &bl) const
 {
   ENCODE_START(3, 2, bl);
   encode(reqid, bl);
@@ -2203,6 +2239,9 @@ void link_rollback::encode(bufferlist &bl) const
   encode(snapbl, bl);
   ENCODE_FINISH(bl);
 }
+template void link_rollback::encode<bufferlist&>(bufferlist &bl) const;
+template void link_rollback::encode<encode_size&>(encode_size &bl) const;
+template void link_rollback::encode<encode_helper&>(encode_helper &bl) const;
 
 void link_rollback::decode(bufferlist::const_iterator &bl)
 {
@@ -2233,7 +2272,7 @@ void link_rollback::generate_test_instances(list<link_rollback*>& ls)
   ls.push_back(new link_rollback());
 }
 
-void rmdir_rollback::encode(bufferlist& bl) const
+template <class TT> void rmdir_rollback::encode(TT& bl) const
 {
   ENCODE_START(3, 2, bl);
   encode(reqid, bl);
@@ -2244,6 +2283,9 @@ void rmdir_rollback::encode(bufferlist& bl) const
   encode(snapbl, bl);
   ENCODE_FINISH(bl);
 }
+template void rmdir_rollback::encode<bufferlist&>(bufferlist& bl) const;
+template void rmdir_rollback::encode<encode_size&>(encode_size& bl) const;
+template void rmdir_rollback::encode<encode_helper&>(encode_helper& bl) const;
 
 void rmdir_rollback::decode(bufferlist::const_iterator& bl)
 {
@@ -2272,7 +2314,7 @@ void rmdir_rollback::generate_test_instances(list<rmdir_rollback*>& ls)
   ls.push_back(new rmdir_rollback());
 }
 
-void rename_rollback::drec::encode(bufferlist &bl) const
+template <class TT> void rename_rollback::drec::encode(TT &bl) const
 {
   ENCODE_START(2, 2, bl);
   encode(dirfrag, bl);
@@ -2285,6 +2327,9 @@ void rename_rollback::drec::encode(bufferlist &bl) const
   encode(old_ctime, bl);
   ENCODE_FINISH(bl);
 }
+template void rename_rollback::drec::encode<bufferlist&>(bufferlist &bl) const;
+template void rename_rollback::drec::encode<encode_size&>(encode_size &bl) const;
+template void rename_rollback::drec::encode<encode_helper&>(encode_helper &bl) const;
 
 void rename_rollback::drec::decode(bufferlist::const_iterator &bl)
 {
@@ -2330,7 +2375,7 @@ void rename_rollback::drec::generate_test_instances(list<drec*>& ls)
   ls.back()->remote_d_type = IFTODT(S_IFREG);
 }
 
-void rename_rollback::encode(bufferlist &bl) const
+template <class TT> void rename_rollback::encode(TT &bl) const
 {
   ENCODE_START(3, 2, bl);
   encode(reqid, bl);
@@ -2342,6 +2387,9 @@ void rename_rollback::encode(bufferlist &bl) const
   encode(desti_snapbl, bl);
   ENCODE_FINISH(bl);
 }
+template void rename_rollback::encode<bufferlist&>(bufferlist &bl) const;
+template void rename_rollback::encode<encode_size&>(encode_size &bl) const;
+template void rename_rollback::encode<encode_helper&>(encode_helper &bl) const;
 
 void rename_rollback::decode(bufferlist::const_iterator &bl)
 {
@@ -2381,7 +2429,7 @@ void rename_rollback::generate_test_instances(list<rename_rollback*>& ls)
   ls.back()->stray.remote_d_type = IFTODT(S_IFREG);
 }
 
-void ESlaveUpdate::encode(bufferlist &bl, uint64_t features) const
+template <class TT> void ESlaveUpdate::encode(TT &bl, uint64_t features) const
 {
   ENCODE_START(3, 3, bl);
   encode(stamp, bl);
@@ -2394,6 +2442,9 @@ void ESlaveUpdate::encode(bufferlist &bl, uint64_t features) const
   encode(rollback, bl);
   ENCODE_FINISH(bl);
 } 
+template void ESlaveUpdate::encode<bufferlist&>(bufferlist &bl, uint64_t features) const;
+template void ESlaveUpdate::encode<encode_size&>(encode_size &bl, uint64_t features) const;
+template void ESlaveUpdate::encode<encode_helper&>(encode_helper &bl, uint64_t features) const;
 
 void ESlaveUpdate::decode(bufferlist::const_iterator &bl)
 {
@@ -2473,7 +2524,7 @@ void ESlaveUpdate::replay(MDSRank *mds)
 // -----------------------
 // ESubtreeMap
 
-void ESubtreeMap::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void ESubtreeMap::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(6, 5, bl);
   encode(stamp, bl);
@@ -2484,6 +2535,9 @@ void ESubtreeMap::encode(bufferlist& bl, uint64_t features) const
   encode(event_seq, bl);
   ENCODE_FINISH(bl);
 }
+template void ESubtreeMap::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void ESubtreeMap::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void ESubtreeMap::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
  
 void ESubtreeMap::decode(bufferlist::const_iterator &bl)
 {
@@ -2716,7 +2770,7 @@ void EFragment::replay(MDSRank *mds)
     in->verify_dirfrags();
 }
 
-void EFragment::encode(bufferlist &bl, uint64_t features) const {
+template <class TT> void EFragment::encode(TT &bl, uint64_t features) const {
   ENCODE_START(5, 4, bl);
   encode(stamp, bl);
   encode(op, bl);
@@ -2728,6 +2782,9 @@ void EFragment::encode(bufferlist &bl, uint64_t features) const {
   encode(rollback, bl);
   ENCODE_FINISH(bl);
 }
+template void EFragment::encode<bufferlist&>(bufferlist &bl, uint64_t features) const;
+template void EFragment::encode<encode_size&>(encode_size &bl, uint64_t features) const;
+template void EFragment::encode<encode_helper&>(encode_helper &bl, uint64_t features) const;
 
 void EFragment::decode(bufferlist::const_iterator &bl) {
   DECODE_START_LEGACY_COMPAT_LEN(5, 4, 4, bl);
@@ -2766,12 +2823,15 @@ void EFragment::generate_test_instances(list<EFragment*>& ls)
   ls.back()->bits = 5;
 }
 
-void dirfrag_rollback::encode(bufferlist &bl) const
+template <class TT> void dirfrag_rollback::encode(TT &bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(fnode, bl);
   ENCODE_FINISH(bl);
 }
+template void dirfrag_rollback::encode<bufferlist&>(bufferlist &bl) const;
+template void dirfrag_rollback::encode<encode_size&>(encode_size &bl) const;
+template void dirfrag_rollback::encode<encode_helper&>(encode_helper &bl) const;
 
 void dirfrag_rollback::decode(bufferlist::const_iterator &bl)
 {
@@ -2810,7 +2870,7 @@ void EExport::replay(MDSRank *mds)
   mds->mdcache->try_trim_non_auth_subtree(dir);
 }
 
-void EExport::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void EExport::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(4, 3, bl);
   encode(stamp, bl);
@@ -2820,6 +2880,9 @@ void EExport::encode(bufferlist& bl, uint64_t features) const
   encode(target, bl);
   ENCODE_FINISH(bl);
 }
+template void EExport::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void EExport::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void EExport::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void EExport::decode(bufferlist::const_iterator &bl)
 {
@@ -2918,7 +2981,7 @@ void EImportStart::replay(MDSRank *mds)
   update_segment();
 }
 
-void EImportStart::encode(bufferlist &bl, uint64_t features) const {
+template <class TT> void EImportStart::encode(TT &bl, uint64_t features) const {
   ENCODE_START(4, 3, bl);
   encode(stamp, bl);
   encode(base, bl);
@@ -2929,6 +2992,9 @@ void EImportStart::encode(bufferlist &bl, uint64_t features) const {
   encode(from, bl);
   ENCODE_FINISH(bl);
 }
+template void EImportStart::encode<bufferlist&>(bufferlist &bl, uint64_t features) const;
+template void EImportStart::encode<encode_size&>(encode_size &bl, uint64_t features) const;
+template void EImportStart::encode<encode_helper&>(encode_helper &bl, uint64_t features) const;
 
 void EImportStart::decode(bufferlist::const_iterator &bl) {
   DECODE_START_LEGACY_COMPAT_LEN(3, 3, 3, bl);
@@ -2989,7 +3055,7 @@ void EImportFinish::replay(MDSRank *mds)
   }
 }
 
-void EImportFinish::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void EImportFinish::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(3, 3, bl);
   encode(stamp, bl);
@@ -2997,6 +3063,9 @@ void EImportFinish::encode(bufferlist& bl, uint64_t features) const
   encode(success, bl);
   ENCODE_FINISH(bl);
 }
+template void EImportFinish::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void EImportFinish::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void EImportFinish::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void EImportFinish::decode(bufferlist::const_iterator &bl)
 {
@@ -3024,12 +3093,15 @@ void EImportFinish::generate_test_instances(list<EImportFinish*>& ls)
 // ------------------------
 // EResetJournal
 
-void EResetJournal::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void EResetJournal::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(2, 2, bl);
   encode(stamp, bl);
   ENCODE_FINISH(bl);
 }
+template void EResetJournal::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void EResetJournal::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void EResetJournal::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
  
 void EResetJournal::decode(bufferlist::const_iterator &bl)
 {
@@ -3069,7 +3141,7 @@ void EResetJournal::replay(MDSRank *mds)
 }
 
 
-void ENoOp::encode(bufferlist &bl, uint64_t features) const
+template <class TT> void ENoOp::encode(TT &bl, uint64_t features) const
 {
   ENCODE_START(2, 2, bl);
   encode(pad_size, bl);
@@ -3079,6 +3151,9 @@ void ENoOp::encode(bufferlist &bl, uint64_t features) const
   }
   ENCODE_FINISH(bl);
 }
+template void ENoOp::encode<bufferlist&>(bufferlist &bl, uint64_t features) const;
+template void ENoOp::encode<encode_size&>(encode_size &bl, uint64_t features) const;
+template void ENoOp::encode<encode_helper&>(encode_helper &bl, uint64_t features) const;
 
 
 void ENoOp::decode(bufferlist::const_iterator &bl)

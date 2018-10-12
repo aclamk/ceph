@@ -39,7 +39,7 @@ struct bluestore_bdev_label_t {
 
   map<string,string> meta; ///< {read,write}_meta() content from ObjectStore
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& p);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<bluestore_bdev_label_t*>& o);

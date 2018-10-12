@@ -37,7 +37,7 @@ struct MonCommand {
   void set_flag(uint64_t flag) { flags |= flag; }
   void unset_flag(uint64_t flag) { flags &= ~flag; }
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode_bare(bl);
     encode(flags, bl);

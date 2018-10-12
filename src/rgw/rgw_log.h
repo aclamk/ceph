@@ -35,7 +35,7 @@ struct rgw_log_entry {
   string bucket_id;
   headers_map x_headers;
 
-  void encode(bufferlist &bl) const {
+  template <class TT> void encode(TT &bl) const {
     ENCODE_START(9, 5, bl);
     encode(object_owner.id, bl);
     encode(bucket_owner.id, bl);

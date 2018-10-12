@@ -147,7 +147,7 @@ public:
       stream_format(-1) {
     }
 
-    void encode(bufferlist &bl) const {
+    template <class TT> void encode(TT &bl) const {
       ENCODE_START(2, 2, bl);
       encode(magic, bl);
       encode(trimmed_pos, bl);

@@ -18,7 +18,7 @@ struct cls_statelog_entry {
 
   cls_statelog_entry() : state(0) {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(client_id, bl);
     encode(op_id, bl);

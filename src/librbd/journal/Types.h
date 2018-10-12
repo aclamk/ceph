@@ -61,7 +61,7 @@ struct AioDiscardEvent {
     : offset(_offset), length(_length), skip_partial_discard(_skip_partial_discard) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -81,7 +81,7 @@ struct AioWriteEvent {
     : offset(_offset), length(_length), data(_data) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -100,7 +100,7 @@ struct AioWriteSameEvent {
     : offset(_offset), length(_length), data(_data) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -122,7 +122,7 @@ struct AioCompareAndWriteEvent {
     : offset(_offset), length(_length), cmp_data(_cmp_data), write_data(_write_data) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -130,7 +130,7 @@ struct AioCompareAndWriteEvent {
 struct AioFlushEvent {
   static const EventType TYPE = EVENT_TYPE_AIO_FLUSH;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -144,7 +144,7 @@ protected:
   OpEventBase(uint64_t op_tid) : op_tid(op_tid) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -159,7 +159,7 @@ struct OpFinishEvent : public OpEventBase {
   OpFinishEvent(uint64_t op_tid, int r) : OpEventBase(op_tid), r(r) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -178,7 +178,7 @@ protected:
       snap_name(_snap_name) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -193,7 +193,7 @@ struct SnapCreateEvent : public SnapEventBase {
     : SnapEventBase(op_tid, snap_namespace, snap_name) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -231,7 +231,7 @@ struct SnapRenameEvent : public OpEventBase{
       dst_snap_name(dest_snap_name) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -276,7 +276,7 @@ struct SnapLimitEvent : public OpEventBase {
     : OpEventBase(op_tid), limit(_limit) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -307,7 +307,7 @@ struct RenameEvent : public OpEventBase {
     : OpEventBase(op_tid), image_name(_image_name) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -323,7 +323,7 @@ struct ResizeEvent : public OpEventBase {
     : OpEventBase(op_tid), size(_size) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -345,7 +345,7 @@ struct DemotePromoteEvent {
   static const EventType TYPE = static_cast<EventType>(
     EVENT_TYPE_DEMOTE_PROMOTE);
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -362,7 +362,7 @@ struct UpdateFeaturesEvent : public OpEventBase {
     : OpEventBase(op_tid), features(_features), enabled(_enabled) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -379,7 +379,7 @@ struct MetadataSetEvent : public OpEventBase {
     : OpEventBase(op_tid), key(_key), value(_value) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -395,7 +395,7 @@ struct MetadataRemoveEvent : public OpEventBase {
     : OpEventBase(op_tid), key(_key) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -403,7 +403,7 @@ struct MetadataRemoveEvent : public OpEventBase {
 struct UnknownEvent {
   static const EventType TYPE = static_cast<EventType>(-1);
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -447,7 +447,7 @@ struct EventEntry {
 
   EventType get_event_type() const;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 
@@ -480,7 +480,7 @@ struct ImageClientMeta {
   ImageClientMeta(uint64_t tag_class) : tag_class(tag_class) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -515,7 +515,7 @@ struct MirrorPeerSyncPoint {
 	    snap_namespace == sync.snap_namespace);
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -552,7 +552,7 @@ struct MirrorPeerClientMeta {
             snap_seqs == meta.snap_seqs);
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -560,7 +560,7 @@ struct MirrorPeerClientMeta {
 struct CliClientMeta {
   static const ClientMetaType TYPE = CLI_CLIENT_META_TYPE;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -568,7 +568,7 @@ struct CliClientMeta {
 struct UnknownClientMeta {
   static const ClientMetaType TYPE = static_cast<ClientMetaType>(-1);
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(__u8 version, bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -588,7 +588,7 @@ struct ClientData {
 
   ClientMetaType get_client_meta_type() const;
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 
@@ -618,7 +618,7 @@ struct TagPredecessor {
             entry_tid == rhs.entry_tid);
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 };
@@ -643,7 +643,7 @@ struct TagData {
                   predecessor_tag_tid, predecessor_entry_tid) {
   }
 
-  void encode(bufferlist& bl) const;
+  template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& it);
   void dump(Formatter *f) const;
 

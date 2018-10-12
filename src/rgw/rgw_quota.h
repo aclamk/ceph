@@ -55,7 +55,7 @@ public:
       check_on_raw(false) {
   }
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(3, 1, bl);
     if (max_size < 0) {
       encode(-rgw_rounded_kb(abs(max_size)), bl);

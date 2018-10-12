@@ -22,7 +22,7 @@
  * Capability::Export
  */
 
-void Capability::Export::encode(bufferlist &bl) const
+template <class TT> void Capability::Export::encode(TT &bl) const
 {
   ENCODE_START(2, 2, bl);
   encode(cap_id, bl);
@@ -35,6 +35,9 @@ void Capability::Export::encode(bufferlist &bl) const
   encode(last_issue_stamp, bl);
   ENCODE_FINISH(bl);
 }
+template void Capability::Export::encode<bufferlist&>(bufferlist &bl) const;
+template void Capability::Export::encode<encode_size&>(encode_size &bl) const;
+template void Capability::Export::encode<encode_helper&>(encode_helper &bl) const;
 
 void Capability::Export::decode(bufferlist::const_iterator &p)
 {
@@ -74,7 +77,7 @@ void Capability::Export::generate_test_instances(list<Capability::Export*>& ls)
   ls.back()->last_issue_stamp = utime_t(6, 7);
 }
 
-void Capability::Import::encode(bufferlist &bl) const
+template <class TT> void Capability::Import::encode(TT &bl) const
 {
   ENCODE_START(1, 1, bl);
   encode(cap_id, bl);
@@ -82,6 +85,9 @@ void Capability::Import::encode(bufferlist &bl) const
   encode(mseq, bl);
   ENCODE_FINISH(bl);
 }
+template void Capability::Import::encode<bufferlist&>(bufferlist &bl) const;
+template void Capability::Import::encode<encode_size&>(encode_size &bl) const;
+template void Capability::Import::encode<encode_helper&>(encode_helper &bl) const;
 
 void Capability::Import::decode(bufferlist::const_iterator &bl)
 {
@@ -103,7 +109,7 @@ void Capability::Import::dump(Formatter *f) const
  * Capability::revoke_info
  */
 
-void Capability::revoke_info::encode(bufferlist& bl) const
+template <class TT> void Capability::revoke_info::encode(TT& bl) const
 {
   ENCODE_START(2, 2, bl)
   encode(before, bl);
@@ -111,6 +117,9 @@ void Capability::revoke_info::encode(bufferlist& bl) const
   encode(last_issue, bl);
   ENCODE_FINISH(bl);
 }
+template void Capability::revoke_info::encode<bufferlist&>(bufferlist& bl) const;
+template void Capability::revoke_info::encode<encode_size&>(encode_size& bl) const;
+template void Capability::revoke_info::encode<encode_helper&>(encode_helper& bl) const;
 
 void Capability::revoke_info::decode(bufferlist::const_iterator& bl)
 {
@@ -153,7 +162,7 @@ void Capability::set_wanted(int w) {
   _wanted = w;
 }
 
-void Capability::encode(bufferlist& bl) const
+template <class TT> void Capability::encode(TT& bl) const
 {
   ENCODE_START(2, 2, bl)
   encode(last_sent, bl);
@@ -164,6 +173,9 @@ void Capability::encode(bufferlist& bl) const
   encode(_revokes, bl);
   ENCODE_FINISH(bl);
 }
+template void Capability::encode<bufferlist&>(bufferlist& bl) const;
+template void Capability::encode<encode_size&>(encode_size& bl) const;
+template void Capability::encode<encode_helper&>(encode_helper& bl) const;
 
 void Capability::decode(bufferlist::const_iterator &bl)
 {

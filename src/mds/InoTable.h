@@ -62,7 +62,7 @@ class InoTable : public MDSTable {
 
   // To permit enc/decoding in isolation in dencoder
   InoTable() : MDSTable(NULL, "inotable", true) {}
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     encode_state(bl);
   }
   void decode(bufferlist::const_iterator& bl) {

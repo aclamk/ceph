@@ -129,7 +129,7 @@ public:
       return addrs;
     }
 
-    void encode(bufferlist& bl, uint64_t features) const {
+    template <class TT> void encode(TT& bl, uint64_t features) const {
       if ((features & CEPH_FEATURE_MDSENC) == 0 ) encode_unversioned(bl);
       else encode_versioned(bl, features);
     }
@@ -622,7 +622,7 @@ public:
       return mds_info_entry->second.inc;
     return -1;
   }
-  void encode(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features) const;
   void decode(bufferlist::const_iterator& p);
   void decode(const bufferlist& bl) {
     auto p = bl.cbegin();

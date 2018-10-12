@@ -18,7 +18,7 @@ struct cls_log_entry {
 
   cls_log_entry() {}
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(2, 1, bl);
     encode(section, bl);
     encode(name, bl);
@@ -45,7 +45,7 @@ struct cls_log_header {
   string max_marker;
   utime_t max_time;
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(max_marker, bl);
     encode(max_time, bl);

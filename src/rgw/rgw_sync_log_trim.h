@@ -88,7 +88,7 @@ class BucketTrimManager : public BucketChangeObserver {
 struct BucketTrimStatus {
   std::string marker; //< metadata key of current bucket instance
 
-  void encode(bufferlist& bl) const {
+  template <class TT> void encode(TT& bl) const {
     ENCODE_START(1, 1, bl);
     encode(marker, bl);
     ENCODE_FINISH(bl);

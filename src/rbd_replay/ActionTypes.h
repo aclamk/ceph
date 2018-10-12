@@ -49,7 +49,7 @@ struct Dependency {
     : id(id), time_delta(time_delta) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &it);
   void decode(__u8 version, bufferlist::const_iterator &it);
   void dump(Formatter *f) const;
@@ -88,7 +88,7 @@ struct ActionBase {
     : id(id), thread_id(thread_id), dependencies(dependencies) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &it);
   void dump(Formatter *f) const;
 };
@@ -125,7 +125,7 @@ struct ImageActionBase : public ActionBase {
     : ActionBase(id, thread_id, dependencies), imagectx_id(imagectx_id) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &it);
   void dump(Formatter *f) const;
 };
@@ -143,7 +143,7 @@ struct IoActionBase : public ImageActionBase {
       offset(offset), length(length) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &it);
   void dump(Formatter *f) const;
 };
@@ -237,7 +237,7 @@ struct OpenImageAction : public ImageActionBase {
       name(name), snap_name(snap_name), read_only(read_only) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &it);
   void dump(Formatter *f) const;
 };
@@ -270,7 +270,7 @@ struct AioOpenImageAction : public ImageActionBase {
       name(name), snap_name(snap_name), read_only(read_only) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &it);
   void dump(Formatter *f) const;
 };
@@ -289,7 +289,7 @@ struct AioCloseImageAction : public ImageActionBase {
 struct UnknownAction {
   static const ActionType ACTION_TYPE = static_cast<ActionType>(-1);
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(__u8 version, bufferlist::const_iterator &it);
   void dump(Formatter *f) const;
 };
@@ -317,7 +317,7 @@ public:
   ActionEntry(const Action &action) : action(action) {
   }
 
-  void encode(bufferlist &bl) const;
+  template <class TT> void encode(TT &bl) const;
   void decode(bufferlist::const_iterator &it);
   void decode_unversioned(bufferlist::const_iterator &it);
   void dump(Formatter *f) const;

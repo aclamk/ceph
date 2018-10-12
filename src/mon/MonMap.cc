@@ -18,7 +18,7 @@
 
 using ceph::Formatter;
 
-void mon_info_t::encode(bufferlist& bl, uint64_t features) const
+template <class TT> void mon_info_t::encode(TT& bl, uint64_t features) const
 {
   ENCODE_START(2, 1, bl);
   encode(name, bl);
@@ -26,6 +26,9 @@ void mon_info_t::encode(bufferlist& bl, uint64_t features) const
   encode(priority, bl);
   ENCODE_FINISH(bl);
 }
+template void mon_info_t::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
+template void mon_info_t::encode<encode_size&>(encode_size& bl, uint64_t features) const;
+template void mon_info_t::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
 
 void mon_info_t::decode(bufferlist::const_iterator& p)
 {
@@ -91,7 +94,7 @@ void MonMap::calc_legacy_ranks()
   }
 }
 
-void MonMap::encode(bufferlist& blist, uint64_t con_features) const
+template <class TT> void MonMap::encode(TT& blist, uint64_t con_features) const
 {
   if ((con_features & CEPH_FEATURE_MONNAMES) == 0) {
     using ceph::encode;
@@ -159,6 +162,9 @@ void MonMap::encode(bufferlist& blist, uint64_t con_features) const
   encode(ranks, blist);
   ENCODE_FINISH(blist);
 }
+template void MonMap::encode<bufferlist&>(bufferlist& blist, uint64_t con_features) const;
+template void MonMap::encode<encode_size&>(encode_size& blist, uint64_t con_features) const;
+template void MonMap::encode<encode_helper&>(encode_helper& blist, uint64_t con_features) const;
 
 void MonMap::decode(bufferlist::const_iterator& p)
 {
