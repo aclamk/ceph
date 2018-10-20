@@ -1416,7 +1416,7 @@ void CInode::verify_diri_backtrace(bufferlist &bl, int err)
 // parent dir
 
 
-void InodeStoreBase::encode_bare(bufferlist &bl, uint64_t features,
+template <class TT> void InodeStoreBase::encode_bare(TT &bl, uint64_t features,
 				 const bufferlist *snap_blob) const
 {
   using ceph::encode;
@@ -1433,8 +1433,14 @@ void InodeStoreBase::encode_bare(bufferlist &bl, uint64_t features,
   encode(oldest_snap, bl);
   encode(damage_flags, bl);
 }
+template void InodeStoreBase::encode_bare<bufferlist>(bufferlist &bl, uint64_t features,
+		const bufferlist *snap_blob) const;
+template void InodeStoreBase::encode_bare<encode_size>(encode_size &bl, uint64_t features,
+		const bufferlist *snap_blob) const;
+template void InodeStoreBase::encode_bare<encode_helper>(encode_helper &bl, uint64_t features,
+		const bufferlist *snap_blob) const;
 
-void InodeStoreBase::encode(bufferlist &bl, uint64_t features,
+template <class TT> void InodeStoreBase::encode(TT &bl, uint64_t features,
 			    const bufferlist *snap_blob) const
 {
   ENCODE_START(6, 4, bl);

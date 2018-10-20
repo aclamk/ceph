@@ -125,9 +125,9 @@ template <class TT> void SnapMapper::object_snaps::encode(TT &bl) const
   encode(snaps, bl);
   ENCODE_FINISH(bl);
 }
-template void SnapMapper::object_snaps::encode<bufferlist&>(bufferlist &bl) const;
-template void SnapMapper::object_snaps::encode<encode_size&>(encode_size &bl) const;
-template void SnapMapper::object_snaps::encode<encode_helper&>(encode_helper &bl) const;
+template void SnapMapper::object_snaps::encode<bufferlist>(bufferlist &bl) const;
+template void SnapMapper::object_snaps::encode<encode_size>(encode_size &bl) const;
+template void SnapMapper::object_snaps::encode<encode_helper>(encode_helper &bl) const;
 
 void SnapMapper::object_snaps::decode(bufferlist::const_iterator &bl)
 {

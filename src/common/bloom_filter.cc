@@ -16,9 +16,9 @@ template <class TT> void bloom_filter::encode(TT& bl) const
   encode(bp, bl);
   ENCODE_FINISH(bl);
 }
-template void bloom_filter::encode<bufferlist&>(bufferlist& bl) const;
-template void bloom_filter::encode<encode_size&>(encode_size& bl) const;
-template void bloom_filter::encode<encode_helper&>(encode_helper& bl) const;
+template void bloom_filter::encode<bufferlist>(bufferlist& bl) const;
+template void bloom_filter::encode<encode_size>(encode_size& bl) const;
+template void bloom_filter::encode<encode_helper>(encode_helper& bl) const;
 
 void bloom_filter::decode(bufferlist::const_iterator& p)
 {
@@ -96,9 +96,9 @@ template <class TT> void compressible_bloom_filter::encode(TT& bl) const
 
   ENCODE_FINISH(bl);
 }
-template void compressible_bloom_filter::encode<bufferlist&>(bufferlist& bl) const;
-template void compressible_bloom_filter::encode<encode_size&>(encode_size& bl) const;
-template void compressible_bloom_filter::encode<encode_helper&>(encode_helper& bl) const;
+template void compressible_bloom_filter::encode<bufferlist>(bufferlist& bl) const;
+template void compressible_bloom_filter::encode<encode_size>(encode_size& bl) const;
+template void compressible_bloom_filter::encode<encode_helper>(encode_helper& bl) const;
 
 void compressible_bloom_filter::decode(bufferlist::const_iterator& p)
 {

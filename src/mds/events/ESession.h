@@ -44,7 +44,8 @@ class ESession : public LogEvent {
     LogEvent(EVENT_SESSION),
     client_inst(inst), open(o), cmapv(v), inos(i), inotablev(iv) { }
 
-  void encode(bufferlist& bl, uint64_t features) const override;
+  void encode(bufferlist &bl, uint64_t features) const override;
+
   void decode(bufferlist::const_iterator& bl) override;
   void dump(Formatter *f) const override;
   static void generate_test_instances(list<ESession*>& ls);
@@ -62,6 +63,7 @@ class ESession : public LogEvent {
   void replay(MDSRank *mds) override;
   entity_inst_t get_client_inst() const {return client_inst;}
 };
+
 WRITE_CLASS_ENCODER_FEATURES(ESession)
 
 #endif

@@ -2485,9 +2485,9 @@ template <class TT> void CrushWrapper::encode(TT& bl, uint64_t features) const
     }
   }
 }
-template void CrushWrapper::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
-template void CrushWrapper::encode<encode_size&>(encode_size& bl, uint64_t features) const;
-template void CrushWrapper::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
+template void CrushWrapper::encode<bufferlist>(bufferlist& bl, uint64_t features) const;
+template void CrushWrapper::encode<encode_size>(encode_size& bl, uint64_t features) const;
+template void CrushWrapper::encode<encode_helper>(encode_helper& bl, uint64_t features) const;
 
 static void decode_32_or_64_string_map(map<int32_t,string>& m, bufferlist::const_iterator& blp)
 {

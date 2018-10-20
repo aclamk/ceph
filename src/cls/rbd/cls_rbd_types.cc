@@ -16,9 +16,9 @@ template <class TT> void MirrorPeer::encode(TT &bl) const {
   encode(pool_id, bl);
   ENCODE_FINISH(bl);
 }
-template void MirrorPeer::encode<bufferlist&>(bufferlist &bl) const;
-template void MirrorPeer::encode<encode_size&>(encode_size &bl) const;
-template void MirrorPeer::encode<encode_helper&>(encode_helper &bl) const;
+template void MirrorPeer::encode<bufferlist>(bufferlist &bl) const;
+template void MirrorPeer::encode<encode_size>(encode_size &bl) const;
+template void MirrorPeer::encode<encode_helper>(encode_helper &bl) const;
 
 void MirrorPeer::decode(bufferlist::const_iterator &it) {
   DECODE_START(1, it);
@@ -84,9 +84,9 @@ template <class TT> void MirrorImage::encode(TT &bl) const {
   encode(static_cast<uint8_t>(state), bl);
   ENCODE_FINISH(bl);
 }
-template void MirrorImage::encode<bufferlist&>(bufferlist &bl) const;
-template void MirrorImage::encode<encode_size&>(encode_size &bl) const;
-template void MirrorImage::encode<encode_helper&>(encode_helper &bl) const;
+template void MirrorImage::encode<bufferlist>(bufferlist &bl) const;
+template void MirrorImage::encode<encode_size>(encode_size &bl) const;
+template void MirrorImage::encode<encode_helper>(encode_helper &bl) const;
 
 void MirrorImage::decode(bufferlist::const_iterator &it) {
   uint8_t int_state;
@@ -147,9 +147,9 @@ template <class TT> void MirrorImageStatus::encode(TT &bl) const {
   encode(up, bl);
   ENCODE_FINISH(bl);
 }
-template void MirrorImageStatus::encode<bufferlist&>(bufferlist &bl) const;
-template void MirrorImageStatus::encode<encode_size&>(encode_size &bl) const;
-template void MirrorImageStatus::encode<encode_helper&>(encode_helper &bl) const;
+template void MirrorImageStatus::encode<bufferlist>(bufferlist &bl) const;
+template void MirrorImageStatus::encode<encode_size>(encode_size &bl) const;
+template void MirrorImageStatus::encode<encode_helper>(encode_helper &bl) const;
 
 void MirrorImageStatus::decode(bufferlist::const_iterator &it) {
   DECODE_START(1, it);
@@ -227,9 +227,9 @@ template <class TT> void ChildImageSpec::encode(TT &bl) const {
   encode(image_id, bl);
   ENCODE_FINISH(bl);
 }
-template void ChildImageSpec::encode<bufferlist&>(bufferlist &bl) const;
-template void ChildImageSpec::encode<encode_size&>(encode_size &bl) const;
-template void ChildImageSpec::encode<encode_helper&>(encode_helper &bl) const;
+template void ChildImageSpec::encode<bufferlist>(bufferlist &bl) const;
+template void ChildImageSpec::encode<encode_size>(encode_size &bl) const;
+template void ChildImageSpec::encode<encode_helper>(encode_helper &bl) const;
 
 void ChildImageSpec::decode(bufferlist::const_iterator &it) {
   DECODE_START(1, it);
@@ -254,9 +254,9 @@ template <class TT> void GroupImageSpec::encode(TT &bl) const {
   encode(pool_id, bl);
   ENCODE_FINISH(bl);
 }
-template void GroupImageSpec::encode<bufferlist&>(bufferlist &bl) const;
-template void GroupImageSpec::encode<encode_size&>(encode_size &bl) const;
-template void GroupImageSpec::encode<encode_helper&>(encode_helper &bl) const;
+template void GroupImageSpec::encode<bufferlist>(bufferlist &bl) const;
+template void GroupImageSpec::encode<encode_size>(encode_size &bl) const;
+template void GroupImageSpec::encode<encode_helper>(encode_helper &bl) const;
 
 void GroupImageSpec::decode(bufferlist::const_iterator &it) {
   DECODE_START(1, it);
@@ -314,9 +314,9 @@ template <class TT> void GroupImageStatus::encode(TT &bl) const {
   encode(state, bl);
   ENCODE_FINISH(bl);
 }
-template void GroupImageStatus::encode<bufferlist&>(bufferlist &bl) const;
-template void GroupImageStatus::encode<encode_size&>(encode_size &bl) const;
-template void GroupImageStatus::encode<encode_helper&>(encode_helper &bl) const;
+template void GroupImageStatus::encode<bufferlist>(bufferlist &bl) const;
+template void GroupImageStatus::encode<encode_size>(encode_size &bl) const;
+template void GroupImageStatus::encode<encode_helper>(encode_helper &bl) const;
 
 void GroupImageStatus::decode(bufferlist::const_iterator &it) {
   DECODE_START(1, it);
@@ -355,9 +355,9 @@ template <class TT> void GroupSpec::encode(TT &bl) const {
   encode(group_id, bl);
   ENCODE_FINISH(bl);
 }
-template void GroupSpec::encode<bufferlist&>(bufferlist &bl) const;
-template void GroupSpec::encode<encode_size&>(encode_size &bl) const;
-template void GroupSpec::encode<encode_helper&>(encode_helper &bl) const;
+template void GroupSpec::encode<bufferlist>(bufferlist &bl) const;
+template void GroupSpec::encode<encode_size>(encode_size &bl) const;
+template void GroupSpec::encode<encode_helper>(encode_helper &bl) const;
 
 void GroupSpec::decode(bufferlist::const_iterator &it) {
   DECODE_START(1, it);
@@ -386,9 +386,9 @@ template <class TT> void GroupSnapshotNamespace::encode(TT& bl) const {
   encode(group_id, bl);
   encode(group_snapshot_id, bl);
 }
-template void GroupSnapshotNamespace::encode<bufferlist&>(bufferlist& bl) const;
-template void GroupSnapshotNamespace::encode<encode_size&>(encode_size& bl) const;
-template void GroupSnapshotNamespace::encode<encode_helper&>(encode_helper& bl) const;
+template void GroupSnapshotNamespace::encode<bufferlist>(bufferlist& bl) const;
+template void GroupSnapshotNamespace::encode<encode_size>(encode_size& bl) const;
+template void GroupSnapshotNamespace::encode<encode_helper>(encode_helper& bl) const;
 
 void GroupSnapshotNamespace::decode(bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -408,9 +408,9 @@ template <class TT> void TrashSnapshotNamespace::encode(TT& bl) const {
   encode(original_name, bl);
   encode(static_cast<uint32_t>(original_snapshot_namespace_type), bl);
 }
-template void TrashSnapshotNamespace::encode<bufferlist&>(bufferlist& bl) const;
-template void TrashSnapshotNamespace::encode<encode_size&>(encode_size& bl) const;
-template void TrashSnapshotNamespace::encode<encode_helper&>(encode_helper& bl) const;
+template void TrashSnapshotNamespace::encode<bufferlist>(bufferlist& bl) const;
+template void TrashSnapshotNamespace::encode<encode_size>(encode_size& bl) const;
+template void TrashSnapshotNamespace::encode<encode_helper>(encode_helper& bl) const;
 
 void TrashSnapshotNamespace::decode(bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -427,9 +427,9 @@ void TrashSnapshotNamespace::dump(Formatter *f) const {
     << original_snapshot_namespace_type;
 }
 
-class EncodeSnapshotNamespaceVisitor : public boost::static_visitor<void> {
+template <class TT> class EncodeSnapshotNamespaceVisitor : public boost::static_visitor<void> {
 public:
-  explicit EncodeSnapshotNamespaceVisitor(bufferlist &bl) : m_bl(bl) {
+  explicit EncodeSnapshotNamespaceVisitor(TT &bl) : m_bl(bl) {
   }
 
   template <typename T>
@@ -440,7 +440,7 @@ public:
   }
 
 private:
-  bufferlist &m_bl;
+  TT &m_bl;
 };
 
 class DecodeSnapshotNamespaceVisitor : public boost::static_visitor<void> {
@@ -497,9 +497,9 @@ template <class TT> void SnapshotInfo::encode(TT& bl) const {
   encode(child_count, bl);
   ENCODE_FINISH(bl);
 }
-template void SnapshotInfo::encode<bufferlist&>(bufferlist& bl) const;
-template void SnapshotInfo::encode<encode_size&>(encode_size& bl) const;
-template void SnapshotInfo::encode<encode_helper&>(encode_helper& bl) const;
+template void SnapshotInfo::encode<bufferlist>(bufferlist& bl) const;
+template void SnapshotInfo::encode<encode_size>(encode_size& bl) const;
+template void SnapshotInfo::encode<encode_helper>(encode_helper& bl) const;
 
 void SnapshotInfo::decode(bufferlist::const_iterator& it) {
   DECODE_START(1, it);
@@ -540,9 +540,9 @@ template <class TT> void SnapshotNamespace::encode(TT& bl) const {
   boost::apply_visitor(EncodeSnapshotNamespaceVisitor(bl), *this);
   ENCODE_FINISH(bl);
 }
-template void SnapshotNamespace::encode<bufferlist&>(bufferlist& bl) const;
-template void SnapshotNamespace::encode<encode_size&>(encode_size& bl) const;
-template void SnapshotNamespace::encode<encode_helper&>(encode_helper& bl) const;
+template void SnapshotNamespace::encode<bufferlist>(bufferlist& bl) const;
+template void SnapshotNamespace::encode<encode_size>(encode_size& bl) const;
+template void SnapshotNamespace::encode<encode_helper>(encode_helper& bl) const;
 
 void SnapshotNamespace::decode(bufferlist::const_iterator &p)
 {
@@ -633,9 +633,9 @@ template <class TT> void ImageSnapshotSpec::encode(TT& bl) const {
   encode(snap_id, bl);
   ENCODE_FINISH(bl);
 }
-template void ImageSnapshotSpec::encode<bufferlist&>(bufferlist& bl) const;
-template void ImageSnapshotSpec::encode<encode_size&>(encode_size& bl) const;
-template void ImageSnapshotSpec::encode<encode_helper&>(encode_helper& bl) const;
+template void ImageSnapshotSpec::encode<bufferlist>(bufferlist& bl) const;
+template void ImageSnapshotSpec::encode<encode_size>(encode_size& bl) const;
+template void ImageSnapshotSpec::encode<encode_helper>(encode_helper& bl) const;
 
 void ImageSnapshotSpec::decode(bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -666,9 +666,9 @@ template <class TT> void GroupSnapshot::encode(TT& bl) const {
   encode(snaps, bl);
   ENCODE_FINISH(bl);
 }
-template void GroupSnapshot::encode<bufferlist&>(bufferlist& bl) const;
-template void GroupSnapshot::encode<encode_size&>(encode_size& bl) const;
-template void GroupSnapshot::encode<encode_helper&>(encode_helper& bl) const;
+template void GroupSnapshot::encode<bufferlist>(bufferlist& bl) const;
+template void GroupSnapshot::encode<encode_size>(encode_size& bl) const;
+template void GroupSnapshot::encode<encode_helper>(encode_helper& bl) const;
 
 void GroupSnapshot::decode(bufferlist::const_iterator& it) {
   using ceph::decode;
@@ -698,9 +698,9 @@ template <class TT> void TrashImageSpec::encode(TT& bl) const {
   encode(deferment_end_time, bl);
   ENCODE_FINISH(bl);
 }
-template void TrashImageSpec::encode<bufferlist&>(bufferlist& bl) const;
-template void TrashImageSpec::encode<encode_size&>(encode_size& bl) const;
-template void TrashImageSpec::encode<encode_helper&>(encode_helper& bl) const;
+template void TrashImageSpec::encode<bufferlist>(bufferlist& bl) const;
+template void TrashImageSpec::encode<encode_size>(encode_size& bl) const;
+template void TrashImageSpec::encode<encode_helper>(encode_helper& bl) const;
 
 void TrashImageSpec::decode(bufferlist::const_iterator &it) {
   DECODE_START(1, it);
@@ -725,9 +725,9 @@ template <class TT> void MirrorImageMap::encode(TT &bl) const {
   encode(data, bl);
   ENCODE_FINISH(bl);
 }
-template void MirrorImageMap::encode<bufferlist&>(bufferlist &bl) const;
-template void MirrorImageMap::encode<encode_size&>(encode_size &bl) const;
-template void MirrorImageMap::encode<encode_helper&>(encode_helper &bl) const;
+template void MirrorImageMap::encode<bufferlist>(bufferlist &bl) const;
+template void MirrorImageMap::encode<encode_size>(encode_size &bl) const;
+template void MirrorImageMap::encode<encode_helper>(encode_helper &bl) const;
 
 void MirrorImageMap::decode(bufferlist::const_iterator &it) {
   DECODE_START(1, it);
@@ -826,9 +826,9 @@ template <class TT> void MigrationSpec::encode(TT& bl) const {
   encode(state_description, bl);
   ENCODE_FINISH(bl);
 }
-template void MigrationSpec::encode<bufferlist&>(bufferlist& bl) const;
-template void MigrationSpec::encode<encode_size&>(encode_size& bl) const;
-template void MigrationSpec::encode<encode_helper&>(encode_helper& bl) const;
+template void MigrationSpec::encode<bufferlist>(bufferlist& bl) const;
+template void MigrationSpec::encode<encode_size>(encode_size& bl) const;
+template void MigrationSpec::encode<encode_helper>(encode_helper& bl) const;
 
 void MigrationSpec::decode(bufferlist::const_iterator& bl) {
   DECODE_START(1, bl);

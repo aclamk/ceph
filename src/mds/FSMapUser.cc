@@ -11,9 +11,9 @@ template <class TT> void FSMapUser::encode(TT& bl, uint64_t features) const
   encode(fs_list, bl, features);
   ENCODE_FINISH(bl);
 }
-template void FSMapUser::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
-template void FSMapUser::encode<encode_size&>(encode_size& bl, uint64_t features) const;
-template void FSMapUser::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
+template void FSMapUser::encode<bufferlist>(bufferlist& bl, uint64_t features) const;
+template void FSMapUser::encode<encode_size>(encode_size& bl, uint64_t features) const;
+template void FSMapUser::encode<encode_helper>(encode_helper& bl, uint64_t features) const;
 
 void FSMapUser::decode(bufferlist::const_iterator& p)
 {
@@ -35,9 +35,9 @@ template <class TT> void FSMapUser::fs_info_t::encode(TT& bl, uint64_t features)
   encode(name, bl);
   ENCODE_FINISH(bl);
 }
-template void FSMapUser::fs_info_t::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
-template void FSMapUser::fs_info_t::encode<encode_size&>(encode_size& bl, uint64_t features) const;
-template void FSMapUser::fs_info_t::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
+template void FSMapUser::fs_info_t::encode<bufferlist>(bufferlist& bl, uint64_t features) const;
+template void FSMapUser::fs_info_t::encode<encode_size>(encode_size& bl, uint64_t features) const;
+template void FSMapUser::fs_info_t::encode<encode_helper>(encode_helper& bl, uint64_t features) const;
 
 void FSMapUser::fs_info_t::decode(bufferlist::const_iterator& p)
 {

@@ -33,9 +33,9 @@ template <class TT> void bluestore_bdev_label_t::encode(TT& bl) const
   encode(meta, bl);
   ENCODE_FINISH(bl);
 }
-template void bluestore_bdev_label_t::encode<bufferlist&>(bufferlist& bl) const;
-template void bluestore_bdev_label_t::encode<encode_size&>(encode_size& bl) const;
-template void bluestore_bdev_label_t::encode<encode_helper&>(encode_helper& bl) const;
+template void bluestore_bdev_label_t::encode<bufferlist>(bufferlist& bl) const;
+template void bluestore_bdev_label_t::encode<encode_size>(encode_size& bl) const;
+template void bluestore_bdev_label_t::encode<encode_helper>(encode_helper& bl) const;
 
 void bluestore_bdev_label_t::decode(bufferlist::const_iterator& p)
 {

@@ -183,9 +183,9 @@ template <class TT> void ECUtil::HashInfo::encode(TT &bl) const
   encode(cumulative_shard_hashes, bl);
   ENCODE_FINISH(bl);
 }
-template void ECUtil::HashInfo::encode<bufferlist&>(bufferlist &bl) const;
-template void ECUtil::HashInfo::encode<encode_size&>(encode_size &bl) const;
-template void ECUtil::HashInfo::encode<encode_helper&>(encode_helper &bl) const;
+template void ECUtil::HashInfo::encode<bufferlist>(bufferlist &bl) const;
+template void ECUtil::HashInfo::encode<encode_size>(encode_size &bl) const;
+template void ECUtil::HashInfo::encode<encode_helper>(encode_helper &bl) const;
 
 void ECUtil::HashInfo::decode(bufferlist::const_iterator &bl)
 {

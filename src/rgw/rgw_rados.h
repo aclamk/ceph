@@ -1064,12 +1064,15 @@ public:
 
   virtual ~RGWSystemMetaObj() {}
 
-  virtual void encode(bufferlist& bl) const {
+  template <class T> void encode_w(T& bl) const {
     ENCODE_START(1, 1, bl);
     encode(id, bl);
     encode(name, bl);
     ENCODE_FINISH(bl);
   }
+  virtual void encode(bufferlist &bl) const {encode_w(bl);}
+  virtual void encode(encode_size &bl) const {encode_w(bl);}
+  virtual void encode(encode_helper &bl) const {encode_w(bl);}
 
   virtual void decode(bufferlist::const_iterator& bl) {
     DECODE_START(1, bl);
@@ -1207,7 +1210,7 @@ struct RGWZoneParams : RGWSystemMetaObj {
 
   const string& get_compression_type(const string& placement_rule) const;
   
-  void encode(bufferlist& bl) const override {
+  template <class T> void encode_w(T& bl) const {
     ENCODE_START(12, 1, bl);
     encode(domain_root, bl);
     encode(control_pool, bl);
@@ -1233,6 +1236,9 @@ struct RGWZoneParams : RGWSystemMetaObj {
     encode(tier_config, bl);
     ENCODE_FINISH(bl);
   }
+  virtual void encode(bufferlist &bl) const override {encode_w(bl);}
+  virtual void encode(encode_size &bl) const override {encode_w(bl);}
+  virtual void encode(encode_helper &bl) const override {encode_w(bl);}
 
   void decode(bufferlist::const_iterator& bl) override {
     DECODE_START(12, bl);
@@ -1523,7 +1529,7 @@ struct RGWZoneGroup : public RGWSystemMetaObj {
   }
   void post_process_params();
 
-  void encode(bufferlist& bl) const override {
+  template <class T> void encode_w(T& bl) const {
     ENCODE_START(4, 1, bl);
     encode(name, bl);
     encode(api_name, bl);
@@ -1539,6 +1545,9 @@ struct RGWZoneGroup : public RGWSystemMetaObj {
     encode(realm_id, bl);
     ENCODE_FINISH(bl);
   }
+  virtual void encode(bufferlist &bl) const override {encode_w(bl);}
+  virtual void encode(encode_size &bl) const override {encode_w(bl);}
+  virtual void encode(encode_helper &bl) const override {encode_w(bl);}
 
   void decode(bufferlist::const_iterator& bl) override {
     DECODE_START(4, bl);
@@ -1737,13 +1746,16 @@ public:
   RGWRealm(CephContext *_cct, RGWRados *_store): RGWSystemMetaObj(_cct, _store) {}
   RGWRealm(const string& _name, CephContext *_cct, RGWRados *_store): RGWSystemMetaObj(_name, _cct, _store){}
 
-  void encode(bufferlist& bl) const override {
+  template <class T> void encode_w(T& bl) const {
     ENCODE_START(1, 1, bl);
     RGWSystemMetaObj::encode(bl);
     encode(current_period, bl);
     encode(epoch, bl);
     ENCODE_FINISH(bl);
   }
+  virtual void encode(bufferlist &bl) const override {encode_w(bl);}
+  virtual void encode(encode_size &bl) const override {encode_w(bl);}
+  virtual void encode(encode_helper &bl) const override {encode_w(bl);}
 
   void decode(bufferlist::const_iterator& bl) override {
     DECODE_START(1, bl);

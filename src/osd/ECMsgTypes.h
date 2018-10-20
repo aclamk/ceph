@@ -77,7 +77,27 @@ struct ECSubWrite {
     updated_hit_set_history = other.updated_hit_set_history;
     backfill_or_async_recovery = other.backfill_or_async_recovery;
   }
-  template <class TT> void encode(TT &bl) const;
+  //template <class TT> void encode(TT& bl) const;
+  template <class TT>
+  std::enable_if_t<!std::is_lvalue_reference_v<TT> > encode(TT &bl) const
+  {
+    ENCODE_START(4, 1, bl);
+    encode(from, bl);
+    encode(tid, bl);
+    encode(reqid, bl);
+    encode(soid, bl);
+    encode(stats, bl);
+    encode(t, bl);
+    encode(at_version, bl);
+    encode(trim_to, bl);
+    encode(log_entries, bl);
+    encode(temp_added, bl);
+    encode(temp_removed, bl);
+    encode(updated_hit_set_history, bl);
+    encode(roll_forward_to, bl);
+    encode(backfill_or_async_recovery, bl);
+    ENCODE_FINISH(bl);
+  }
   void decode(bufferlist::const_iterator &bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<ECSubWrite*>& o);
@@ -87,6 +107,7 @@ private:
   const ECSubWrite& operator=(const ECSubWrite& other);
 };
 WRITE_CLASS_ENCODER(ECSubWrite)
+template void ECSubWrite::encode<ceph::buffer::list>(ceph::buffer::list &bl) const;
 
 struct ECSubWriteReply {
   pg_shard_t from;

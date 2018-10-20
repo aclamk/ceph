@@ -146,9 +146,9 @@ template <class TT> void SloppyCRCMap::encode(TT& bl) const
   encode(crc_map, bl);
   ENCODE_FINISH(bl);
 }
-template void SloppyCRCMap::encode<bufferlist&>(bufferlist& bl) const;
-template void SloppyCRCMap::encode<encode_size&>(encode_size& bl) const;
-template void SloppyCRCMap::encode<encode_helper&>(encode_helper& bl) const;
+template void SloppyCRCMap::encode<bufferlist>(bufferlist& bl) const;
+template void SloppyCRCMap::encode<encode_size>(encode_size& bl) const;
+template void SloppyCRCMap::encode<encode_helper>(encode_helper& bl) const;
 
 void SloppyCRCMap::decode(bufferlist::const_iterator& bl)
 {

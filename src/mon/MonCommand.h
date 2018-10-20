@@ -37,7 +37,7 @@ struct MonCommand {
   void set_flag(uint64_t flag) { flags |= flag; }
   void unset_flag(uint64_t flag) { flags &= ~flag; }
 
-  template <class TT> void encode(TT &bl) const {
+  template <class TT> void inline encode(TT &bl) const {
     ENCODE_START(1, 1, bl);
     encode_bare(bl);
     encode(flags, bl);
@@ -54,7 +54,7 @@ struct MonCommand {
   /**
    * Unversioned encoding for use within encode_array.
    */
-  void encode_bare(bufferlist &bl) const {
+  template <class TT> void inline encode_bare(TT &bl) const {
     using ceph::encode;
     encode(cmdstring, bl);
     encode(helpstring, bl);

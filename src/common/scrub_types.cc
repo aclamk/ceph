@@ -11,9 +11,9 @@ template <class TT> void object_id_wrapper::encode(TT& bl) const
   encode(snap, bl);
   ENCODE_FINISH(bl);
 }
-template void object_id_wrapper::encode<bufferlist&>(bufferlist& bl) const;
-template void object_id_wrapper::encode<encode_size&>(encode_size& bl) const;
-template void object_id_wrapper::encode<encode_helper&>(encode_helper& bl) const;
+template void object_id_wrapper::encode<bufferlist>(bufferlist& bl) const;
+template void object_id_wrapper::encode<encode_size>(encode_size& bl) const;
+template void object_id_wrapper::encode<encode_helper>(encode_helper& bl) const;
 
 void object_id_wrapper::decode(bufferlist::const_iterator& bp)
 {
@@ -26,7 +26,8 @@ void object_id_wrapper::decode(bufferlist::const_iterator& bp)
 }
 
 namespace librados {
-static void encode(const object_id_t& obj, bufferlist& bl)
+
+template <class TT> static void encode(const object_id_t& obj, TT& bl)
 {
   reinterpret_cast<const object_id_wrapper&>(obj).encode(bl);
 }
@@ -39,9 +40,9 @@ template <class TT> void osd_shard_wrapper::encode(TT& bl) const
   encode(shard, bl);
   ENCODE_FINISH(bl);
 }
-template void osd_shard_wrapper::encode<bufferlist&>(bufferlist& bl) const;
-template void osd_shard_wrapper::encode<encode_size&>(encode_size& bl) const;
-template void osd_shard_wrapper::encode<encode_helper&>(encode_helper& bl) const;
+template void osd_shard_wrapper::encode<bufferlist>(bufferlist& bl) const;
+template void osd_shard_wrapper::encode<encode_size>(encode_size& bl) const;
+template void osd_shard_wrapper::encode<encode_helper>(encode_helper& bl) const;
 
 void osd_shard_wrapper::decode(bufferlist::const_iterator& bp)
 {
@@ -52,7 +53,7 @@ void osd_shard_wrapper::decode(bufferlist::const_iterator& bp)
 }
 
 namespace librados {
-static void encode(const osd_shard_t& shard, bufferlist& bl) {
+template <class TT> static void encode(const osd_shard_t& shard, TT& bl) {
   reinterpret_cast<const osd_shard_wrapper&>(shard).encode(bl);
 }
 }
@@ -92,9 +93,9 @@ template <class TT> void shard_info_wrapper::encode(TT& bl) const
   encode(selected_oi, bl);
   ENCODE_FINISH(bl);
 }
-template void shard_info_wrapper::encode<bufferlist&>(bufferlist& bl) const;
-template void shard_info_wrapper::encode<encode_size&>(encode_size& bl) const;
-template void shard_info_wrapper::encode<encode_helper&>(encode_helper& bl) const;
+template void shard_info_wrapper::encode<bufferlist>(bufferlist& bl) const;
+template void shard_info_wrapper::encode<encode_size>(encode_size& bl) const;
+template void shard_info_wrapper::encode<encode_helper>(encode_helper& bl) const;
 
 void shard_info_wrapper::decode(bufferlist::const_iterator& bp)
 {
@@ -151,7 +152,7 @@ inconsistent_obj_wrapper::set_auth_missing(const hobject_t& hoid,
 }
 
 namespace librados {
-  static void encode(const shard_info_t& shard, bufferlist& bl)
+  template <class TT> static void encode(const shard_info_t& shard, TT& bl)
   {
     reinterpret_cast<const shard_info_wrapper&>(shard).encode(bl);
   }
@@ -167,9 +168,9 @@ template <class TT> void inconsistent_obj_wrapper::encode(TT& bl) const
   encode(union_shards.errors, bl);
   ENCODE_FINISH(bl);
 }
-template void inconsistent_obj_wrapper::encode<bufferlist&>(bufferlist& bl) const;
-template void inconsistent_obj_wrapper::encode<encode_size&>(encode_size& bl) const;
-template void inconsistent_obj_wrapper::encode<encode_helper&>(encode_helper& bl) const;
+template void inconsistent_obj_wrapper::encode<bufferlist>(bufferlist& bl) const;
+template void inconsistent_obj_wrapper::encode<encode_size>(encode_size& bl) const;
+template void inconsistent_obj_wrapper::encode<encode_helper>(encode_helper& bl) const;
 
 void inconsistent_obj_wrapper::decode(bufferlist::const_iterator& bp)
 {
@@ -249,9 +250,9 @@ template <class TT> void inconsistent_snapset_wrapper::encode(TT& bl) const
   encode(ss_bl, bl);
   ENCODE_FINISH(bl);
 }
-template void inconsistent_snapset_wrapper::encode<bufferlist&>(bufferlist& bl) const;
-template void inconsistent_snapset_wrapper::encode<encode_size&>(encode_size& bl) const;
-template void inconsistent_snapset_wrapper::encode<encode_helper&>(encode_helper& bl) const;
+template void inconsistent_snapset_wrapper::encode<bufferlist>(bufferlist& bl) const;
+template void inconsistent_snapset_wrapper::encode<encode_size>(encode_size& bl) const;
+template void inconsistent_snapset_wrapper::encode<encode_helper>(encode_helper& bl) const;
 
 void inconsistent_snapset_wrapper::decode(bufferlist::const_iterator& bp)
 {
@@ -277,9 +278,9 @@ template <class TT> void scrub_ls_arg_t::encode(TT& bl) const
   encode(max_return, bl);
   ENCODE_FINISH(bl);
 }
-template void scrub_ls_arg_t::encode<bufferlist&>(bufferlist& bl) const;
-template void scrub_ls_arg_t::encode<encode_size&>(encode_size& bl) const;
-template void scrub_ls_arg_t::encode<encode_helper&>(encode_helper& bl) const;
+template void scrub_ls_arg_t::encode<bufferlist>(bufferlist& bl) const;
+template void scrub_ls_arg_t::encode<encode_size>(encode_size& bl) const;
+template void scrub_ls_arg_t::encode<encode_helper>(encode_helper& bl) const;
 
 void scrub_ls_arg_t::decode(bufferlist::const_iterator& bp)
 {
@@ -300,9 +301,9 @@ template <class TT> void scrub_ls_result_t::encode(TT& bl) const
   encode(vals, bl);
   ENCODE_FINISH(bl);
 }
-template void scrub_ls_result_t::encode<bufferlist&>(bufferlist& bl) const;
-template void scrub_ls_result_t::encode<encode_size&>(encode_size& bl) const;
-template void scrub_ls_result_t::encode<encode_helper&>(encode_helper& bl) const;
+template void scrub_ls_result_t::encode<bufferlist>(bufferlist& bl) const;
+template void scrub_ls_result_t::encode<encode_size>(encode_size& bl) const;
+template void scrub_ls_result_t::encode<encode_helper>(encode_helper& bl) const;
 
 void scrub_ls_result_t::decode(bufferlist::const_iterator& bp)
 {

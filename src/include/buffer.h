@@ -925,6 +925,7 @@ namespace buffer CEPH_BUFFER_API {
     contiguous_filler append_hole(unsigned len);
     void append_zero(unsigned len);
     void prepend_zero(unsigned len);
+    void insert(const ptr& bp, buffer::list::contiguous_filler& cf);
     void insert(const list& bl, buffer::list::contiguous_filler& cf);
     /*
      * get a char

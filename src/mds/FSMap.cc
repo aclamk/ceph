@@ -428,9 +428,9 @@ template <class TT> void FSMap::encode(TT& bl, uint64_t features) const
     }
   }
 }
-template void FSMap::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
-template void FSMap::encode<encode_size&>(encode_size& bl, uint64_t features) const;
-template void FSMap::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
+template void FSMap::encode<bufferlist>(bufferlist& bl, uint64_t features) const;
+template void FSMap::encode<encode_size>(encode_size& bl, uint64_t features) const;
+template void FSMap::encode<encode_helper>(encode_helper& bl, uint64_t features) const;
 
 void FSMap::decode(bufferlist::const_iterator& p)
 {
@@ -634,9 +634,9 @@ template <class TT> void Filesystem::encode(TT& bl, uint64_t features) const
   encode(mdsmap_bl, bl);
   ENCODE_FINISH(bl);
 }
-template void Filesystem::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
-template void Filesystem::encode<encode_size&>(encode_size& bl, uint64_t features) const;
-template void Filesystem::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
+template void Filesystem::encode<bufferlist>(bufferlist& bl, uint64_t features) const;
+template void Filesystem::encode<encode_size>(encode_size& bl, uint64_t features) const;
+template void Filesystem::encode<encode_helper>(encode_helper& bl, uint64_t features) const;
 
 void Filesystem::decode(bufferlist::const_iterator& p)
 {

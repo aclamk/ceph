@@ -12,9 +12,9 @@ template <class TT> void ClientId::encode(TT &bl) const {
   encode(gid, bl);
   encode(handle, bl);
 }
-template void ClientId::encode<bufferlist&>(bufferlist &bl) const;
-template void ClientId::encode<encode_size&>(encode_size &bl) const;
-template void ClientId::encode<encode_helper&>(encode_helper &bl) const;
+template void ClientId::encode<bufferlist>(bufferlist &bl) const;
+template void ClientId::encode<encode_size>(encode_size &bl) const;
+template void ClientId::encode<encode_helper>(encode_helper &bl) const;
 
 void ClientId::decode(bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -32,9 +32,9 @@ template <class TT> void NotifyResponse::encode(TT& bl) const {
   encode(acks, bl);
   encode(timeouts, bl);
 }
-template void NotifyResponse::encode<bufferlist&>(bufferlist& bl) const;
-template void NotifyResponse::encode<encode_size&>(encode_size& bl) const;
-template void NotifyResponse::encode<encode_helper&>(encode_helper& bl) const;
+template void NotifyResponse::encode<bufferlist>(bufferlist& bl) const;
+template void NotifyResponse::encode<encode_size>(encode_size& bl) const;
+template void NotifyResponse::encode<encode_helper>(encode_helper& bl) const;
 
 void NotifyResponse::decode(bufferlist::const_iterator& iter) {
   using ceph::decode;

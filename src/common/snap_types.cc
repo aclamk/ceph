@@ -11,9 +11,9 @@ template <class TT> void SnapRealmInfo::encode(TT& bl) const
   encode_nohead(my_snaps, bl);
   encode_nohead(prior_parent_snaps, bl);
 }
-template void SnapRealmInfo::encode<bufferlist&>(bufferlist& bl) const;
-template void SnapRealmInfo::encode<encode_size&>(encode_size& bl) const;
-template void SnapRealmInfo::encode<encode_helper&>(encode_helper& bl) const;
+template void SnapRealmInfo::encode<bufferlist>(bufferlist& bl) const;
+template void SnapRealmInfo::encode<encode_size>(encode_size& bl) const;
+template void SnapRealmInfo::encode<encode_helper>(encode_helper& bl) const;
 
 void SnapRealmInfo::decode(bufferlist::const_iterator& bl)
 {

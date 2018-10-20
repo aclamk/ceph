@@ -81,9 +81,9 @@ template <class TT> void PolicyData::encode(TT& bl) const {
   boost::apply_visitor(EncodeVisitor(bl), policy_meta);
   ENCODE_FINISH(bl);
 }
-template void PolicyData::encode<bufferlist&>(bufferlist& bl) const;
-template void PolicyData::encode<encode_size&>(encode_size& bl) const;
-template void PolicyData::encode<encode_helper&>(encode_helper& bl) const;
+template void PolicyData::encode<bufferlist>(bufferlist& bl) const;
+template void PolicyData::encode<encode_size>(encode_size& bl) const;
+template void PolicyData::encode<encode_helper>(encode_helper& bl) const;
 
 void PolicyData::decode(bufferlist::const_iterator& it) {
   DECODE_START(1, it);

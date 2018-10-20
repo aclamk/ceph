@@ -36,10 +36,10 @@ struct HandlePayloadVisitor : public boost::static_visitor<void> {
     }
   }
 };
-
+template <class T>
 class EncodePayloadVisitor : public boost::static_visitor<void> {
 public:
-  explicit EncodePayloadVisitor(bufferlist &bl) : m_bl(bl) {}
+  explicit EncodePayloadVisitor(T &bl) : m_bl(bl) {}
 
   template <typename P>
   inline void operator()(const P &payload) const {
@@ -49,7 +49,7 @@ public:
   }
 
 private:
-  bufferlist &m_bl;
+  T &m_bl;
 };
 
 class DecodePayloadVisitor : public boost::static_visitor<void> {

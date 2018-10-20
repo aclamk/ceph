@@ -87,9 +87,9 @@ template <class TT> void file_layout_t::encode(TT& bl, uint64_t features) const
   encode(pool_ns, bl);
   ENCODE_FINISH(bl);
 }
-template void file_layout_t::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
-template void file_layout_t::encode<encode_size&>(encode_size& bl, uint64_t features) const;
-template void file_layout_t::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
+template void file_layout_t::encode<bufferlist>(bufferlist& bl, uint64_t features) const;
+template void file_layout_t::encode<encode_size>(encode_size& bl, uint64_t features) const;
+template void file_layout_t::encode<encode_helper>(encode_helper& bl, uint64_t features) const;
 
 void file_layout_t::decode(bufferlist::const_iterator& p)
 {

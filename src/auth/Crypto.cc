@@ -420,9 +420,9 @@ template <class TT> void CryptoKey::encode(TT& bl) const
   encode(len, bl);
   bl.append(secret);
 }
-template void CryptoKey::encode<bufferlist&>(bufferlist& bl) const;
-template void CryptoKey::encode<encode_size&>(encode_size& bl) const;
-template void CryptoKey::encode<encode_helper&>(encode_helper& bl) const;
+template void CryptoKey::encode<bufferlist>(bufferlist& bl) const;
+template void CryptoKey::encode<encode_size>(encode_size& bl) const;
+template void CryptoKey::encode<encode_helper>(encode_helper& bl) const;
 
 void CryptoKey::decode(bufferlist::const_iterator& bl)
 {

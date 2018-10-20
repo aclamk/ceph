@@ -62,9 +62,9 @@ template <class TT> void PGMapDigest::encode(TT& bl, uint64_t features) const
   }
   ENCODE_FINISH(bl);
 }
-template void PGMapDigest::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
-template void PGMapDigest::encode<encode_size&>(encode_size& bl, uint64_t features) const;
-template void PGMapDigest::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
+template void PGMapDigest::encode<bufferlist>(bufferlist& bl, uint64_t features) const;
+template void PGMapDigest::encode<encode_size>(encode_size& bl, uint64_t features) const;
+template void PGMapDigest::encode<encode_helper>(encode_helper& bl, uint64_t features) const;
 
 void PGMapDigest::decode(bufferlist::const_iterator& p)
 {
@@ -1364,9 +1364,9 @@ template <class TT> void PGMap::encode(TT &bl, uint64_t features) const
   encode(stamp, bl);
   ENCODE_FINISH(bl);
 }
-template void PGMap::encode<bufferlist&>(bufferlist &bl, uint64_t features) const;
-template void PGMap::encode<encode_size&>(encode_size &bl, uint64_t features) const;
-template void PGMap::encode<encode_helper&>(encode_helper &bl, uint64_t features) const;
+template void PGMap::encode<bufferlist>(bufferlist &bl, uint64_t features) const;
+template void PGMap::encode<encode_size>(encode_size &bl, uint64_t features) const;
+template void PGMap::encode<encode_helper>(encode_helper &bl, uint64_t features) const;
 
 void PGMap::decode(bufferlist::const_iterator &bl)
 {

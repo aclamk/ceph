@@ -186,17 +186,17 @@ public:
   Reference operator[](uint64_t offset);
   ConstReference operator[](uint64_t offset) const;
 
-  void encode_header(bufferlist& bl) const;
+  template <class TT> void encode_header(TT& bl) const;
   void decode_header(bufferlist::const_iterator& it);
   uint64_t get_header_length() const;
 
-  void encode_data(bufferlist& bl, uint64_t byte_offset,
+  template <class TT> void encode_data(TT& bl, uint64_t byte_offset,
 		   uint64_t byte_length) const;
   void decode_data(bufferlist::const_iterator& it, uint64_t byte_offset);
   void get_data_extents(uint64_t offset, uint64_t length,
 		        uint64_t *byte_offset, uint64_t *byte_length) const;
 
-  void encode_footer(bufferlist& bl) const;
+  template <class TT> void encode_footer(TT& bl) const;
   void decode_footer(bufferlist::const_iterator& it);
   uint64_t get_footer_offset() const;
 
@@ -268,8 +268,8 @@ void BitVector<_b>::compute_index(uint64_t offset, uint64_t *index, uint64_t *sh
   *shift = ((ELEMENTS_PER_BLOCK - 1) - (offset % ELEMENTS_PER_BLOCK)) * _b;
 }
 
-template <uint8_t _b>
-void BitVector<_b>::encode_header(bufferlist& bl) const {
+template <uint8_t _b> template <class TT>
+void BitVector<_b>::encode_header(TT& bl) const {
   bufferlist header_bl;
   ENCODE_START(1, 1, header_bl);
   encode(m_size, header_bl);
@@ -301,8 +301,8 @@ uint64_t BitVector<_b>::get_header_length() const {
   return 18;
 }
 
-template <uint8_t _b>
-void BitVector<_b>::encode_data(bufferlist& bl, uint64_t byte_offset,
+template <uint8_t _b> template <class TT>
+void BitVector<_b>::encode_data(TT& bl, uint64_t byte_offset,
 				uint64_t byte_length) const {
   ceph_assert(byte_offset % BLOCK_SIZE == 0);
   ceph_assert(byte_offset + byte_length == m_data.length() ||
@@ -316,7 +316,8 @@ void BitVector<_b>::encode_data(bufferlist& bl, uint64_t byte_offset,
     bit.substr_of(m_data, byte_offset, len);
     m_data_crcs[byte_offset / BLOCK_SIZE] = bit.crc32c(0);
 
-    bl.claim_append(bit);
+    //AK_DISABLED bl.claim_append(bit);
+    bl.append(bit);
     byte_offset += BLOCK_SIZE;
   }
 }
@@ -384,8 +385,8 @@ void BitVector<_b>::get_data_extents(uint64_t offset, uint64_t length,
   }
 }
 
-template <uint8_t _b>
-void BitVector<_b>::encode_footer(bufferlist& bl) const {
+template <uint8_t _b> template <class TT>
+void BitVector<_b>::encode_footer(TT& bl) const {
   using ceph::encode;
   bufferlist footer_bl;
   if (m_crc_enabled) {

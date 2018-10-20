@@ -105,7 +105,7 @@ public:
     Params(const Params& o);
     const Params& operator=(const Params& o);
 
-    template <class TT> void encode(TT &bl) const;
+    void encode(bufferlist &bl) const;
     void decode(bufferlist::const_iterator& bl);
     void dump(Formatter *f) const;
     static void generate_test_instances(list<HitSet::Params*>& o);
@@ -158,7 +158,7 @@ public:
     impl->seal();
   }
 
-  template <class TT> void encode(TT &bl) const;
+  void encode(bufferlist &bl) const;
   void decode(bufferlist::const_iterator& bl);
   void dump(Formatter *f) const;
   static void generate_test_instances(list<HitSet*>& o);

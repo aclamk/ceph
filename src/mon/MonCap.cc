@@ -455,9 +455,9 @@ template <class TT> void MonCap::encode(TT& bl) const
   encode(text, bl);
   ENCODE_FINISH(bl);
 }
-template void MonCap::encode<bufferlist&>(bufferlist& bl) const;
-template void MonCap::encode<encode_size&>(encode_size& bl) const;
-template void MonCap::encode<encode_helper&>(encode_helper& bl) const;
+template void MonCap::encode<bufferlist>(bufferlist& bl) const;
+template void MonCap::encode<encode_size>(encode_size& bl) const;
+template void MonCap::encode<encode_helper>(encode_helper& bl) const;
 
 void MonCap::decode(bufferlist::const_iterator& bl)
 {

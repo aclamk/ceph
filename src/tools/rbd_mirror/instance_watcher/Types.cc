@@ -63,9 +63,9 @@ template <class TT> void PayloadBase::encode(TT &bl) const {
   using ceph::encode;
   encode(request_id, bl);
 }
-template void PayloadBase::encode<bufferlist&>(bufferlist &bl) const;
-template void PayloadBase::encode<encode_size&>(encode_size &bl) const;
-template void PayloadBase::encode<encode_helper&>(encode_helper &bl) const;
+template void PayloadBase::encode<bufferlist>(bufferlist &bl) const;
+template void PayloadBase::encode<encode_size>(encode_size &bl) const;
+template void PayloadBase::encode<encode_helper>(encode_helper &bl) const;
 
 void PayloadBase::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -81,9 +81,9 @@ template <class TT> void ImagePayloadBase::encode(TT &bl) const {
   PayloadBase::encode(bl);
   encode(global_image_id, bl);
 }
-template void ImagePayloadBase::encode<bufferlist&>(bufferlist &bl) const;
-template void ImagePayloadBase::encode<encode_size&>(encode_size &bl) const;
-template void ImagePayloadBase::encode<encode_helper&>(encode_helper &bl) const;
+template void ImagePayloadBase::encode<bufferlist>(bufferlist &bl) const;
+template void ImagePayloadBase::encode<encode_size>(encode_size &bl) const;
+template void ImagePayloadBase::encode<encode_helper>(encode_helper &bl) const;
 
 void ImagePayloadBase::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -102,9 +102,9 @@ template <class TT> void PeerImageRemovedPayload::encode(TT &bl) const {
   encode(global_image_id, bl);
   encode(peer_mirror_uuid, bl);
 }
-template void PeerImageRemovedPayload::encode<bufferlist&>(bufferlist &bl) const;
-template void PeerImageRemovedPayload::encode<encode_size&>(encode_size &bl) const;
-template void PeerImageRemovedPayload::encode<encode_helper&>(encode_helper &bl) const;
+template void PeerImageRemovedPayload::encode<bufferlist>(bufferlist &bl) const;
+template void PeerImageRemovedPayload::encode<encode_size>(encode_size &bl) const;
+template void PeerImageRemovedPayload::encode<encode_helper>(encode_helper &bl) const;
 
 void PeerImageRemovedPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -124,9 +124,9 @@ template <class TT> void SyncPayloadBase::encode(TT &bl) const {
   PayloadBase::encode(bl);
   encode(sync_id, bl);
 }
-template void SyncPayloadBase::encode<bufferlist&>(bufferlist &bl) const;
-template void SyncPayloadBase::encode<encode_size&>(encode_size &bl) const;
-template void SyncPayloadBase::encode<encode_helper&>(encode_helper &bl) const;
+template void SyncPayloadBase::encode<bufferlist>(bufferlist &bl) const;
+template void SyncPayloadBase::encode<encode_size>(encode_size &bl) const;
+template void SyncPayloadBase::encode<encode_helper>(encode_helper &bl) const;
 
 void SyncPayloadBase::decode(__u8 version, bufferlist::const_iterator &iter) {
   using ceph::decode;
@@ -142,9 +142,9 @@ void SyncPayloadBase::dump(Formatter *f) const {
 template <class TT> void UnknownPayload::encode(TT &bl) const {
   ceph_abort();
 }
-template void UnknownPayload::encode<bufferlist&>(bufferlist &bl) const;
-template void UnknownPayload::encode<encode_size&>(encode_size &bl) const;
-template void UnknownPayload::encode<encode_helper&>(encode_helper &bl) const;
+template void UnknownPayload::encode<bufferlist>(bufferlist &bl) const;
+template void UnknownPayload::encode<encode_size>(encode_size &bl) const;
+template void UnknownPayload::encode<encode_helper>(encode_helper &bl) const;
 
 void UnknownPayload::decode(__u8 version, bufferlist::const_iterator &iter) {
 }
@@ -157,9 +157,9 @@ template <class TT> void NotifyMessage::encode(TT& bl) const {
   boost::apply_visitor(EncodePayloadVisitor(bl), payload);
   ENCODE_FINISH(bl);
 }
-template void NotifyMessage::encode<bufferlist&>(bufferlist& bl) const;
-template void NotifyMessage::encode<encode_size&>(encode_size& bl) const;
-template void NotifyMessage::encode<encode_helper&>(encode_helper& bl) const;
+template void NotifyMessage::encode<bufferlist>(bufferlist& bl) const;
+template void NotifyMessage::encode<encode_size>(encode_size& bl) const;
+template void NotifyMessage::encode<encode_helper>(encode_helper& bl) const;
 
 void NotifyMessage::decode(bufferlist::const_iterator& iter) {
   DECODE_START(2, iter);
@@ -244,9 +244,9 @@ template <class TT> void NotifyAckPayload::encode(TT &bl) const {
   encode(request_id, bl);
   encode(ret_val, bl);
 }
-template void NotifyAckPayload::encode<bufferlist&>(bufferlist &bl) const;
-template void NotifyAckPayload::encode<encode_size&>(encode_size &bl) const;
-template void NotifyAckPayload::encode<encode_helper&>(encode_helper &bl) const;
+template void NotifyAckPayload::encode<bufferlist>(bufferlist &bl) const;
+template void NotifyAckPayload::encode<encode_size>(encode_size &bl) const;
+template void NotifyAckPayload::encode<encode_helper>(encode_helper &bl) const;
 
 void NotifyAckPayload::decode(bufferlist::const_iterator &iter) {
   using ceph::decode;

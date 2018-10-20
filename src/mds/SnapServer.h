@@ -130,7 +130,7 @@ public:
 	   snaps.empty() || snaps.begin()->first >= snaprealm_v2_since;
   }
 
-  template <class TT> void encode(TT& bl) const {
+  void encode(bufferlist& bl) const {
     encode_server_state(bl);
   }
   void decode(bufferlist::const_iterator& bl) {

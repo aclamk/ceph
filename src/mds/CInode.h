@@ -102,7 +102,7 @@ public:
   void decode(bufferlist::const_iterator &bl, bufferlist& snap_blob);
 
   /* Serialization without ENCODE_START/FINISH blocks for use embedded in dentry */
-  void encode_bare(bufferlist &bl, uint64_t features, const bufferlist *snap_blob=NULL) const;
+  template <class TT> void encode_bare(TT &bl, uint64_t features, const bufferlist *snap_blob=NULL) const;
   void decode_bare(bufferlist::const_iterator &bl, bufferlist &snap_blob, __u8 struct_v=5);
 
   /* For test/debug output */
@@ -112,7 +112,11 @@ public:
   __u32 hash_dentry_name(std::string_view dn);
   frag_t pick_dirfrag(std::string_view dn);
 };
-
+//WRITE_CLASS_ENCODER_FEATURES(InodeStoreBase::mempool_inode);
+//WRITE_CLASS_ENCODER(InodeStoreBase::mempool_xattr_map);
+//inline void encode(alloc_string<mempool::mds_co::pool_allocator>& a, encode_size& bl)
+//{
+//}
 class InodeStore : public InodeStoreBase {
 public:
   // FIXME bufferlist not part of mempool
@@ -124,7 +128,8 @@ public:
   void decode(bufferlist::const_iterator &bl) {
     InodeStoreBase::decode(bl, snap_blob);
   }
-  void encode_bare(bufferlist &bl, uint64_t features) const {
+  template <class TT>
+  void encode_bare(TT &bl, uint64_t features) const {
     InodeStoreBase::encode_bare(bl, features, &snap_blob);
   }
   void decode_bare(bufferlist::const_iterator &bl) {
@@ -148,6 +153,17 @@ public:
 };
 WRITE_CLASS_ENCODER_FEATURES(InodeStoreBare)
 
+namespace ceph {
+inline void encode(const std::basic_string<char, std::char_traits<char>, mempool::pool_allocator<(mempool::pool_index_t)18, char> > &a,
+		ceph::encode_size& bl)
+{
+}
+
+inline void encode(const std::basic_string<char, std::char_traits<char>, mempool::pool_allocator<(mempool::pool_index_t)18, char> > &a,
+		ceph::encode_helper& bl)
+{
+}
+}
 // cached inode wrapper
 class CInode : public MDSCacheObject, public InodeStoreBase, public Counter<CInode> {
  public:

@@ -86,7 +86,7 @@ public:
   void set_stamp(utime_t t) { stamp = t; }
 
   // encoding
-  virtual void encode(bufferlist& bl, uint64_t features) const = 0;
+  virtual void encode(bufferlist &bl, uint64_t features) const = 0;
   virtual void decode(bufferlist::const_iterator &bl) = 0;
   static LogEvent *decode(bufferlist &bl);
   virtual void dump(Formatter *f) const = 0;

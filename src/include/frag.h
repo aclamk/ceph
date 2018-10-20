@@ -163,7 +163,7 @@ inline std::ostream& operator<<(std::ostream& out, const frag_t& hb)
   return out << '*';
 }
 
-inline void encode(const frag_t &f, bufferlist& bl) { encode_raw(f._enc, bl); }
+template <class TT> inline void encode(const frag_t &f, TT& bl) { encode_raw(f._enc, bl); }
 inline void decode(frag_t &f, bufferlist::const_iterator& p) {
   __u32 v;
   decode_raw(v, p);

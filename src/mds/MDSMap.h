@@ -142,8 +142,8 @@ public:
 
     static void generate_test_instances(list<mds_info_t*>& ls);
   private:
-    void encode_versioned(bufferlist& bl, uint64_t features) const;
-    void encode_unversioned(bufferlist& bl) const;
+    template <class TT> void encode_versioned(TT& bl, uint64_t features) const;
+    template <class TT> void encode_unversioned(TT& bl) const;
   };
 
   static CompatSet get_compat_set_all();
@@ -622,7 +622,7 @@ public:
       return mds_info_entry->second.inc;
     return -1;
   }
-  template <class TT> void encode(TT& bl, uint64_t features) const;
+  template <class TT> void encode(TT& bl, uint64_t features = 0) const;
   void decode(bufferlist::const_iterator& p);
   void decode(const bufferlist& bl) {
     auto p = bl.cbegin();

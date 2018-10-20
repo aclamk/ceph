@@ -40,7 +40,7 @@
 
 #include "include/denc.h"
 #include "osd/osd_types.h"
-
+#include "osd/OSDMap.h"
 #define MAX_TEST 1000000
 #define FILENAME "bufferlist"
 
@@ -3276,8 +3276,43 @@ template<typename T> void cloneinfoX::encode(T& __restrict__ bl) const
     encode(size, bl);
     ENCODE_FINISH(bl);
   }
-template void cloneinfoX::encode<encode_size&>(encode_size& bl) const;
-template void cloneinfoX::encode<encode_helper&>(encode_helper& bl) const;
+template void cloneinfoX::encode<encode_size>(encode_size& bl) const;
+template void cloneinfoX::encode<encode_helper>(encode_helper& bl) const;
+
+
+
+OSDMap osd_mapa;
+TEST(BufferList, encode_bench_OSDMap)
+{
+  for (size_t j=0; j < 100000; j++)
+  {
+    bufferlist bl;
+    for (size_t i=0; i < 10; i++)
+    {
+      osd_mapa.encode(bl, CEPH_FEATURE_RESERVED);
+    }
+    EXPECT_EQ((unsigned)(128) * 10, bl.length());
+  }
+}
+
+TEST(BufferList, encode_bench_OSDMap_x)
+{
+  for (size_t j=0; j < 100000; j++)
+  {
+    bufferlist bl;
+    for (size_t i=0; i < 10; i++)
+    {
+      encode_size s;
+      encode_helper h;
+      osd_mapa.encode(s, CEPH_FEATURE_RESERVED);
+      h.bl = &bl;
+      h.at = bl.append_hole(s.encode);
+      osd_mapa.encode(h, CEPH_FEATURE_RESERVED);
+      //osd_mapa.encode(bl, CEPH_FEATURE_RESERVED);
+    }
+    EXPECT_EQ((unsigned)(128) * 10, bl.length());
+  }
+}
 
 
 TEST(BufferHash, all) {

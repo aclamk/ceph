@@ -1,4 +1,4 @@
-// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*- 
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab
 /*
  * Ceph - scalable distributed file system
@@ -69,6 +69,9 @@ namespace ceph {
   class encode_type {};
 
   //calculate size stage
+  class replacement;
+  class encode_size;
+
   class encode_size : public encode_type
   {
   public:
@@ -79,9 +82,21 @@ namespace ceph {
     size_t encode{0};
     filler append_hole(size_t v) {encode+=v; return filler();}
     size_t length() {return 0;}
+    void append(const char* src, size_t len) {encode+=len;};
+    void append(const bufferptr& ptr) {/*no code*/};
+    void append(const bufferlist& bl) {/*no code*/};
+    template<std::size_t N> void append(const char (&s)[N]) {
+    	encode+=N;//append(s, N);
+    }
+    void append(std::string s) {
+    	append(s.data(), s.length());
+    }
+    inline operator replacement& ();// {replacement(*this);}
+    //template <class T> operator std::enable_if_t<std::is_same_v<T, replacement>, replacement> () {};
+    //replacement ();// {replacement(*this);}
   };
 
-
+  class replacement1;
   class encode_helper : public encode_type
   {
   public:
@@ -102,7 +117,28 @@ namespace ceph {
       };
     filler append_hole(size_t v) {return filler{at.pos}; at.pos+=v;}
     size_t length() {return (size_t)at.pos;}
+    void append(const char* src, size_t len) {at.copy_in(len, src);}
+    void append(const bufferptr& ptr) {this->bl->insert(ptr, at);/*implement me*/};
+    void append(const bufferlist& bl) {this->bl->insert(bl, at);/*implement me*/};
+    template<std::size_t N> void append(const char (&s)[N]) {
+    	append(s, N);
+    }
+    void append(std::string s) {
+    	append(s.data(), s.length());
+    }
+    inline operator replacement1& ();
   };
+  /*
+  template<class A, class B, class K,
+  	 typename a_traits=denc_traits<A>, typename b_traits=denc_traits<B>>
+  inline std::enable_if_t<!a_traits::supported || !b_traits::supported || std::is_base_of_v<encode_type, K> >
+
+      static void bound_encode(const T& v, size_t& p, uint64_t f=0) {	\
+      v.bound_encode(p);						\
+    }
+  */
+
+
 
   template <class R> class WR {
       public:
@@ -122,6 +158,143 @@ namespace ceph {
   public:
     DUMMY(R &bl, S) {};
   };
+
+
+  template <typename T>
+  struct has_encode_method_features
+  {
+      struct dummy { /* something */ };
+
+      template <typename C, typename P>
+      static auto test(P * p) -> decltype(std::declval<C>().encode(std::declval<encode_size&>(), 0), std::true_type());
+
+      template <typename, typename>
+      static std::false_type test(...);
+
+      //typedef decltype(test<T, dummy>(nullptr)) type;
+      static const bool value = std::is_same<std::true_type, decltype(test<T,dummy>(nullptr))>::value;
+  };
+
+  template <typename T>
+  struct has_encode_method
+  {
+      struct dummy { /* something */ };
+
+      template <typename C, typename P>
+      static auto test(P * p) -> decltype(std::declval<C>().encode(std::declval<encode_size&>()), std::true_type());
+
+      template <typename, typename>
+      static std::false_type test(...);
+
+      //typedef decltype(test<T, dummy>(nullptr)) type;
+      static const bool value = std::is_same<std::true_type, decltype(test<T,dummy>(nullptr))>::value;
+  };
+
+  template <typename T>
+  struct has_encode_method_bufferlist
+  {
+      struct dummy { /* something */ };
+
+      template <typename C, typename P>
+      static auto test(P * p) -> decltype(std::declval<C>().encode(std::declval<bufferlist&>()), std::true_type());
+
+      template <typename, typename>
+      static std::false_type test(...);
+
+      //typedef decltype(test<T, dummy>(nullptr)) type;
+      static const bool value = std::is_same<std::true_type, decltype(test<T,dummy>(nullptr))>::value;
+  };
+
+
+
+
+#if 1
+  class replacement : public encode_size {
+    //replacement(encode_size& bl) : bl(bl) {}
+  public:
+      //replacement(encode_size bl) : bl(bl) {}
+    //operator encode_size&() { return bl;};
+    //encode_size& bl;
+	  void advance(size_t p) {encode += p;}
+  };
+
+  inline encode_size::operator replacement& (){return *((replacement*)this);};
+
+
+  template <class T> inline std::enable_if_t<denc_traits<T>::supported && !has_encode_method<T>::value>
+  encode(const T& t, replacement& r)
+  {
+	  size_t p = 0;
+	  denc_traits<T>::bound_encode(t, p);
+	  //r.bl.encode += p;
+	  r.advance(p);
+  }
+
+  template <class T> inline std::enable_if_t<!denc_traits<T>::supported && has_encode_method_bufferlist<T>::value>
+  encode(const T& t, replacement& r)
+  {
+	  size_t p = 0;
+	  //denc_traits<T>::bound_encode(t, p);
+	  //r.bl.encode += p;
+	  //r.advance(p);
+	  //t.encode(r.bl);
+  }
+
+  class replacement1 : public encode_helper {
+  public:
+    //replacement1(encode_helper&) {}
+  };
+  inline encode_helper::operator replacement1& (){return *((replacement1*)this);};
+
+#if 0
+  const T& o,
+   bufferlist& bl,
+   uint64_t features_unused=0)
+ {
+   size_t len = 0;
+   traits::bound_encode(o, len);
+   auto a = bl.get_contiguous_appender(len);
+   traits::encode(o, a);
+ }
+#endif
+
+  template <class T> inline std::enable_if_t<denc_traits<T>::supported>
+  encode(const T& t, replacement1& r)
+  {
+	  bufferlist bl;
+	  size_t len = 0;
+	  denc_traits<T>::bound_encode(t, len);
+	  auto a = bl.get_contiguous_appender(len);
+	  denc_traits<T>::encode(t, a);
+
+	  //t.encode(*(encode_helper*)&r);
+	  r.append(bl);
+  }
+
+  template <class T> inline std::enable_if_t<!denc_traits<T>::supported && has_encode_method_bufferlist<T>::value>
+  encode(const T& t, replacement1& r)
+  {
+	  bufferlist bl;
+	  t.encode(bl);
+	  //size_t len = 0;
+	  ///denc_traits<T>::bound_encode(t, len);
+	  ///auto a = bl.get_contiguous_appender(len);
+	  ///denc_traits<T>::encode(t, a);
+
+	  //t.encode(*(encode_helper*)&r);
+	  r.append(bl);
+  }
+#endif
+#if 0
+  template <class T> inline std::enable_if_t<denc_traits<T>::supported>
+  encode(const T& t, encode_size& bl)
+  {
+	  size_t p;
+	  denc_traits<T>::bound_encode(t, p);
+	  bl.encode += p;
+  }
+#endif
+
 
 #define encode_two_phase_trampoline \
   { typename std::conditional<std::is_same_v<T, bufferlist>, WR<decltype(*this)> ,DUMMY<T, decltype(*this)> >::type wr(bl,*this); \
@@ -175,6 +348,14 @@ WRITE_RAW_ENCODER(float)
 WRITE_RAW_ENCODER(double)
 
 inline void encode(const bool &v, bufferlist& bl) {
+  __u8 vv = v;
+  encode_raw(vv, bl);
+}
+inline void encode(const bool &v, encode_size& bl) {
+  __u8 vv = v;
+  encode_raw(vv, bl);
+}
+inline void encode(const bool &v, encode_helper& bl) {
   __u8 vv = v;
   encode_raw(vv, bl);
 }
@@ -249,14 +430,16 @@ WRITE_INTTYPE_ENCODER(int16_t, le16)
 #define WRITE_CLASS_ENCODER(cl)						\
   inline void encode(const cl &c, ::ceph::bufferlist &bl, uint64_t features=0) { \
     ENCODE_DUMP_PRE(); c.encode(bl); ENCODE_DUMP_POST(cl); }		\
+  template <class TT> \
+	inline std::enable_if_t< has_encode_method<cl>::value && std::is_same_v<encode_size, TT> > \
+    encode(const cl &c, TT &bl, uint64_t features=0) { \
+    ENCODE_DUMP_PRE(); c.encode(bl); ENCODE_DUMP_POST(cl); }            \
+  template <class TT> \
+	inline std::enable_if_t< has_encode_method<cl>::value && std::is_same_v<encode_helper, TT> > \
+    encode(const cl &c, TT &bl, uint64_t features=0) { \
+    ENCODE_DUMP_PRE(); c.encode(bl); ENCODE_DUMP_POST(cl); }            \
   inline void decode(cl &c, ::ceph::bufferlist::const_iterator &p) { c.decode(p); }
-#if AK_DISABLED
-inline void encode(const cl &c, encode_helper &bl, uint64_t features=0) { \
-  ENCODE_DUMP_PRE(); c.encode(bl); ENCODE_DUMP_POST(cl); }            \
-inline void encode(const cl &c, encode_size &bl, uint64_t features=0) { \
-  ENCODE_DUMP_PRE(); c.encode(bl); ENCODE_DUMP_POST(cl); }            \
 
-#endif
 #define WRITE_CLASS_MEMBER_ENCODER(cl)					\
   inline void encode(const cl &c, ::ceph::bufferlist &bl) const {	\
     ENCODE_DUMP_PRE(); c.encode(bl); ENCODE_DUMP_POST(cl); }		\
@@ -265,7 +448,21 @@ inline void encode(const cl &c, encode_size &bl, uint64_t features=0) { \
 #define WRITE_CLASS_ENCODER_FEATURES(cl)				\
   inline void encode(const cl &c, ::ceph::bufferlist &bl, uint64_t features) { \
     ENCODE_DUMP_PRE(); c.encode(bl, features); ENCODE_DUMP_POST(cl); }	\
+  template <class TT> \
+	inline std::enable_if_t< has_encode_method_features<cl>::value && std::is_same_v<encode_size, TT> > \
+    encode(const cl &c, TT &bl, uint64_t features) { \
+    ENCODE_DUMP_PRE(); c.encode(bl, features); ENCODE_DUMP_POST(cl); }	\
+  template <class TT> \
+	inline std::enable_if_t< has_encode_method_features<cl>::value && std::is_same_v<encode_helper, TT> > \
+    encode(const cl &c, TT &bl, uint64_t features) { \
+    ENCODE_DUMP_PRE(); c.encode(bl, features); ENCODE_DUMP_POST(cl); }	\
   inline void decode(cl &c, ::ceph::bufferlist::const_iterator &p) { c.decode(p); }
+
+/*
+ *
+ inline void encode(const cl &c, encode_size &bl, uint64_t features) { \
+  ENCODE_DUMP_PRE(); c.encode(bl, features); ENCODE_DUMP_POST(cl); }	\
+*/
 
 #define WRITE_CLASS_ENCODER_OPTIONAL_FEATURES(cl)				\
   inline void encode(const cl &c, ::ceph::bufferlist &bl, uint64_t features = 0) { \
@@ -274,6 +471,7 @@ inline void encode(const cl &c, encode_size &bl, uint64_t features=0) { \
 
 
 // string
+//template <class TT>
 inline void encode(std::string_view s, bufferlist& bl, uint64_t features=0)
 {
   __u32 len = s.length();
@@ -281,7 +479,30 @@ inline void encode(std::string_view s, bufferlist& bl, uint64_t features=0)
   if (len)
     bl.append(s.data(), len);
 }
+inline void encode(std::string_view s, encode_size& bl, uint64_t features=0)
+{
+  __u32 len = s.length();
+  encode(len, bl);
+  if (len)
+    bl.append(s.data(), len);
+}
+inline void encode(std::string_view s, encode_helper& bl, uint64_t features=0)
+{
+  __u32 len = s.length();
+  encode(len, bl);
+  if (len)
+    bl.append(s.data(), len);
+}
+
 inline void encode(const std::string& s, bufferlist& bl, uint64_t features=0)
+{
+  return encode(std::string_view(s), bl, features);
+}
+inline void encode(const std::string& s, encode_size& bl, uint64_t features=0)
+{
+  return encode(std::string_view(s), bl, features);
+}
+inline void encode(const std::string& s, encode_helper& bl, uint64_t features=0)
 {
   return encode(std::string_view(s), bl, features);
 }
@@ -292,12 +513,13 @@ inline void decode(std::string& s, bufferlist::const_iterator& p)
   s.clear();
   p.copy(len, s);
 }
-
-inline void encode_nohead(std::string_view s, bufferlist& bl)
+template <class K>
+inline void encode_nohead(std::string_view s, K& bl)
 {
   bl.append(s.data(), s.length());
 }
-inline void encode_nohead(const std::string& s, bufferlist& bl)
+template <class K> inline std::enable_if_t<std::is_base_of_v<encode_type, K> >
+encode_nohead(const std::string& s, K& bl)
 {
   encode_nohead(std::string_view(s), bl);
 }
@@ -325,6 +547,20 @@ inline void encode(const buffer::ptr& bp, bufferlist& bl)
   if (len)
     bl.append(bp);
 }
+inline void encode(const buffer::ptr& bp, encode_size& bl)
+{
+  __u32 len = bp.length();
+  encode(len, bl);
+  if (len)
+    bl.append(bp);
+}
+inline void encode(const buffer::ptr& bp, encode_helper& bl)
+{
+  __u32 len = bp.length();
+  encode(len, bl);
+  if (len)
+    bl.append(bp);
+}
 inline void decode(buffer::ptr& bp, bufferlist::const_iterator& p)
 {
   __u32 len;
@@ -342,13 +578,25 @@ inline void decode(buffer::ptr& bp, bufferlist::const_iterator& p)
 }
 
 // bufferlist (encapsulated)
-inline void encode(const bufferlist& s, bufferlist& bl) 
+inline void encode(const bufferlist& s, bufferlist& bl)
 {
   __u32 len = s.length();
   encode(len, bl);
   bl.append(s);
 }
-inline void encode_destructively(bufferlist& s, bufferlist& bl) 
+inline void encode(const bufferlist& s, encode_size& bl)
+{
+  __u32 len = s.length();
+  encode(len, bl);
+  bl.append(s);
+}
+inline void encode(const bufferlist& s, encode_helper& bl)
+{
+  __u32 len = s.length();
+  encode(len, bl);
+  bl.append(s);
+}
+inline void encode_destructively(bufferlist& s, bufferlist& bl)
 {
   __u32 len = s.length();
   encode(len, bl);
@@ -361,8 +609,8 @@ inline void decode(bufferlist& s, bufferlist::const_iterator& p)
   s.clear();
   p.copy(len, s);
 }
-
-inline void encode_nohead(const bufferlist& s, bufferlist& bl) 
+template <class K> inline std::enable_if_t<std::is_base_of_v<encode_type, K> >
+encode_nohead(const bufferlist& s, K& bl)
 {
   bl.append(s);
 }
@@ -374,10 +622,10 @@ inline void decode_nohead(int len, bufferlist& s, bufferlist::const_iterator& p)
 
 // Time, since the templates are defined in std::chrono
 
-template<typename Clock, typename Duration,
+template<typename Clock, typename Duration, class K,
          typename std::enable_if_t<converts_to_timespec_v<Clock>>* = nullptr>
 void encode(const std::chrono::time_point<Clock, Duration>& t,
-	    ceph::bufferlist &bl) {
+	    K &bl) {
   auto ts = Clock::to_timespec(t);
   // A 32 bit count of seconds causes me vast unhappiness.
   uint32_t s = ts.tv_sec;
@@ -401,10 +649,10 @@ void decode(std::chrono::time_point<Clock, Duration>& t,
   t = Clock::from_timespec(ts);
 }
 
-template<typename Rep, typename Period,
+template<typename Rep, typename Period, class K,
          typename std::enable_if_t<std::is_integral_v<Rep>>* = nullptr>
 void encode(const std::chrono::duration<Rep, Period>& d,
-	    ceph::bufferlist &bl) {
+	    K &bl) {
   using namespace std::chrono;
   uint32_t s = duration_cast<seconds>(d).count();
   uint32_t ns = (duration_cast<nanoseconds>(d) % seconds(1)).count();
@@ -426,12 +674,13 @@ void decode(std::chrono::duration<Rep, Period>& d,
 // -----------------------------
 // STL container types
 
-template<typename T>
-inline void encode(const boost::optional<T> &p, bufferlist &bl);
+template<typename T, class K>
+inline std::enable_if_t<!denc_traits<T>::supported || std::is_base_of_v<encode_type, K> >
+encode(const boost::optional<T> &p, K &bl);
 template<typename T>
 inline void decode(boost::optional<T> &p, bufferlist::const_iterator &bp);
-template<class A, class B, class C>
-inline void encode(const boost::tuple<A, B, C> &t, bufferlist& bl);
+template<class A, class B, class C, class K>
+inline void encode(const boost::tuple<A, B, C> &t, K& bl);
 template<class A, class B, class C>
 inline void decode(boost::tuple<A, B, C> &t, bufferlist::const_iterator &bp);
 template<class A, class B, class K,
@@ -446,12 +695,12 @@ template<class A, class B,
 	 typename a_traits=denc_traits<A>, typename b_traits=denc_traits<B>>
 inline std::enable_if_t<!a_traits::supported || !b_traits::supported>
 decode(std::pair<A,B> &pa, bufferlist::const_iterator &p);
-template<class T, class Alloc, typename traits=denc_traits<T>>
-inline std::enable_if_t<!traits::supported>
-encode(const std::list<T, Alloc>& ls, bufferlist& bl);
-template<class T, class Alloc, typename traits=denc_traits<T>>
-inline std::enable_if_t<!traits::supported>
-encode(const std::list<T,Alloc>& ls, bufferlist& bl, uint64_t features);
+template<class T, class K, class Alloc, typename traits=denc_traits<T>>
+inline std::enable_if_t<!traits::supported || std::is_base_of_v<encode_type, K> >
+encode(const std::list<T, Alloc>& ls, K& bl);
+template<class T, class K, class Alloc, typename traits=denc_traits<T>>
+inline std::enable_if_t<!traits::supported || std::is_base_of_v<encode_type, K> >
+encode(const std::list<T,Alloc>& ls, K& bl, uint64_t features);
 template<class T, class Alloc, typename traits=denc_traits<T>>
 inline std::enable_if_t<!traits::supported>
 decode(std::list<T,Alloc>& ls, bufferlist::const_iterator& p);
@@ -464,15 +713,15 @@ inline void encode(const std::list<std::shared_ptr<T>, Alloc>& ls,
 template<class T, class Alloc>
 inline void decode(std::list<std::shared_ptr<T>, Alloc>& ls,
 		   bufferlist::const_iterator& p);
-template<class T, class Comp, class Alloc, typename traits=denc_traits<T>>
-inline std::enable_if_t<!traits::supported>
-encode(const std::set<T,Comp,Alloc>& s, bufferlist& bl);
+template<class T, class K, class Comp, class Alloc, typename traits=denc_traits<T>>
+inline std::enable_if_t<!traits::supported || std::is_base_of_v<encode_type, K> >
+encode(const std::set<T,Comp,Alloc>& s, K& bl);
 template<class T, class Comp, class Alloc, typename traits=denc_traits<T>>
 inline std::enable_if_t<!traits::supported>
 decode(std::set<T,Comp,Alloc>& s, bufferlist::const_iterator& p);
-template<class T, class Comp, class Alloc, typename traits=denc_traits<T>>
-inline std::enable_if_t<!traits::supported>
-encode_nohead(const std::set<T,Comp,Alloc>& s, bufferlist& bl);
+template<class T, class K, class Comp, class Alloc, typename traits=denc_traits<T>>
+inline std::enable_if_t<!traits::supported || std::is_base_of_v<encode_type, K> >
+encode_nohead(const std::set<T,Comp,Alloc>& s, K& bl);
 template<class T, class Comp, class Alloc, typename traits=denc_traits<T>>
 inline std::enable_if_t<!traits::supported>
 decode_nohead(int len, std::set<T,Comp,Alloc>& s, bufferlist::iterator& p);
@@ -503,45 +752,44 @@ encode(const std::vector<T,Alloc>& v, K& bl);
 template<class T, class Alloc, typename traits=denc_traits<T>>
 inline std::enable_if_t<!traits::supported>
 decode(std::vector<T,Alloc>& v, bufferlist::const_iterator& p);
-template<class T, class Alloc, typename traits=denc_traits<T>>
-inline std::enable_if_t<!traits::supported>
-encode_nohead(const std::vector<T,Alloc>& v, bufferlist& bl);
+template<class T, class Alloc, class K, typename traits=denc_traits<T>>
+inline std::enable_if_t<!traits::supported || std::is_base_of_v<encode_type, K> >
+encode_nohead(const std::vector<T,Alloc>& v, K& bl);
 template<class T, class Alloc, typename traits=denc_traits<T>>
 inline std::enable_if_t<!traits::supported>
 decode_nohead(int len, std::vector<T,Alloc>& v, bufferlist::const_iterator& p);
-template<class T,class Alloc>
+template<class T,class Alloc, class K>
 inline void encode(const std::vector<std::shared_ptr<T>,Alloc>& v,
-		   bufferlist& bl,
+		   K& bl,
 		   uint64_t features);
-template<class T, class Alloc>
+template<class T, class Alloc, class K>
 inline void encode(const std::vector<std::shared_ptr<T>,Alloc>& v,
-		   bufferlist& bl);
+		   K& bl);
 template<class T, class Alloc>
 inline void decode(std::vector<std::shared_ptr<T>,Alloc>& v,
 		   bufferlist::const_iterator& p);
-template<class T, class U, class Comp, class Alloc,
+template<class T, class U, class K, class Comp, class Alloc,
 	 typename t_traits=denc_traits<T>, typename u_traits=denc_traits<U>>
-inline std::enable_if_t<!t_traits::supported ||
-			!u_traits::supported>
-encode(const std::map<T,U,Comp,Alloc>& m, bufferlist& bl);
-template<class T, class U, class Comp, class Alloc,
+inline std::enable_if_t<!t_traits::supported ||	!u_traits::supported || std::is_base_of_v<encode_type, K> >
+encode(const std::map<T,U,Comp,Alloc>& m, K& bl);
+template<class T, class U, class K, class Comp, class Alloc,
 	 typename t_traits=denc_traits<T>, typename u_traits=denc_traits<U>>
-inline std::enable_if_t<!t_traits::supported || !u_traits::supported>
-encode(const std::map<T,U,Comp,Alloc>& m, bufferlist& bl, uint64_t features);
+inline std::enable_if_t<!t_traits::supported || !u_traits::supported || std::is_base_of_v<encode_type, K> >
+encode(const std::map<T,U,Comp,Alloc>& m, K& bl, uint64_t features);
 template<class T, class U, class Comp, class Alloc,
 	 typename t_traits=denc_traits<T>, typename u_traits=denc_traits<U>>
 inline std::enable_if_t<!t_traits::supported || !u_traits::supported>
 decode(std::map<T,U,Comp,Alloc>& m, bufferlist::const_iterator& p);
 template<class T, class U, class Comp, class Alloc>
 inline void decode_noclear(std::map<T,U,Comp,Alloc>& m, bufferlist::const_iterator& p);
-template<class T, class U, class Comp, class Alloc,
+template<class T, class U, class Comp, class Alloc, class K,
 	 typename t_traits=denc_traits<T>, typename u_traits=denc_traits<U>>
-inline std::enable_if_t<!t_traits::supported || !u_traits::supported>
-encode_nohead(const std::map<T,U,Comp,Alloc>& m, bufferlist& bl);
-template<class T, class U, class Comp, class Alloc,
+inline std::enable_if_t<!t_traits::supported || !u_traits::supported || std::is_base_of_v<encode_type, K> >
+encode_nohead(const std::map<T,U,Comp,Alloc>& m, K& bl);
+template<class T, class U, class Comp, class Alloc, class K,
 	 typename t_traits=denc_traits<T>, typename u_traits=denc_traits<U>>
-inline std::enable_if_t<!t_traits::supported || !u_traits::supported>
-encode_nohead(const std::map<T,U,Comp,Alloc>& m, bufferlist& bl, uint64_t features);
+inline std::enable_if_t<!t_traits::supported || !u_traits::supported || std::is_base_of_v<encode_type, K> >
+encode_nohead(const std::map<T,U,Comp,Alloc>& m, K& bl, uint64_t features);
 template<class T, class U, class Comp, class Alloc,
 	 typename t_traits=denc_traits<T>, typename u_traits=denc_traits<U>>
 inline std::enable_if_t<!t_traits::supported || !u_traits::supported>
@@ -577,19 +825,19 @@ template<class T, class U, class Comp, class Alloc,
 inline std::enable_if_t<!t_traits::supported || !u_traits::supported>
 decode_nohead(int n, boost::container::flat_map<T,U,Comp,Alloc>& m,
 	      bufferlist::const_iterator& p);
-template<class T, class U, class Comp, class Alloc>
-inline void encode(const std::multimap<T,U,Comp,Alloc>& m, bufferlist& bl);
+template<class T, class K, class U, class Comp, class Alloc>
+inline void encode(const std::multimap<T,U,Comp,Alloc>& m, K& bl);
 template<class T, class U, class Comp, class Alloc>
 inline void decode(std::multimap<T,U,Comp,Alloc>& m, bufferlist::const_iterator& p);
-template<class T, class U, class Hash, class Pred, class Alloc>
-inline void encode(const unordered_map<T,U,Hash,Pred,Alloc>& m, bufferlist& bl,
+template<class T, class U, class Hash, class Pred, class Alloc, class K>
+inline void encode(const unordered_map<T,U,Hash,Pred,Alloc>& m, K& bl,
 		   uint64_t features);
-template<class T, class U, class Hash, class Pred, class Alloc>
-inline void encode(const unordered_map<T,U,Hash,Pred,Alloc>& m, bufferlist& bl);
+template<class T, class U, class Hash, class Pred, class Alloc, class K>
+inline void encode(const unordered_map<T,U,Hash,Pred,Alloc>& m, K& bl);
 template<class T, class U, class Hash, class Pred, class Alloc>
 inline void decode(unordered_map<T,U,Hash,Pred,Alloc>& m, bufferlist::const_iterator& p);
-template<class T, class Hash, class Pred, class Alloc>
-inline void encode(const ceph::unordered_set<T,Hash,Pred,Alloc>& m, bufferlist& bl);
+template<class T, class K, class Hash, class Pred, class Alloc>
+inline void encode(const ceph::unordered_set<T,Hash,Pred,Alloc>& m, K& bl);
 template<class T, class Hash, class Pred, class Alloc>
 inline void decode(ceph::unordered_set<T,Hash,Pred,Alloc>& m, bufferlist::const_iterator& p);
 template<class T, class Alloc>
@@ -618,8 +866,9 @@ inline void decode(T &o, const bufferlist& bl)
 }
 
 // boost optional
-template<typename T>
-inline void encode(const boost::optional<T> &p, bufferlist &bl)
+template<typename T, class K>
+inline std::enable_if_t<!denc_traits<T>::supported || std::is_base_of_v<encode_type, K> >
+encode(const boost::optional<T> &p, K &bl)
 {
   __u8 present = static_cast<bool>(p);
   encode(present, bl);
@@ -662,8 +911,8 @@ inline void decode(std::tuple<Ts...> &t, bufferlist::const_iterator &bp)
 }
 
 //triple boost::tuple
-template<class A, class B, class C>
-inline void encode(const boost::tuple<A, B, C> &t, bufferlist& bl)
+template<class A, class B, class C, class K>
+inline void encode(const boost::tuple<A, B, C> &t, K& bl)
 {
   encode(boost::get<0>(t), bl);
   encode(boost::get<1>(t), bl);
@@ -704,20 +953,21 @@ inline std::enable_if_t<!a_traits::supported ||
 }
 
 // std::list<T>
-template<class T, class Alloc, typename traits>
-inline std::enable_if_t<!traits::supported>
-  encode(const std::list<T, Alloc>& ls, bufferlist& bl)
+template<class T, class K, class Alloc, typename traits>
+inline std::enable_if_t<!traits::supported || std::is_base_of_v<encode_type, K> >
+  encode(const std::list<T, Alloc>& ls, K& bl)
 {
   __u32 n = (__u32)(ls.size());  // c++11 std::list::size() is O(1)
   encode(n, bl);
   for (auto p = ls.begin(); p != ls.end(); ++p)
     encode(*p, bl);
 }
-template<class T, class Alloc, typename traits>
-inline std::enable_if_t<!traits::supported>
-  encode(const std::list<T,Alloc>& ls, bufferlist& bl, uint64_t features)
+template<class T, class K, class Alloc, typename traits>
+inline std::enable_if_t<!traits::supported || std::is_base_of_v<encode_type, K> >
+  encode(const std::list<T,Alloc>& ls, K& bl, uint64_t features)
 {
   // should i pre- or post- count?
+#if AK_DISABLED
   if (!ls.empty()) {
     unsigned pos = bl.length();
     unsigned n = 0;
@@ -729,7 +979,9 @@ inline std::enable_if_t<!traits::supported>
     ceph_le32 en;
     en = n;
     bl.copy_in(pos, sizeof(en), (char*)&en);
-  } else {
+  } else
+#endif
+  {
     __u32 n = (__u32)(ls.size());    // FIXME: this is slow on a list.
     encode(n, bl);
     for (auto p = ls.begin(); p != ls.end(); ++p)
@@ -783,9 +1035,9 @@ inline void decode(std::list<std::shared_ptr<T>, Alloc>& ls,
 }
 
 // std::set<T>
-template<class T, class Comp, class Alloc, typename traits>
-inline std::enable_if_t<!traits::supported>
-  encode(const std::set<T,Comp,Alloc>& s, bufferlist& bl)
+template<class T, class K, class Comp, class Alloc, typename traits>
+inline std::enable_if_t<!traits::supported || std::is_base_of_v<encode_type, K> >
+  encode(const std::set<T,Comp,Alloc>& s, K& bl)
 {
   __u32 n = (__u32)(s.size());
   encode(n, bl);
@@ -806,9 +1058,9 @@ inline std::enable_if_t<!traits::supported>
   }
 }
 
-template<class T, class Comp, class Alloc, typename traits>
-inline typename std::enable_if<!traits::supported>::type
-  encode_nohead(const std::set<T,Comp,Alloc>& s, bufferlist& bl)
+template<class T, class K, class Comp, class Alloc, typename traits>
+inline typename std::enable_if<!traits::supported  || std::is_base_of_v<encode_type, K> >::type
+  encode_nohead(const std::set<T,Comp,Alloc>& s, K& bl)
 {
   for (auto p = s.begin(); p != s.end(); ++p)
     encode(*p, bl);
@@ -921,9 +1173,9 @@ inline std::enable_if_t<!traits::supported>
     decode(v[i], p);
 }
 
-template<class T, class Alloc, typename traits>
-inline std::enable_if_t<!traits::supported>
-  encode_nohead(const std::vector<T,Alloc>& v, bufferlist& bl)
+template<class T, class Alloc, class K, typename traits>
+inline std::enable_if_t<!traits::supported || std::is_base_of_v<encode_type, K> >
+  encode_nohead(const std::vector<T,Alloc>& v, K& bl)
 {
   for (auto p = v.begin(); p != v.end(); ++p)
     encode(*p, bl);
@@ -938,9 +1190,9 @@ inline std::enable_if_t<!traits::supported>
 }
 
 // vector (shared_ptr)
-template<class T,class Alloc>
+template<class T,class Alloc, class K>
 inline void encode(const std::vector<std::shared_ptr<T>,Alloc>& v,
-		   bufferlist& bl,
+		   K& bl,
 		   uint64_t features)
 {
   __u32 n = (__u32)(v.size());
@@ -951,9 +1203,9 @@ inline void encode(const std::vector<std::shared_ptr<T>,Alloc>& v,
     else
       encode(T(), bl, features);
 }
-template<class T, class Alloc>
+template<class T, class Alloc, class K>
 inline void encode(const std::vector<std::shared_ptr<T>,Alloc>& v,
-		   bufferlist& bl)
+		   K& bl)
 {
   __u32 n = (__u32)(v.size());
   encode(n, bl);
@@ -977,11 +1229,10 @@ inline void decode(std::vector<std::shared_ptr<T>,Alloc>& v,
 }
 
 // map
-template<class T, class U, class Comp, class Alloc,
+template<class T, class U, class K, class Comp, class Alloc,
 	 typename t_traits, typename u_traits>
-inline std::enable_if_t<!t_traits::supported ||
-			!u_traits::supported>
-  encode(const std::map<T,U,Comp,Alloc>& m, bufferlist& bl)
+inline std::enable_if_t<!t_traits::supported ||	!u_traits::supported || std::is_base_of_v<encode_type, K> >
+  encode(const std::map<T,U,Comp,Alloc>& m, K& bl)
 {
   __u32 n = (__u32)(m.size());
   encode(n, bl);
@@ -990,10 +1241,10 @@ inline std::enable_if_t<!t_traits::supported ||
     encode(p->second, bl);
   }
 }
-template<class T, class U, class Comp, class Alloc,
+template<class T, class U, class K, class Comp, class Alloc,
 	 typename t_traits, typename u_traits>
-inline std::enable_if_t<!t_traits::supported || !u_traits::supported>
-  encode(const std::map<T,U,Comp,Alloc>& m, bufferlist& bl, uint64_t features)
+inline std::enable_if_t<!t_traits::supported || !u_traits::supported || std::is_base_of_v<encode_type, K> >
+  encode(const std::map<T,U,Comp,Alloc>& m, K& bl, uint64_t features)
 {
   __u32 n = (__u32)(m.size());
   encode(n, bl);
@@ -1027,20 +1278,20 @@ inline void decode_noclear(std::map<T,U,Comp,Alloc>& m, bufferlist::const_iterat
     decode(m[k], p);
   }
 }
-template<class T, class U, class Comp, class Alloc,
+template<class T, class U, class Comp, class Alloc, class K,
 	 typename t_traits, typename u_traits>
-inline std::enable_if_t<!t_traits::supported || !u_traits::supported>
-  encode_nohead(const std::map<T,U,Comp,Alloc>& m, bufferlist& bl)
+inline std::enable_if_t<!t_traits::supported || !u_traits::supported || std::is_base_of_v<encode_type, K> >
+  encode_nohead(const std::map<T,U,Comp,Alloc>& m, K& bl)
 {
   for (auto p = m.begin(); p != m.end(); ++p) {
     encode(p->first, bl);
     encode(p->second, bl);
   }
 }
-template<class T, class U, class Comp, class Alloc,
+template<class T, class U, class Comp, class Alloc, class K,
 	 typename t_traits, typename u_traits>
-inline std::enable_if_t<!t_traits::supported || !u_traits::supported>
-  encode_nohead(const std::map<T,U,Comp,Alloc>& m, bufferlist& bl, uint64_t features)
+inline std::enable_if_t<!t_traits::supported || !u_traits::supported || std::is_base_of_v<encode_type, K> >
+  encode_nohead(const std::map<T,U,Comp,Alloc>& m, K& bl, uint64_t features)
 {
   for (auto p = m.begin(); p != m.end(); ++p) {
     encode(p->first, bl, features);
@@ -1152,8 +1403,8 @@ inline std::enable_if_t<!t_traits::supported || !u_traits::supported>
 }
 
 // multimap
-template<class T, class U, class Comp, class Alloc>
-inline void encode(const std::multimap<T,U,Comp,Alloc>& m, bufferlist& bl)
+template<class T, class K, class U, class Comp, class Alloc>
+inline void encode(const std::multimap<T,U,Comp,Alloc>& m, K& bl)
 {
   __u32 n = (__u32)(m.size());
   encode(n, bl);
@@ -1177,8 +1428,8 @@ inline void decode(std::multimap<T,U,Comp,Alloc>& m, bufferlist::const_iterator&
 }
 
 // ceph::unordered_map
-template<class T, class U, class Hash, class Pred, class Alloc>
-inline void encode(const unordered_map<T,U,Hash,Pred,Alloc>& m, bufferlist& bl,
+template<class T, class U, class Hash, class Pred, class Alloc, class K>
+inline void encode(const unordered_map<T,U,Hash,Pred,Alloc>& m, K& bl,
 		   uint64_t features)
 {
   __u32 n = (__u32)(m.size());
@@ -1188,8 +1439,8 @@ inline void encode(const unordered_map<T,U,Hash,Pred,Alloc>& m, bufferlist& bl,
     encode(p->second, bl, features);
   }
 }
-template<class T, class U, class Hash, class Pred, class Alloc>
-inline void encode(const unordered_map<T,U,Hash,Pred,Alloc>& m, bufferlist& bl)
+template<class T, class U, class Hash, class Pred, class Alloc, class K>
+inline void encode(const unordered_map<T,U,Hash,Pred,Alloc>& m, K& bl)
 {
   __u32 n = (__u32)(m.size());
   encode(n, bl);
@@ -1212,8 +1463,8 @@ inline void decode(unordered_map<T,U,Hash,Pred,Alloc>& m, bufferlist::const_iter
 }
 
 // ceph::unordered_set
-template<class T, class Hash, class Pred, class Alloc>
-inline void encode(const ceph::unordered_set<T,Hash,Pred,Alloc>& m, bufferlist& bl)
+template<class T, class K, class Hash, class Pred, class Alloc>
+inline void encode(const ceph::unordered_set<T,Hash,Pred,Alloc>& m, K& bl)
 {
   __u32 n = (__u32)(m.size());
   encode(n, bl);

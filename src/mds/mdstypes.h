@@ -79,6 +79,8 @@ typedef int32_t fs_cluster_id_t;
 
 BOOST_STRONG_TYPEDEF(uint64_t, mds_gid_t)
 extern const mds_gid_t MDS_GID_NONE;
+template <class TT> inline void encode(const mds_gid_t& m, TT& bl) { uint64_t a=m; encode(a, bl);};
+
 constexpr fs_cluster_id_t FS_CLUSTER_ID_NONE = {-1};
 // The namespace ID of the anonymous default filesystem from legacy systems
 constexpr fs_cluster_id_t FS_CLUSTER_ID_ANONYMOUS = {0};
@@ -923,8 +925,8 @@ bool inode_t<Allocator>::older_is_consistent(const inode_t<Allocator> &other) co
   return true;
 }
 
-template<template<typename> class Allocator>
-inline void encode(const inode_t<Allocator> &c, ::ceph::bufferlist &bl, uint64_t features)
+template<template<typename> class Allocator, class TT>
+inline void encode(const inode_t<Allocator> &c, TT &bl, uint64_t features)
 {
   ENCODE_DUMP_PRE();
   c.encode(bl, features);
@@ -942,6 +944,37 @@ using alloc_string = std::basic_string<char,std::char_traits<char>,Allocator<cha
 template<template<typename> class Allocator>
 using xattr_map = compact_map<alloc_string<Allocator>, bufferptr, std::less<alloc_string<Allocator>>, Allocator<std::pair<const alloc_string<Allocator>, bufferptr>>>; // FIXME bufferptr not in mempool
 
+
+
+//inline void encode InodeStoreBase::mempool
+#if 0
+namespace ceph {
+template<template<typename> class Allocator>
+inline void encode(const alloc_string<Allocator>& a, encode_size& bl) {
+	bl.append(a.data(), a.length());
+}
+}
+std::basic_string<char,std::char_traits<char>,Allocator<char>>
+#endif
+namespace ceph {
+template<template<typename> class Allocator>
+inline void encode(const std::basic_string<char,std::char_traits<char>,Allocator<char>>& a, encode_size& bl) {
+	bl.append(a.data(), a.length());
+}
+template<template<typename> class Allocator>
+inline void encode(const std::basic_string<char,std::char_traits<char>,Allocator<char>>& a, ceph::encode_helper& bl) {
+	bl.append(a.data(), a.length());
+}
+}
+#if 0
+namespace ceph {
+inline void encode(
+const std::__cxx11::basic_string<char, std::char_traits<char>, mempool::pool_allocator<(mempool::pool_index_t)18, char> >&, ceph::encode_size&)
+{
+
+}
+}
+#endif
 /*
  * old_inode_t
  */
@@ -1004,8 +1037,8 @@ void old_inode_t<Allocator>::generate_test_instances(std::list<old_inode_t<Alloc
   ls.back()->xattrs["user.unprintable"] = buffer::copy("\000\001\002", 3);
 }
 
-template<template<typename> class Allocator>
-inline void encode(const old_inode_t<Allocator> &c, ::ceph::bufferlist &bl, uint64_t features)
+template<template<typename> class Allocator, class TT>
+inline void encode(const old_inode_t<Allocator> &c, TT &bl, uint64_t features)
 {
   ENCODE_DUMP_PRE();
   c.encode(bl, features);
@@ -1383,7 +1416,7 @@ struct cap_reconnect_t {
   }
   template <class TT> void encode(TT& bl) const;
   void decode(bufferlist::const_iterator& bl);
-  void encode_old(bufferlist& bl) const;
+  template <class TT> void encode_old(TT& bl) const;
   void decode_old(bufferlist::const_iterator& bl);
 
   void dump(Formatter *f) const;
@@ -1612,7 +1645,8 @@ private:
   std::array<DecayCounter, NUM> vec;
 };
 
-inline void encode(const dirfrag_load_vec_t &c, bufferlist &bl) {
+template <class TT>
+inline void encode(const dirfrag_load_vec_t &c, TT &bl) {
   c.encode(bl);
 }
 inline void decode(dirfrag_load_vec_t& c, bufferlist::const_iterator &p) {
@@ -1660,7 +1694,7 @@ struct mds_load_t {
   void dump(Formatter *f) const;
   static void generate_test_instances(std::list<mds_load_t*>& ls);
 };
-inline void encode(const mds_load_t &c, bufferlist &bl) {
+template <class TT> inline void encode(const mds_load_t &c, TT &bl) {
   c.encode(bl);
 }
 inline void decode(mds_load_t &c, bufferlist::const_iterator &p) {

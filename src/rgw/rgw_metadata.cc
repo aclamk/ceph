@@ -51,9 +51,9 @@ template <class TT> void RGWMetadataLogData::encode(TT& bl) const {
   encode(s, bl);
   ENCODE_FINISH(bl);
 }
-template void RGWMetadataLogData::encode<bufferlist&>(bufferlist& bl) const;
-template void RGWMetadataLogData::encode<encode_size&>(encode_size& bl) const;
-template void RGWMetadataLogData::encode<encode_helper&>(encode_helper& bl) const;
+template void RGWMetadataLogData::encode<bufferlist>(bufferlist& bl) const;
+template void RGWMetadataLogData::encode<encode_size>(encode_size& bl) const;
+template void RGWMetadataLogData::encode<encode_helper>(encode_helper& bl) const;
 
 void RGWMetadataLogData::decode(bufferlist::const_iterator& bl) {
    DECODE_START(1, bl);

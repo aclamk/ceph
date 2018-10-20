@@ -457,7 +457,7 @@ private:
   static const uint32_t EVENT_FIXED_SIZE = 14; /// version encoding, type
   static const uint32_t METADATA_FIXED_SIZE = 14; /// version encoding, timestamp
 
-  void encode_metadata(bufferlist& bl) const;
+  template<class T> void encode_metadata(T& bl) const;
   void decode_metadata(bufferlist::const_iterator& it);
 };
 

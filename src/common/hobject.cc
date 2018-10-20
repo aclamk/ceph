@@ -114,9 +114,9 @@ template <class TT> void hobject_t::encode(TT& bl) const
   ceph_assert(!max || (*this == hobject_t(hobject_t::get_max())));
   ENCODE_FINISH(bl);
 }
-template void hobject_t::encode<bufferlist&>(bufferlist& bl) const;
-template void hobject_t::encode<encode_size&>(encode_size& bl) const;
-template void hobject_t::encode<encode_helper&>(encode_helper& bl) const;
+template void hobject_t::encode<bufferlist>(bufferlist& bl) const;
+template void hobject_t::encode<encode_size>(encode_size& bl) const;
+template void hobject_t::encode<encode_helper>(encode_helper& bl) const;
 
 void hobject_t::decode(bufferlist::const_iterator& bl)
 {
@@ -378,9 +378,9 @@ template <class TT> void ghobject_t::encode(TT& bl) const
   encode(max, bl);
   ENCODE_FINISH(bl);
 }
-template void ghobject_t::encode<bufferlist&>(bufferlist& bl) const;
-template void ghobject_t::encode<encode_size&>(encode_size& bl) const;
-template void ghobject_t::encode<encode_helper&>(encode_helper& bl) const;
+template void ghobject_t::encode<bufferlist>(bufferlist& bl) const;
+template void ghobject_t::encode<encode_size>(encode_size& bl) const;
+template void ghobject_t::encode<encode_helper>(encode_helper& bl) const;
 
 size_t ghobject_t::encoded_size() const
 {

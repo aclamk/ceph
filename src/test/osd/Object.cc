@@ -18,9 +18,9 @@ template <class TT> void ContDesc::encode(TT &bl) const
   encode(oid, bl);
   ENCODE_FINISH(bl);
 }
-template void ContDesc::encode<bufferlist&>(bufferlist &bl) const;
-template void ContDesc::encode<encode_size&>(encode_size &bl) const;
-template void ContDesc::encode<encode_helper&>(encode_helper &bl) const;
+template void ContDesc::encode<bufferlist>(bufferlist &bl) const;
+template void ContDesc::encode<encode_size>(encode_size &bl) const;
+template void ContDesc::encode<encode_helper>(encode_helper &bl) const;
 
 void ContDesc::decode(bufferlist::const_iterator &bl)
 {

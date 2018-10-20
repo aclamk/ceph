@@ -52,9 +52,9 @@ template <class TT> void PurgeItem::encode(TT &bl) const
   }
   ENCODE_FINISH(bl);
 }
-template void PurgeItem::encode<bufferlist&>(bufferlist &bl) const;
-template void PurgeItem::encode<encode_size&>(encode_size &bl) const;
-template void PurgeItem::encode<encode_helper&>(encode_helper &bl) const;
+template void PurgeItem::encode<bufferlist>(bufferlist &bl) const;
+template void PurgeItem::encode<encode_size>(encode_size &bl) const;
+template void PurgeItem::encode<encode_helper>(encode_helper &bl) const;
 
 void PurgeItem::decode(bufferlist::const_iterator &p)
 {

@@ -173,7 +173,8 @@ WRITE_CLASS_ENCODER(ceph_sockaddr_storage)
 /*
  * encode sockaddr.ss_family as network byte order
  */
-static inline void encode(const sockaddr_storage& a, bufferlist& bl) {
+template <class TT>
+static inline void encode(const sockaddr_storage& a, TT& bl) {
 #if defined(__linux__)
   struct sockaddr_storage ss = a;
   ss.ss_family = htons(ss.ss_family);
@@ -680,7 +681,6 @@ struct entity_inst_t {
   static void generate_test_instances(list<entity_inst_t*>& o);
 };
 WRITE_CLASS_ENCODER_FEATURES(entity_inst_t)
-
 
 inline bool operator==(const entity_inst_t& a, const entity_inst_t& b) { 
   return a.name == b.name && a.addr == b.addr;

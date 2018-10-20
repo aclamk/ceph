@@ -35,13 +35,14 @@ template <class TT> void Entry::encode(TT &bl) const {
 
   uint32_t crc = data_bl.crc32c(0);
   uint32_t bl_offset = bl.length();
-  bl.claim_append(data_bl);
+  //AK_DISABLED bl.claim_append(data_bl);
+  bl.append(data_bl);
   encode(crc, bl);
   ceph_assert(get_fixed_size() + m_data.length() + bl_offset == bl.length());
 }
-template void Entry::encode<bufferlist&>(bufferlist &bl) const;
-template void Entry::encode<encode_size&>(encode_size &bl) const;
-template void Entry::encode<encode_helper&>(encode_helper &bl) const;
+template void Entry::encode<bufferlist>(bufferlist &bl) const;
+template void Entry::encode<encode_size>(encode_size &bl) const;
+template void Entry::encode<encode_helper>(encode_helper &bl) const;
 
 void Entry::decode(bufferlist::const_iterator &iter) {
   using ceph::decode;

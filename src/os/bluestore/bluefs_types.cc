@@ -41,9 +41,9 @@ template <class TT> void bluefs_super_t::encode(TT& bl) const
   encode(log_fnode, bl);
   ENCODE_FINISH(bl);
 }
-template void bluefs_super_t::encode<bufferlist&>(bufferlist& bl) const;
-template void bluefs_super_t::encode<encode_size&>(encode_size& bl) const;
-template void bluefs_super_t::encode<encode_helper&>(encode_helper& bl) const;
+template void bluefs_super_t::encode<bufferlist>(bufferlist& bl) const;
+template void bluefs_super_t::encode<encode_size>(encode_size& bl) const;
+template void bluefs_super_t::encode<encode_helper>(encode_helper& bl) const;
 
 void bluefs_super_t::decode(bufferlist::const_iterator& p)
 {
@@ -154,9 +154,9 @@ template <class TT> void bluefs_transaction_t::encode(TT& bl) const
   encode(crc, bl);
   ENCODE_FINISH(bl);
 }
-template void bluefs_transaction_t::encode<bufferlist&>(bufferlist& bl) const;
-template void bluefs_transaction_t::encode<encode_size&>(encode_size& bl) const;
-template void bluefs_transaction_t::encode<encode_helper&>(encode_helper& bl) const;
+template void bluefs_transaction_t::encode<bufferlist>(bufferlist& bl) const;
+template void bluefs_transaction_t::encode<encode_size>(encode_size& bl) const;
+template void bluefs_transaction_t::encode<encode_helper>(encode_helper& bl) const;
 
 void bluefs_transaction_t::decode(bufferlist::const_iterator& p)
 {

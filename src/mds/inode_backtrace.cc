@@ -15,9 +15,9 @@ template <class TT> void inode_backpointer_t::encode(TT& bl) const
   encode(version, bl);
   ENCODE_FINISH(bl);
 }
-template void inode_backpointer_t::encode<bufferlist&>(bufferlist& bl) const;
-template void inode_backpointer_t::encode<encode_size&>(encode_size& bl) const;
-template void inode_backpointer_t::encode<encode_helper&>(encode_helper& bl) const;
+template void inode_backpointer_t::encode<bufferlist>(bufferlist& bl) const;
+template void inode_backpointer_t::encode<encode_size>(encode_size& bl) const;
+template void inode_backpointer_t::encode<encode_helper>(encode_helper& bl) const;
 
 void inode_backpointer_t::decode(bufferlist::const_iterator& bl)
 {
@@ -66,9 +66,9 @@ template <class TT> void inode_backtrace_t::encode(TT& bl) const
   encode(old_pools, bl);
   ENCODE_FINISH(bl);
 }
-template void inode_backtrace_t::encode<bufferlist&>(bufferlist& bl) const;
-template void inode_backtrace_t::encode<encode_size&>(encode_size& bl) const;
-template void inode_backtrace_t::encode<encode_helper&>(encode_helper& bl) const;
+template void inode_backtrace_t::encode<bufferlist>(bufferlist& bl) const;
+template void inode_backtrace_t::encode<encode_size>(encode_size& bl) const;
+template void inode_backtrace_t::encode<encode_helper>(encode_helper& bl) const;
 
 void inode_backtrace_t::decode(bufferlist::const_iterator& bl)
 {

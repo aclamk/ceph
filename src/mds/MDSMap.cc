@@ -515,15 +515,18 @@ void MDSMap::get_health_checks(health_check_map_t *checks) const
     check.detail.push_back(ss.str());
   }
 }
-
-void MDSMap::mds_info_t::encode_versioned(bufferlist& bl, uint64_t features) const
+template <class TT>
+void MDSMap::mds_info_t::encode_versioned(TT& bl, uint64_t features) const
 {
   __u8 v = 8;
   if (!HAVE_FEATURE(features, SERVER_NAUTILUS)) {
     v = 7;
   }
   ENCODE_START(v, 4, bl);
+  assert(0);
+#ifdef AK_DISABLED
   encode(global_id, bl);
+#endif
   encode(name, bl);
   encode(rank, bl);
   encode(inc, bl);
@@ -543,13 +546,20 @@ void MDSMap::mds_info_t::encode_versioned(bufferlist& bl, uint64_t features) con
   encode(standby_replay, bl);
   ENCODE_FINISH(bl);
 }
+template void MDSMap::mds_info_t::encode_versioned<bufferlist>(bufferlist& bl, uint64_t features) const;
+template void MDSMap::mds_info_t::encode_versioned<encode_size>(encode_size& bl, uint64_t features) const;
+template void MDSMap::mds_info_t::encode_versioned<encode_helper>(encode_helper& bl, uint64_t features) const;
 
-void MDSMap::mds_info_t::encode_unversioned(bufferlist& bl) const
+template <class TT>
+void MDSMap::mds_info_t::encode_unversioned(TT& bl) const
 {
   __u8 struct_v = 3;
   using ceph::encode;
   encode(struct_v, bl);
+  assert(0);
+#ifdef AK_DISABLED
   encode(global_id, bl);
+#endif
   encode(name, bl);
   encode(rank, bl);
   encode(inc, bl);
@@ -561,6 +571,10 @@ void MDSMap::mds_info_t::encode_unversioned(bufferlist& bl) const
   encode(standby_for_name, bl);
   encode(export_targets, bl);
 }
+template void MDSMap::mds_info_t::encode_unversioned<bufferlist>(bufferlist& bl) const;
+template void MDSMap::mds_info_t::encode_unversioned<encode_size>(encode_size& bl) const;
+template void MDSMap::mds_info_t::encode_unversioned<encode_helper>(encode_helper& bl) const;
+
 
 void MDSMap::mds_info_t::decode(bufferlist::const_iterator& bl)
 {
@@ -619,11 +633,14 @@ template <class TT> void MDSMap::encode(TT& bl, uint64_t features) const
     encode(max_mds, bl);
     __u32 n = mds_info.size();
     encode(n, bl);
+    assert(0);
+#ifdef AK_DISABLED
     for (map<mds_gid_t, mds_info_t>::const_iterator i = mds_info.begin();
 	i != mds_info.end(); ++i) {
       encode(i->first, bl);
       encode(i->second, bl, features);
     }
+#endif
     n = data_pools.size();
     encode(n, bl);
     for (const auto p: data_pools) {
@@ -647,11 +664,14 @@ template <class TT> void MDSMap::encode(TT& bl, uint64_t features) const
     encode(max_mds, bl);
     __u32 n = mds_info.size();
     encode(n, bl);
+    assert(0);
+#ifdef AK_DISABLED
     for (map<mds_gid_t, mds_info_t>::const_iterator i = mds_info.begin();
 	i != mds_info.end(); ++i) {
       encode(i->first, bl);
       encode(i->second, bl, features);
     }
+#endif
     encode(data_pools, bl);
     encode(cas_pool, bl);
 
@@ -711,9 +731,9 @@ template <class TT> void MDSMap::encode(TT& bl, uint64_t features) const
   encode(min_compat_client, bl);
   ENCODE_FINISH(bl);
 }
-template void MDSMap::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
-template void MDSMap::encode<encode_size&>(encode_size& bl, uint64_t features) const;
-template void MDSMap::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
+template void MDSMap::encode<bufferlist>(bufferlist& bl, uint64_t features) const;
+template void MDSMap::encode<encode_size>(encode_size& bl, uint64_t features) const;
+template void MDSMap::encode<encode_helper>(encode_helper& bl, uint64_t features) const;
 
 void MDSMap::sanitize(const std::function<bool(int64_t pool)>& pool_exists)
 {

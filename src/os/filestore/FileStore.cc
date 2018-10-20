@@ -6274,9 +6274,9 @@ template <class TT> void FSSuperblock::encode(TT &bl) const
   encode(omap_backend, bl);
   ENCODE_FINISH(bl);
 }
-template void FSSuperblock::encode<bufferlist&>(bufferlist &bl) const;
-template void FSSuperblock::encode<encode_size&>(encode_size &bl) const;
-template void FSSuperblock::encode<encode_helper&>(encode_helper &bl) const;
+template void FSSuperblock::encode<bufferlist>(bufferlist &bl) const;
+template void FSSuperblock::encode<encode_size>(encode_size &bl) const;
+template void FSSuperblock::encode<encode_helper>(encode_helper &bl) const;
 
 void FSSuperblock::decode(bufferlist::const_iterator &bl)
 {

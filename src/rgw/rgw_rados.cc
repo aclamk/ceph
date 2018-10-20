@@ -1924,9 +1924,9 @@ template <class TT> void RGWPeriodMap::encode(TT& bl) const {
   encode(short_zone_ids, bl);
   ENCODE_FINISH(bl);
 }
-template void RGWPeriodMap::encode<bufferlist&>(bufferlist& bl) const;
-template void RGWPeriodMap::encode<encode_size&>(encode_size& bl) const;
-template void RGWPeriodMap::encode<encode_helper&>(encode_helper& bl) const;
+template void RGWPeriodMap::encode<bufferlist>(bufferlist& bl) const;
+template void RGWPeriodMap::encode<encode_size>(encode_size& bl) const;
+template void RGWPeriodMap::encode<encode_helper>(encode_helper& bl) const;
 
 void RGWPeriodMap::decode(bufferlist::const_iterator& bl) {
   DECODE_START(2, bl);
@@ -2048,9 +2048,9 @@ template <class TT> void RGWRegionMap::encode(TT& bl) const {
   encode(user_quota, bl);
   ENCODE_FINISH(bl);
 }
-template void RGWRegionMap::encode<bufferlist&>(bufferlist& bl) const;
-template void RGWRegionMap::encode<encode_size&>(encode_size& bl) const;
-template void RGWRegionMap::encode<encode_helper&>(encode_helper& bl) const;
+template void RGWRegionMap::encode<bufferlist>(bufferlist& bl) const;
+template void RGWRegionMap::encode<encode_size>(encode_size& bl) const;
+template void RGWRegionMap::encode<encode_helper>(encode_helper& bl) const;
 
 void RGWRegionMap::decode(bufferlist::const_iterator& bl) {
   DECODE_START(3, bl);
@@ -2071,9 +2071,9 @@ template <class TT> void RGWZoneGroupMap::encode(TT& bl) const {
   encode(user_quota, bl);
   ENCODE_FINISH(bl);
 }
-template void RGWZoneGroupMap::encode<bufferlist&>(bufferlist& bl) const;
-template void RGWZoneGroupMap::encode<encode_size&>(encode_size& bl) const;
-template void RGWZoneGroupMap::encode<encode_helper&>(encode_helper& bl) const;
+template void RGWZoneGroupMap::encode<bufferlist>(bufferlist& bl) const;
+template void RGWZoneGroupMap::encode<encode_size>(encode_size& bl) const;
+template void RGWZoneGroupMap::encode<encode_helper>(encode_helper& bl) const;
 
 void RGWZoneGroupMap::decode(bufferlist::const_iterator& bl) {
   DECODE_START(3, bl);

@@ -68,9 +68,9 @@ template <class TT> void osd_info_t::encode(TT& bl) const
   encode(down_at, bl);
   encode(lost_at, bl);
 }
-template void osd_info_t::encode<bufferlist&>(bufferlist& bl) const;
-template void osd_info_t::encode<encode_size&>(encode_size& bl) const;
-template void osd_info_t::encode<encode_helper&>(encode_helper& bl) const;
+template void osd_info_t::encode<bufferlist>(bufferlist& bl) const;
+template void osd_info_t::encode<encode_size>(encode_size& bl) const;
+template void osd_info_t::encode<encode_helper>(encode_helper& bl) const;
 
 void osd_info_t::decode(bufferlist::const_iterator& bl)
 {
@@ -131,9 +131,9 @@ template <class TT> void osd_xinfo_t::encode(TT& bl) const
   encode(old_weight, bl);
   ENCODE_FINISH(bl);
 }
-template void osd_xinfo_t::encode<bufferlist&>(bufferlist& bl) const;
-template void osd_xinfo_t::encode<encode_size&>(encode_size& bl) const;
-template void osd_xinfo_t::encode<encode_helper&>(encode_helper& bl) const;
+template void osd_xinfo_t::encode<bufferlist>(bufferlist& bl) const;
+template void osd_xinfo_t::encode<encode_size>(encode_size& bl) const;
+template void osd_xinfo_t::encode<encode_helper>(encode_helper& bl) const;
 
 void osd_xinfo_t::decode(bufferlist::const_iterator& bl)
 {
@@ -362,7 +362,8 @@ bool OSDMap::subtree_type_is_down(
   return true;
 }
 
-void OSDMap::Incremental::encode_client_old(bufferlist& bl) const
+template <class TT>
+void OSDMap::Incremental::encode_client_old(TT& bl) const
 {
   using ceph::encode;
   __u16 v = 5;
@@ -422,8 +423,8 @@ void OSDMap::Incremental::encode_client_old(bufferlist& bl) const
     encode(pg_temp.second, bl);
   }
 }
-
-void OSDMap::Incremental::encode_classic(bufferlist& bl, uint64_t features) const
+template <class TT>
+void OSDMap::Incremental::encode_classic(TT& bl, uint64_t features) const
 {
   using ceph::encode;
   if ((features & CEPH_FEATURE_PGID64) == 0) {
@@ -474,8 +475,8 @@ void OSDMap::Incremental::encode_classic(bufferlist& bl, uint64_t features) cons
   encode(new_hb_front_up, bl, features);
 }
 
-template<class T>
-static void encode_addrvec_map_as_addr(const T& m, bufferlist& bl, uint64_t f)
+template<class T, class TT>
+static void encode_addrvec_map_as_addr(const T& m, TT& bl, uint64_t f)
 {
   uint32_t n = m.size();
   encode(n, bl);
@@ -485,8 +486,8 @@ static void encode_addrvec_map_as_addr(const T& m, bufferlist& bl, uint64_t f)
   }
 }
 
-template<class T>
-static void encode_addrvec_pvec_as_addr(const T& m, bufferlist& bl, uint64_t f)
+template<class T, class K>
+static void encode_addrvec_pvec_as_addr(const T& m, K& bl, uint64_t f)
 {
   uint32_t n = m.size();
   encode(n, bl);
@@ -628,7 +629,10 @@ template <class TT> void OSDMap::Incremental::encode(TT& bl, uint64_t features) 
   }
 
   crc_offset = bl.length();
+  assert(0);
+#if AK_DISABLED
   crc_filler = bl.append_hole(sizeof(uint32_t));
+#endif
   tail_offset = bl.length();
 
   encode(full_crc, bl);
@@ -636,20 +640,22 @@ template <class TT> void OSDMap::Incremental::encode(TT& bl, uint64_t features) 
   ENCODE_FINISH(bl); // meta-encoding wrapper
 
   // fill in crc
+#if AK_DISABLED
   bufferlist front;
   front.substr_of(bl, start_offset, crc_offset - start_offset);
   inc_crc = front.crc32c(-1);
   bufferlist tail;
   tail.substr_of(bl, tail_offset, bl.length() - tail_offset);
   inc_crc = tail.crc32c(inc_crc);
+#endif
   ceph_le32 crc_le;
   crc_le = inc_crc;
   crc_filler->copy_in(4u, (char*)&crc_le);
   have_crc = true;
 }
-template void OSDMap::Incremental::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
-template void OSDMap::Incremental::encode<encode_size&>(encode_size& bl, uint64_t features) const;
-template void OSDMap::Incremental::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
+template void OSDMap::Incremental::encode<bufferlist>(bufferlist& bl, uint64_t features) const;
+template void OSDMap::Incremental::encode<encode_size>(encode_size& bl, uint64_t features) const;
+template void OSDMap::Incremental::encode<encode_helper>(encode_helper& bl, uint64_t features) const;
 
 void OSDMap::Incremental::decode_classic(bufferlist::const_iterator &p)
 {
@@ -2533,7 +2539,8 @@ uint64_t OSDMap::get_encoding_features() const
 }
 
 // serialize, unserialize
-void OSDMap::encode_client_old(bufferlist& bl) const
+template <class TT>
+void OSDMap::encode_client_old(TT& bl) const
 {
   using ceph::encode;
   __u16 v = 5;
@@ -2591,10 +2598,11 @@ void OSDMap::encode_client_old(bufferlist& bl) const
   // crush
   bufferlist cbl;
   crush->encode(cbl, 0 /* legacy (no) features */);
+  //std::cout << cbl.length() << std::endl;
   encode(cbl, bl);
 }
 
-void OSDMap::encode_classic(bufferlist& bl, uint64_t features) const
+template <class TT> void OSDMap::encode_classic(TT& bl, uint64_t features) const
 {
   using ceph::encode;
   if ((features & CEPH_FEATURE_PGID64) == 0) {
@@ -2630,11 +2638,12 @@ void OSDMap::encode_classic(bufferlist& bl, uint64_t features) const
 
   encode(*pg_temp, bl);
 
+#ifdef AK_DISABLED
   // crush
   bufferlist cbl;
   crush->encode(cbl, 0 /* legacy (no) features */);
   encode(cbl, bl);
-
+#endif
   // extended
   __u16 ev = 10;
   encode(ev, bl);
@@ -2817,12 +2826,16 @@ template <class TT> void OSDMap::encode(TT& bl, uint64_t features) const
   }
 
   crc_offset = bl.length();
+  assert(0);
+#if AK_DISABLED
   crc_filler = bl.append_hole(sizeof(uint32_t));
+#endif
   tail_offset = bl.length();
 
   ENCODE_FINISH(bl); // meta-encoding wrapper
 
   // fill in crc
+#if AK_DISABLED
   bufferlist front;
   front.substr_of(bl, start_offset, crc_offset - start_offset);
   crc = front.crc32c(-1);
@@ -2831,14 +2844,15 @@ template <class TT> void OSDMap::encode(TT& bl, uint64_t features) const
     tail.substr_of(bl, tail_offset, bl.length() - tail_offset);
     crc = tail.crc32c(crc);
   }
+#endif
   ceph_le32 crc_le;
   crc_le = crc;
   crc_filler->copy_in(4, (char*)&crc_le);
   crc_defined = true;
 }
-template void OSDMap::encode<bufferlist&>(bufferlist& bl, uint64_t features) const;
-template void OSDMap::encode<encode_size&>(encode_size& bl, uint64_t features) const;
-template void OSDMap::encode<encode_helper&>(encode_helper& bl, uint64_t features) const;
+template void OSDMap::encode<bufferlist>(bufferlist& bl, uint64_t features) const;
+template void OSDMap::encode<encode_size>(encode_size& bl, uint64_t features) const;
+template void OSDMap::encode<encode_helper>(encode_helper& bl, uint64_t features) const;
 
 void OSDMap::decode(bufferlist& bl)
 {

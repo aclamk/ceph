@@ -139,8 +139,8 @@ struct rgw_bucket_dir_entry_meta {
 };
 WRITE_CLASS_ENCODER(rgw_bucket_dir_entry_meta)
 
-template<class T>
-void encode_packed_val(T val, bufferlist& bl)
+template<class T, class TT>
+void encode_packed_val(T val, TT& bl)
 {
   using ceph::encode;
   if ((uint64_t)val < 0x80) {

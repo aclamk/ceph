@@ -113,10 +113,18 @@ private:
   mutable time last_decay = clock::zero();   // time of last decay
   DecayRate rate;
 };
-
-inline void encode(const DecayCounter &c, bufferlist &bl) {
+template <class TT>
+inline void encode(const DecayCounter &c, TT &bl) {
   c.encode(bl);
 }
+#ifdef AK_DISABLED
+inline void encode(const DecayCounter &c, encode_size &bl) {
+  c.encode(bl);
+}
+inline void encode(const DecayCounter &c, encode_helper &bl) {
+  c.encode(bl);
+}
+#endif
 inline void decode(DecayCounter &c, bufferlist::const_iterator &p) {
   c.decode(p);
 }

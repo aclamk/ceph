@@ -14,6 +14,7 @@
 
 #include "ECMsgTypes.h"
 
+#if 0
 template <class TT> void ECSubWrite::encode(TT &bl) const
 {
   ENCODE_START(4, 1, bl);
@@ -33,9 +34,11 @@ template <class TT> void ECSubWrite::encode(TT &bl) const
   encode(backfill_or_async_recovery, bl);
   ENCODE_FINISH(bl);
 }
-template void ECSubWrite::encode<bufferlist&>(bufferlist &bl) const;
-template void ECSubWrite::encode<encode_size&>(encode_size &bl) const;
-template void ECSubWrite::encode<encode_helper&>(encode_helper &bl) const;
+#endif
+//template void ECSubWrite::encode<bufferlist>(bufferlist &bl) const;
+//template void ECSubWrite::encode<ceph::buffer::list>(ceph::buffer::list &bl) const;
+template void ECSubWrite::encode<encode_size>(encode_size &bl) const;
+template void ECSubWrite::encode<encode_helper>(encode_helper &bl) const;
 
 void ECSubWrite::decode(bufferlist::const_iterator &bl)
 {
@@ -124,9 +127,9 @@ template <class TT> void ECSubWriteReply::encode(TT &bl) const
   encode(applied, bl);
   ENCODE_FINISH(bl);
 }
-template void ECSubWriteReply::encode<bufferlist&>(bufferlist &bl) const;
-template void ECSubWriteReply::encode<encode_size&>(encode_size &bl) const;
-template void ECSubWriteReply::encode<encode_helper&>(encode_helper &bl) const;
+template void ECSubWriteReply::encode<bufferlist>(bufferlist &bl) const;
+template void ECSubWriteReply::encode<encode_size>(encode_size &bl) const;
+template void ECSubWriteReply::encode<encode_helper>(encode_helper &bl) const;
 
 void ECSubWriteReply::decode(bufferlist::const_iterator &bl)
 {
@@ -200,9 +203,9 @@ template <class TT> void ECSubRead::encode(TT &bl, uint64_t features) const
   encode(subchunks, bl);
   ENCODE_FINISH(bl);
 }
-template void ECSubRead::encode<bufferlist&>(bufferlist &bl, uint64_t features) const;
-template void ECSubRead::encode<encode_size&>(encode_size &bl, uint64_t features) const;
-template void ECSubRead::encode<encode_helper&>(encode_helper &bl, uint64_t features) const;
+template void ECSubRead::encode<bufferlist>(bufferlist &bl, uint64_t features) const;
+template void ECSubRead::encode<encode_size>(encode_size &bl, uint64_t features) const;
+template void ECSubRead::encode<encode_helper>(encode_helper &bl, uint64_t features) const;
 
 void ECSubRead::decode(bufferlist::const_iterator &bl)
 {
@@ -313,9 +316,9 @@ template <class TT> void ECSubReadReply::encode(TT &bl) const
   encode(errors, bl);
   ENCODE_FINISH(bl);
 }
-template void ECSubReadReply::encode<bufferlist&>(bufferlist &bl) const;
-template void ECSubReadReply::encode<encode_size&>(encode_size &bl) const;
-template void ECSubReadReply::encode<encode_helper&>(encode_helper &bl) const;
+template void ECSubReadReply::encode<bufferlist>(bufferlist &bl) const;
+template void ECSubReadReply::encode<encode_size>(encode_size &bl) const;
+template void ECSubReadReply::encode<encode_helper>(encode_helper &bl) const;
 
 void ECSubReadReply::decode(bufferlist::const_iterator &bl)
 {

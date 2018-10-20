@@ -15,9 +15,9 @@ template <class TT> void ObjectPosition::encode(TT& bl) const {
   encode(entry_tid, bl);
   ENCODE_FINISH(bl);
 }
-template void ObjectPosition::encode<bufferlist&>(bufferlist& bl) const;
-template void ObjectPosition::encode<encode_size&>(encode_size& bl) const;
-template void ObjectPosition::encode<encode_helper&>(encode_helper& bl) const;
+template void ObjectPosition::encode<bufferlist>(bufferlist& bl) const;
+template void ObjectPosition::encode<encode_size>(encode_size& bl) const;
+template void ObjectPosition::encode<encode_helper>(encode_helper& bl) const;
 
 void ObjectPosition::decode(bufferlist::const_iterator& iter) {
   DECODE_START(1, iter);
@@ -43,9 +43,9 @@ template <class TT> void ObjectSetPosition::encode(TT& bl) const {
   encode(object_positions, bl);
   ENCODE_FINISH(bl);
 }
-template void ObjectSetPosition::encode<bufferlist&>(bufferlist& bl) const;
-template void ObjectSetPosition::encode<encode_size&>(encode_size& bl) const;
-template void ObjectSetPosition::encode<encode_helper&>(encode_helper& bl) const;
+template void ObjectSetPosition::encode<bufferlist>(bufferlist& bl) const;
+template void ObjectSetPosition::encode<encode_size>(encode_size& bl) const;
+template void ObjectSetPosition::encode<encode_helper>(encode_helper& bl) const;
 
 void ObjectSetPosition::decode(bufferlist::const_iterator& iter) {
   DECODE_START(1, iter);
@@ -77,9 +77,9 @@ template <class TT> void Client::encode(TT& bl) const {
   encode(static_cast<uint8_t>(state), bl);
   ENCODE_FINISH(bl);
 }
-template void Client::encode<bufferlist&>(bufferlist& bl) const;
-template void Client::encode<encode_size&>(encode_size& bl) const;
-template void Client::encode<encode_helper&>(encode_helper& bl) const;
+template void Client::encode<bufferlist>(bufferlist& bl) const;
+template void Client::encode<encode_size>(encode_size& bl) const;
+template void Client::encode<encode_helper>(encode_helper& bl) const;
 
 void Client::decode(bufferlist::const_iterator& iter) {
   DECODE_START(1, iter);
@@ -123,9 +123,9 @@ template <class TT> void Tag::encode(TT& bl) const {
   encode(data, bl);
   ENCODE_FINISH(bl);
 }
-template void Tag::encode<bufferlist&>(bufferlist& bl) const;
-template void Tag::encode<encode_size&>(encode_size& bl) const;
-template void Tag::encode<encode_helper&>(encode_helper& bl) const;
+template void Tag::encode<bufferlist>(bufferlist& bl) const;
+template void Tag::encode<encode_size>(encode_size& bl) const;
+template void Tag::encode<encode_helper>(encode_helper& bl) const;
 
 void Tag::decode(bufferlist::const_iterator& iter) {
   DECODE_START(1, iter);

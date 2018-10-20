@@ -417,8 +417,8 @@ public:
     int get_net_marked_down(const OSDMap *previous) const;
     int identify_osd(uuid_d u) const;
 
-    void encode_client_old(bufferlist& bl) const;
-    void encode_classic(bufferlist& bl, uint64_t features) const;
+    template <class TT> void encode_client_old(TT& bl) const;
+    template <class TT> void encode_classic(TT& bl, uint64_t features) const;
     template <class TT> void encode(TT& bl, uint64_t features=CEPH_FEATURES_ALL) const;
     void decode_classic(bufferlist::const_iterator &p);
     void decode(bufferlist::const_iterator &bl);
@@ -1026,8 +1026,8 @@ public:
 
   // serialize, unserialize
 private:
-  void encode_client_old(bufferlist& bl) const;
-  void encode_classic(bufferlist& bl, uint64_t features) const;
+  template <class TT> void encode_client_old(TT& bl) const;
+  template <class TT> void encode_classic(TT& bl, uint64_t features) const;
   void decode_classic(bufferlist::const_iterator& p);
   void post_decode();
 public:

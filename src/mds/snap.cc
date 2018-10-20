@@ -31,9 +31,9 @@ template <class TT> void SnapInfo::encode(TT& bl) const
   encode(name, bl);
   ENCODE_FINISH(bl);
 }
-template void SnapInfo::encode<bufferlist&>(bufferlist& bl) const;
-template void SnapInfo::encode<encode_size&>(encode_size& bl) const;
-template void SnapInfo::encode<encode_helper&>(encode_helper& bl) const;
+template void SnapInfo::encode<bufferlist>(bufferlist& bl) const;
+template void SnapInfo::encode<encode_size>(encode_size& bl) const;
+template void SnapInfo::encode<encode_helper>(encode_helper& bl) const;
 
 void SnapInfo::decode(bufferlist::const_iterator& bl)
 {
@@ -94,9 +94,9 @@ template <class TT> void snaplink_t::encode(TT& bl) const
   encode(first, bl);
   ENCODE_FINISH(bl);
 }
-template void snaplink_t::encode<bufferlist&>(bufferlist& bl) const;
-template void snaplink_t::encode<encode_size&>(encode_size& bl) const;
-template void snaplink_t::encode<encode_helper&>(encode_helper& bl) const;
+template void snaplink_t::encode<bufferlist>(bufferlist& bl) const;
+template void snaplink_t::encode<encode_size>(encode_size& bl) const;
+template void snaplink_t::encode<encode_helper>(encode_helper& bl) const;
 
 void snaplink_t::decode(bufferlist::const_iterator& bl)
 {
@@ -143,9 +143,9 @@ template <class TT> void sr_t::encode(TT& bl) const
   encode(flags, bl);
   ENCODE_FINISH(bl);
 }
-template void sr_t::encode<bufferlist&>(bufferlist& bl) const;
-template void sr_t::encode<encode_size&>(encode_size& bl) const;
-template void sr_t::encode<encode_helper&>(encode_helper& bl) const;
+template void sr_t::encode<bufferlist>(bufferlist& bl) const;
+template void sr_t::encode<encode_size>(encode_size& bl) const;
+template void sr_t::encode<encode_helper>(encode_helper& bl) const;
 
 void sr_t::decode(bufferlist::const_iterator& p)
 {

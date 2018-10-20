@@ -324,15 +324,52 @@ public:
   }
 };
 
+
+//AK_DISABLED template<class Key, class T, class Map, class TT>
+template<class Key, class T, class Map, class TT>
+inline void encode(const compact_map_base<Key, T, Map>& m, TT& bl) {
+  m.encode(bl);
+}
+/*
 template<class Key, class T, class Map>
-inline void encode(const compact_map_base<Key, T, Map>& m, bufferlist& bl) {
+inline void encode(const compact_map_base<Key, T, Map>& m, ceph::encode_size& bl) {
+  m.encode(bl);
+}
+*/
+
+#ifdef AK_DISABLED
+template<class Key, class T, class Map>
+inline void encode(const compact_map_base<Key, T, Map>& m, encode_helper& bl) {
   m.encode(bl);
 }
 template<class Key, class T, class Map>
-inline void encode(const compact_map_base<Key, T, Map>& m, bufferlist& bl,
+inline void encode(const compact_map_base<Key, T, Map>& m, encode_size& bl) {
+  m.encode(bl);
+}
+#endif
+
+#ifdef AK_DISABLED
+
+template<class Key, class T, class TT>
+inline void encode(const compact_map<Key, T>& m, TT& bl) {
+  m.encode(bl);
+}
+template<class Key, class T>
+inline void encode(const compact_map<Key, T>& m, encode_helper& bl) {
+  m.encode(bl);
+}
+template<class Key, class T>
+inline void encode(const compact_map<Key, T>& m, encode_size& bl) {
+  m.encode(bl);
+}
+#endif
+
+template<class Key, class T, class Map, class TT>
+inline void encode(const compact_map_base<Key, T, Map>& m, TT& bl,
 		   uint64_t features) {
   m.encode(bl, features);
 }
+
 template<class Key, class T, class Map>
 inline void decode(compact_map_base<Key, T, Map>& m, bufferlist::const_iterator& p) {
   m.decode(p);
@@ -346,6 +383,11 @@ public:
     return (*(this->map))[k];
   }
 };
+
+template<class Key, class T>
+inline void encode(const compact_map<Key, T>& m, encode_size& bl) {
+  m.encode(bl);
+}
 
 template <class Key, class T, class Compare = std::less<Key>, class Alloc = std::allocator< std::pair<const Key, T> > >
 inline std::ostream& operator<<(std::ostream& out, const compact_map<Key, T, Compare, Alloc>& m)
