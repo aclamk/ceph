@@ -523,10 +523,7 @@ void MDSMap::mds_info_t::encode_versioned(TT& bl, uint64_t features) const
     v = 7;
   }
   ENCODE_START(v, 4, bl);
-  assert(0);
-#ifdef AK_DISABLED
   encode(global_id, bl);
-#endif
   encode(name, bl);
   encode(rank, bl);
   encode(inc, bl);
@@ -556,10 +553,7 @@ void MDSMap::mds_info_t::encode_unversioned(TT& bl) const
   __u8 struct_v = 3;
   using ceph::encode;
   encode(struct_v, bl);
-  assert(0);
-#ifdef AK_DISABLED
   encode(global_id, bl);
-#endif
   encode(name, bl);
   encode(rank, bl);
   encode(inc, bl);
@@ -633,14 +627,11 @@ template <class TT> void MDSMap::encode(TT& bl, uint64_t features) const
     encode(max_mds, bl);
     __u32 n = mds_info.size();
     encode(n, bl);
-    assert(0);
-#ifdef AK_DISABLED
     for (map<mds_gid_t, mds_info_t>::const_iterator i = mds_info.begin();
 	i != mds_info.end(); ++i) {
       encode(i->first, bl);
       encode(i->second, bl, features);
     }
-#endif
     n = data_pools.size();
     encode(n, bl);
     for (const auto p: data_pools) {
@@ -664,14 +655,11 @@ template <class TT> void MDSMap::encode(TT& bl, uint64_t features) const
     encode(max_mds, bl);
     __u32 n = mds_info.size();
     encode(n, bl);
-    assert(0);
-#ifdef AK_DISABLED
     for (map<mds_gid_t, mds_info_t>::const_iterator i = mds_info.begin();
 	i != mds_info.end(); ++i) {
       encode(i->first, bl);
       encode(i->second, bl, features);
     }
-#endif
     encode(data_pools, bl);
     encode(cas_pool, bl);
 

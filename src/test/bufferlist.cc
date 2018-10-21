@@ -3304,9 +3304,11 @@ TEST(BufferList, encode_bench_OSDMap_x)
     {
       encode_size s;
       encode_helper h;
-      osd_mapa.encode(s, CEPH_FEATURE_RESERVED);
+      //osd_mapa.encode(s, CEPH_FEATURE_RESERVED);
       h.bl = &bl;
-      h.at = bl.append_hole(s.encode);
+      //std::cout << s.encode << std::endl;
+      //EXPECT_EQ(s.encode, 128);
+      h.at = bl.append_hole(78/*s.encode*/);
       osd_mapa.encode(h, CEPH_FEATURE_RESERVED);
       //osd_mapa.encode(bl, CEPH_FEATURE_RESERVED);
     }

@@ -1585,7 +1585,6 @@ template <class TT> void pg_pool_t::encode(TT& bl, uint64_t features) const
     encode(auid, bl);
 
     encode_nohead(snaps, bl, features);
-    assert(0);
 #ifdef AK_DISABLED
     encode_nohead(removed_snaps, bl);
 #endif
@@ -5325,7 +5324,6 @@ template <class TT> void object_info_t::encode(TT& bl, uint64_t features) const
   encode(truncate_seq, bl);
   encode(truncate_size, bl);
   encode(is_lost(), bl);
-  assert(0);
 #ifdef AK_DISABLED
   encode(old_watchers, bl, features);
 #endif
@@ -5334,9 +5332,7 @@ template <class TT> void object_info_t::encode(TT& bl, uint64_t features) const
   eversion_t user_eversion(0, user_version);
   encode(user_eversion, bl);
   encode(test_flag(FLAG_USES_TMAP), bl);
-#ifdef AK_DISABLED
   encode(watchers, bl, features);
-#endif
   __u32 _flags = flags;
   encode(_flags, bl);
   encode(local_mtime, bl);

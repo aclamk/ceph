@@ -518,8 +518,9 @@ template <class TT> void OSDMap::Incremental::encode(TT& bl, uint64_t features) 
   size_t start_offset = bl.length();
   size_t tail_offset;
   size_t crc_offset;
-  std::optional<buffer::list::contiguous_filler> crc_filler;
-
+  //AK_DISABLED
+  //std::optional<buffer::list::contiguous_filler> crc_filler;
+  std::optional<typename TT::contiguous_filler> crc_filler;
   // meta-encoding: how we include client-used and osd-specific data
   ENCODE_START(8, 7, bl);
 
@@ -629,10 +630,7 @@ template <class TT> void OSDMap::Incremental::encode(TT& bl, uint64_t features) 
   }
 
   crc_offset = bl.length();
-  assert(0);
-#if AK_DISABLED
   crc_filler = bl.append_hole(sizeof(uint32_t));
-#endif
   tail_offset = bl.length();
 
   encode(full_crc, bl);
@@ -640,17 +638,17 @@ template <class TT> void OSDMap::Incremental::encode(TT& bl, uint64_t features) 
   ENCODE_FINISH(bl); // meta-encoding wrapper
 
   // fill in crc
-#if AK_DISABLED
+#ifdef AK_DISABLED
   bufferlist front;
   front.substr_of(bl, start_offset, crc_offset - start_offset);
   inc_crc = front.crc32c(-1);
   bufferlist tail;
   tail.substr_of(bl, tail_offset, bl.length() - tail_offset);
   inc_crc = tail.crc32c(inc_crc);
-#endif
   ceph_le32 crc_le;
   crc_le = inc_crc;
   crc_filler->copy_in(4u, (char*)&crc_le);
+#endif
   have_crc = true;
 }
 template void OSDMap::Incremental::encode<bufferlist>(bufferlist& bl, uint64_t features) const;
@@ -2638,12 +2636,10 @@ template <class TT> void OSDMap::encode_classic(TT& bl, uint64_t features) const
 
   encode(*pg_temp, bl);
 
-#ifdef AK_DISABLED
   // crush
   bufferlist cbl;
   crush->encode(cbl, 0 /* legacy (no) features */);
   encode(cbl, bl);
-#endif
   // extended
   __u16 ev = 10;
   encode(ev, bl);
@@ -2676,7 +2672,9 @@ template <class TT> void OSDMap::encode(TT& bl, uint64_t features) const
   size_t start_offset = bl.length();
   size_t tail_offset;
   size_t crc_offset;
-  std::optional<buffer::list::contiguous_filler> crc_filler;
+  //AK_DISABLED
+  //std::optional<buffer::list::contiguous_filler> crc_filler;
+  std::optional<typename TT::contiguous_filler> crc_filler;
 
   // meta-encoding: how we include client-used and osd-specific data
   ENCODE_START(8, 7, bl);
@@ -2826,16 +2824,13 @@ template <class TT> void OSDMap::encode(TT& bl, uint64_t features) const
   }
 
   crc_offset = bl.length();
-  assert(0);
-#if AK_DISABLED
   crc_filler = bl.append_hole(sizeof(uint32_t));
-#endif
   tail_offset = bl.length();
 
   ENCODE_FINISH(bl); // meta-encoding wrapper
 
   // fill in crc
-#if AK_DISABLED
+#ifdef AK_DISABLED
   bufferlist front;
   front.substr_of(bl, start_offset, crc_offset - start_offset);
   crc = front.crc32c(-1);
@@ -2844,10 +2839,10 @@ template <class TT> void OSDMap::encode(TT& bl, uint64_t features) const
     tail.substr_of(bl, tail_offset, bl.length() - tail_offset);
     crc = tail.crc32c(crc);
   }
-#endif
   ceph_le32 crc_le;
   crc_le = crc;
   crc_filler->copy_in(4, (char*)&crc_le);
+#endif
   crc_defined = true;
 }
 template void OSDMap::encode<bufferlist>(bufferlist& bl, uint64_t features) const;

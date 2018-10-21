@@ -79,6 +79,7 @@ namespace ceph {
     public:
       void copy_in(const unsigned len, const char* const src) {};
     };
+    using contiguous_filler = filler;
     size_t encode{0};
     filler append_hole(size_t v) {encode+=v; return filler();}
     size_t length() {return 0;}
@@ -115,11 +116,12 @@ namespace ceph {
           pos += len;
         }
       };
+    using contiguous_filler = filler;
     filler append_hole(size_t v) {return filler{at.pos}; at.pos+=v;}
     size_t length() {return (size_t)at.pos;}
     void append(const char* src, size_t len) {at.copy_in(len, src);}
-    void append(const bufferptr& ptr) {this->bl->insert(ptr, at);/*implement me*/};
-    void append(const bufferlist& bl) {this->bl->insert(bl, at);/*implement me*/};
+    void append(const bufferptr& ptr) {this->bl->insert(ptr, at);  /*implement me*/};
+    void append(const bufferlist& bl) {this->bl->insert(bl, at);  /*implement me*/};
     template<std::size_t N> void append(const char (&s)[N]) {
     	append(s, N);
     }
@@ -205,6 +207,20 @@ namespace ceph {
       static const bool value = std::is_same<std::true_type, decltype(test<T,dummy>(nullptr))>::value;
   };
 
+  template <typename T>
+  struct exists_encode_function_features
+    {
+        struct dummy { /* something */ };
+
+        template <typename C, typename P>
+        static auto test(P * p) -> decltype(encode(std::declval<C&>(),std::declval<encode_size&>(), 0), std::true_type());
+
+        template <typename, typename>
+        static std::false_type test(...);
+
+        //typedef decltype(test<T, dummy>(nullptr)) type;
+        static const bool value = std::is_same<std::true_type, decltype(test<T,dummy>(nullptr))>::value;
+    };
 
 
 
@@ -228,6 +244,15 @@ namespace ceph {
 	  denc_traits<T>::bound_encode(t, p);
 	  //r.bl.encode += p;
 	  r.advance(p);
+  }
+  template <class T> inline std::enable_if_t<denc_traits<T>::supported && !has_encode_method<T>::value >
+  encode(const T& t, replacement& r, uint64_t f)
+  {
+	  size_t p = 0;
+	  denc_traits<T>::bound_encode(t, p);
+	  //r.bl.encode += p;
+	  //r.advance(p);
+	  r.encode += p;
   }
 
   template <class T> inline std::enable_if_t<!denc_traits<T>::supported && has_encode_method_bufferlist<T>::value>
@@ -260,6 +285,19 @@ namespace ceph {
 
   template <class T> inline std::enable_if_t<denc_traits<T>::supported>
   encode(const T& t, replacement1& r)
+  {
+	  bufferlist bl;
+	  size_t len = 0;
+	  denc_traits<T>::bound_encode(t, len);
+	  auto a = bl.get_contiguous_appender(len);
+	  denc_traits<T>::encode(t, a);
+
+	  //t.encode(*(encode_helper*)&r);
+	  r.append(bl);
+  }
+
+  template <class T> inline std::enable_if_t<denc_traits<T>::supported>
+  encode(const T& t, replacement1& r, uint64_t f)
   {
 	  bufferlist bl;
 	  size_t len = 0;

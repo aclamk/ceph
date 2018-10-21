@@ -124,7 +124,8 @@ struct snapid_t {
 };
 
 template <class TT> inline std::enable_if_t<std::is_base_of_v<encode_type, TT> > encode(const snapid_t &i, TT &bl) { encode(i.val, bl); }
-inline void encode(const snapid_t &i, encode_size &bl) { encode(i.val, bl); }
+inline void encode(const snapid_t &i, encode_size &bl, uint64_t f) { encode(i.val, bl); }
+inline void encode(const snapid_t &i, encode_helper &bl, uint64_t f) { encode(i.val, bl); }
 inline void decode(snapid_t &i, bufferlist::const_iterator &p) { decode(i.val, p); }
 
 template<>
