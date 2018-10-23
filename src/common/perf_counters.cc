@@ -16,7 +16,6 @@
 #include "common/perf_counters.h"
 #include "common/dout.h"
 #include "common/valgrind.h"
-
 using std::ostringstream;
 
 PerfCountersCollection::PerfCountersCollection(CephContext *cct)
@@ -570,3 +569,19 @@ PerfCounters *PerfCountersBuilder::create_perf_counters()
   return ret;
 }
 
+std::vector<perf_entry*> perf_entry::entries;
+thread_local uint32_t perf_depth;
+
+void perf_entry::dump(Formatter* f)
+{
+  f->open_array_section("functions");
+  for (auto& it: entries) {
+    f->open_object_section("function");
+    f->dump_string("name", it->function);
+    f->dump_int("count", it->count);
+    f->dump_string("time", to_string(it->total));
+    f->dump_string("one", to_string(it->total/it->count));
+    f->close_section();
+  }
+  f->close_section(); //functions
+}

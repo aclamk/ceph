@@ -4009,6 +4009,8 @@ void pg_log_entry_t::decode_with_checksum(bufferlist::const_iterator& p)
 
 void pg_log_entry_t::encode(bufferlist &bl) const
 {
+  PROFILE_THIS_FUNCTION();
+  
   ENCODE_START(11, 4, bl);
   encode(op, bl);
   encode(soid, bl);
@@ -4852,6 +4854,8 @@ void OSDSuperblock::generate_test_instances(list<OSDSuperblock*>& o)
 
 void SnapSet::encode(bufferlist& bl) const
 {
+  PROFILE_THIS_FUNCTION();
+
   ENCODE_START(3, 2, bl);
   encode(seq, bl);
   encode(true, bl);  // head_exists
@@ -5200,6 +5204,8 @@ void object_info_t::copy_user_bits(const object_info_t& other)
 
 void object_info_t::encode(bufferlist& bl, uint64_t features) const
 {
+  PROFILE_THIS_FUNCTION();
+
   object_locator_t myoloc(soid);
   map<entity_name_t, watch_info_t> old_watchers;
   for (map<pair<uint64_t, entity_name_t>, watch_info_t>::const_iterator i =

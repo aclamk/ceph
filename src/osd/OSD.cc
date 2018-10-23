@@ -2382,6 +2382,8 @@ will start to track new ops received afterwards.";
       f->dump_string("device", "/dev/" + dev);
     }
     f->close_section();
+  } else if (admin_command == "dump_perf_functions") {
+    perf_entry::dump(f);
   } else {
     ceph_abort_msg("broken asok registration");
   }
@@ -2990,6 +2992,12 @@ void OSD::final_init()
   r = admin_socket->register_command("list_devices", "list_devices",
                                      asok_hook,
                                      "list OSD devices.");
+
+  ceph_assert(r == 0);
+
+  r = admin_socket->register_command("dump_perf_functions", "dump_perf_functions",
+                                     asok_hook,
+                                     "dump perfed functions.");
 
   test_ops_hook = new TestOpsSocketHook(&(this->service), this->store);
   // Note: pools are CephString instead of CephPoolname because

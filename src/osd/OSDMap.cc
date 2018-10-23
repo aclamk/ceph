@@ -34,7 +34,7 @@
 #include "crush/CrushTreeDumper.h"
 #include "common/Clock.h"
 #include "mon/PGMap.h"
-
+#include "common/perf_counters.h"
 #define dout_subsys ceph_subsys_osd
 
 MEMPOOL_DEFINE_OBJECT_FACTORY(OSDMap, osdmap, osdmap);
@@ -2641,6 +2641,7 @@ void OSDMap::encode_classic(bufferlist& bl, uint64_t features) const
 
 void OSDMap::encode(bufferlist& bl, uint64_t features) const
 {
+  PROFILE_THIS_FUNCTION();
   using ceph::encode;
   if ((features & CEPH_FEATURE_OSDMAP_ENC) == 0) {
     encode_classic(bl, features);

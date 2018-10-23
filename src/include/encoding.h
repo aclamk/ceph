@@ -39,6 +39,7 @@
 #include "denc.h"
 
 #include "assert.h"
+#include "common/perf_func.h"
 
 using namespace ceph;
 

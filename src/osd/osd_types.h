@@ -2641,6 +2641,8 @@ struct pg_fast_info_t {
   }
 
   void encode(bufferlist& bl) const {
+    PROFILE_THIS_FUNCTION();
+
     ENCODE_START(1, 1, bl);
     encode(last_update, bl);
     encode(last_complete, bl);
