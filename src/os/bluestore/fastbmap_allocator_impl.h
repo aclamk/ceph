@@ -518,59 +518,64 @@ public:
       sum += v;
     };
 
+    iterate_free_regions(value_allocation);
+    double ideal = get_alloc_value(sum);
+    return 1 - contrib_sum/ideal;
+  }
+
+  void iterate_free_regions(std::function<void(size_t)> value_allocation)
+  {
     size_t len = 0;
     for (size_t i = 0; i < l1.size(); i++)
     {
       for (size_t j = 0; j < L1_ENTRIES_PER_SLOT * L1_ENTRY_WIDTH; j += L1_ENTRY_WIDTH)
       {
-	size_t w = (l1[i] >> j) & L1_ENTRY_MASK;
-	switch (w) {
-	  case L1_ENTRY_FULL:
-	    if (len > 0) {
-	      value_allocation(len);
-	      len = 0;
-	    }
-	    break;
-	  case L1_ENTRY_FREE:
-	    len += bits_per_slotset;
-	    break;
-	  case L1_ENTRY_PARTIAL:
-	    size_t pos = ( bits_per_slot/L1_ENTRY_WIDTH * i + j/L1_ENTRY_WIDTH ) * slots_per_slotset;
-	    for (size_t t = 0; t < slots_per_slotset; t++) {
-	      size_t p = 0;
-	      while (p < bits_per_slot) {
-		if (len == 0) {
-		  //continue skip allocated space, meaning bits set to 0
-		  ssize_t alloc_count = count_0s(l0[pos + t], p);
-		  p += alloc_count;
-		  if (p < bits_per_slot) {
-		    //now @p are 1s
-		    ssize_t free_count = count_1s(l0[pos + t], p);
-		    assert(free_count > 0);
-		    p += free_count;
-		    len += free_count;
-		  }
-		} else {
-		  //continue free region
-		  ssize_t free_count = count_1s(l0[pos + t], p);
-		  if (free_count == 0) {
-		    value_allocation(len);
-		    len = 0;
-		  } else {
-		    p += free_count;
-		    len += free_count;
-		  }
-		}
-	      }
-	    }
-	    break;
-	}
+        size_t w = (l1[i] >> j) & L1_ENTRY_MASK;
+        switch (w) {
+          case L1_ENTRY_FULL:
+            if (len > 0) {
+              value_allocation(len);
+              len = 0;
+            }
+            break;
+          case L1_ENTRY_FREE:
+            len += bits_per_slotset;
+            break;
+          case L1_ENTRY_PARTIAL:
+            size_t pos = ( bits_per_slot/L1_ENTRY_WIDTH * i + j/L1_ENTRY_WIDTH ) * slots_per_slotset;
+            for (size_t t = 0; t < slots_per_slotset; t++) {
+              size_t p = 0;
+              while (p < bits_per_slot) {
+                if (len == 0) {
+                  //continue skip allocated space, meaning bits set to 0
+                  ssize_t alloc_count = count_0s(l0[pos + t], p);
+                  p += alloc_count;
+                  if (p < bits_per_slot) {
+                    //now @p are 1s
+                    ssize_t free_count = count_1s(l0[pos + t], p);
+                    assert(free_count > 0);
+                    p += free_count;
+                    len += free_count;
+                  }
+                } else {
+                  //continue free region
+                  ssize_t free_count = count_1s(l0[pos + t], p);
+                  if (free_count == 0) {
+                    value_allocation(len);
+                    len = 0;
+                  } else {
+                    p += free_count;
+                    len += free_count;
+                  }
+                }
+              }
+            }
+            break;
+        }
       }
     }
     if (len > 0)
       value_allocation(len);
-    double ideal = get_alloc_value(sum);
-    return 1 - contrib_sum/ideal;
   }
 };
 
@@ -856,6 +861,12 @@ protected:
     std::lock_guard l(lock);
     return l1.get_fragmentation();
   }
+  void iterate_free_regions(std::function<void(size_t)> value_allocation)
+  {
+    std::lock_guard l(lock);
+    l1.iterate_free_regions(value_allocation);
+  }
+
 };
 
 #endif

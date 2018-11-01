@@ -2,6 +2,8 @@
 // vim: ts=8 sw=2 smarttab
 
 #include "BitmapAllocator.h"
+#include "common/admin_socket.h"
+#include <math.h>
 
 #define dout_context cct
 #define dout_subsys ceph_subsys_bluestore
@@ -16,6 +18,33 @@ BitmapAllocator::BitmapAllocator(CephContext* _cct,
   ldout(cct, 10) << __func__ << " 0x" << std::hex << capacity << "/"
 		 << alloc_unit << std::dec << dendl;
   _init(capacity, alloc_unit, false);
+  auto list_fragmentation = [this](Formatter* f) -> bool {
+    //std::vector<int32_t> region_count;
+    //double scale = pow(2, 1. / 3.);
+    auto xxx = [&region_count, scale, f](size_t v) {
+      //size_t pos = log(v) / log(scale);
+      //if (region_count.size() <= pos) region_count.resize(pos+1);
+      //region_count[pos]++;
+      f->dump_int("region", v);
+    };
+    f->open_object_section("function");
+    this->iterate_free_regions(xxx);
+
+    /*
+    for (size_t i=0; i<region_count.size(); i++) {
+      f->dump_string("range",to_string(i));
+      f->dump_int("count", region_count[i]);
+    }*/
+    f->close_section();
+    return true;
+  };
+  AdminSocket *admin_socket = cct->get_admin_socket();
+  admin_socket->register_inspect("bluestore_fragmentation", to_string(uintptr_t(this)), list_fragmentation);
+}
+
+BitmapAllocator::~BitmapAllocator() {
+  AdminSocket *admin_socket = cct->get_admin_socket();
+  admin_socket->unregister_inspect("bluestore_fragmentation", to_string(uintptr_t(this)));
 }
 
 int64_t BitmapAllocator::allocate(

@@ -18,10 +18,7 @@ class BitmapAllocator : public Allocator,
 
 public:
   BitmapAllocator(CephContext* _cct, int64_t capacity, int64_t alloc_unit);
-  ~BitmapAllocator() override
-  {
-  }
-
+  ~BitmapAllocator() override;
 
   int64_t allocate(
     uint64_t want_size, uint64_t alloc_unit, uint64_t max_alloc_size,
@@ -40,7 +37,7 @@ public:
   }
   double get_fragmentation(uint64_t) override
   {
-    return AllocatorLevel02<AllocatorLevel01Loose>::l1._get_fragmentation();
+	  return _get_fragmentation();
   }
 
   void init_add_free(uint64_t offset, uint64_t length) override;
