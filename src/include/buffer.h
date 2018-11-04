@@ -425,7 +425,7 @@ namespace buffer CEPH_BUFFER_API {
       iterator_impl(bl_t *l, unsigned o, list_iter_t ip, unsigned po)
 	: bl(l), ls(&bl->_buffers), off(o), p(ip), p_off(po) {}
       iterator_impl(const list::iterator& i);
-
+      ~iterator_impl();
       /// get current iterator offset in buffer::list
       unsigned get_off() const { return off; }
       
@@ -475,6 +475,12 @@ namespace buffer CEPH_BUFFER_API {
 			     const iterator_impl& rhs) {
 	return &lhs.get_bl() != &rhs.get_bl() || lhs.get_off() != rhs.get_off();
       }
+    private:
+      //int index_get_next(const char* name);
+      void index_move(int) const;
+      mutable int index_current = -1;
+      //int* index_transitions = nullptr;
+      //static std::vector<std::string> index_names;
     };
 
   public:

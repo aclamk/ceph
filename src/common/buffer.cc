@@ -34,7 +34,9 @@
 #include "common/RWLock.h"
 #include "include/spinlock.h"
 #include "include/scope_guard.h"
-
+#include "common/admin_socket.h"
+#include "global/global_context.h"
+#include "common/ceph_context.h"
 #if defined(HAVE_XIO)
 #include "msg/xio/XioMsg.h"
 #endif
@@ -837,6 +839,70 @@ using namespace ceph;
     return *this;
     }*/
 
+  static std::mutex index_lock;
+  static std::vector<std::string> index_names;
+  static int* index_transitions = nullptr;
+
+  bool index_dump(Formatter* f)
+  {
+    std::unique_lock l(index_lock);
+    int c = index_names.size();
+    f->open_array_section("list");
+    for (int j=0; j<c; j++)
+      for (int i=0; i<c; i++) {
+        if (index_transitions[c * j + i] > 0) {
+          f->open_object_section("transition");
+          f->dump_string("from", index_names[j]);
+          f->dump_string("to", index_names[i]);
+          f->dump_int("count", index_transitions[c * j + i]);
+          f->close_section();
+        }
+      }
+    f->close_section();
+    return true;
+  }
+
+  int* upsize(int* t, int c)
+  {
+    int* n = new int[(c+1)*(c+1)];
+    memset(n, 0, sizeof(int)*(c+1)*(c+1));
+    for (int j=0; j<c; j++)
+      for (int i=0; i<c; i++) {
+        n[(c*1) * j + i] = t[c * j + i];
+      }
+    return n;
+  }
+
+  int index_get_next(const char* name)
+  {
+    std::unique_lock l(index_lock);
+    int index = index_names.size();
+    index_names.push_back(name);
+    int* it = upsize(index_transitions, index);
+    delete[] index_transitions;
+    index_transitions = it;
+    if (index == 0) {
+        AdminSocket *admin_socket = nullptr;
+        if (g_ceph_context) admin_socket = g_ceph_context->get_admin_socket();
+        if (admin_socket)
+          admin_socket->register_inspect("buffer_iterator_split", "1", index_dump);
+    }
+    return index;
+  }
+
+  template<bool is_const>
+  void buffer::list::iterator_impl<is_const>::index_move(int new_index) const
+  {
+    std::unique_lock l(index_lock);
+    if (index_current != -1)
+      index_transitions[index_names.size() * index_current + new_index] ++;
+    index_current = new_index;
+  }
+
+#define SNIF() \
+  do { static int index = index_get_next(__PRETTY_FUNCTION__); \
+  index_move(index); } while (false)
+
   template<bool is_const>
   buffer::list::iterator_impl<is_const>::iterator_impl(bl_t *l, unsigned o)
     : bl(l), ls(&bl->_buffers), off(0), p(ls->begin()), p_off(0)
@@ -844,6 +910,11 @@ using namespace ceph;
     advance(o);
   }
 
+  template<bool is_const>
+  buffer::list::iterator_impl<is_const>::~iterator_impl()
+  {
+
+  }
   template<bool is_const>
   buffer::list::iterator_impl<is_const>::iterator_impl(const buffer::list::iterator& i)
     : iterator_impl<is_const>(i.bl, i.off, i.p, i.p_off) {}
@@ -904,6 +975,7 @@ using namespace ceph;
   template<bool is_const>
   buffer::ptr buffer::list::iterator_impl<is_const>::get_current_ptr() const
   {
+    if (is_const) SNIF();
     if (p == ls->end())
       throw end_of_buffer();
     return ptr(*p, p_off, p->length() - p_off);
@@ -914,6 +986,8 @@ using namespace ceph;
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy(unsigned len, char *dest)
   {
+    if (is_const) SNIF();
+
     if (p == ls->end()) seek(off);
     while (len > 0) {
       if (p == ls->end())
@@ -939,6 +1013,7 @@ using namespace ceph;
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy_deep(unsigned len, ptr &dest)
   {
+    if (is_const) SNIF();
     if (!len) {
       return;
     }
@@ -952,6 +1027,7 @@ using namespace ceph;
   void buffer::list::iterator_impl<is_const>::copy_shallow(unsigned len,
 							   ptr &dest)
   {
+    if (is_const) SNIF();
     if (!len) {
       return;
     }
@@ -971,6 +1047,7 @@ using namespace ceph;
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy(unsigned len, list &dest)
   {
+    if (is_const) SNIF();
     if (p == ls->end())
       seek(off);
     while (len > 0) {
@@ -990,6 +1067,7 @@ using namespace ceph;
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy(unsigned len, std::string &dest)
   {
+    if (is_const) SNIF();
     if (p == ls->end())
       seek(off);
     while (len > 0) {
@@ -1010,6 +1088,7 @@ using namespace ceph;
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy_all(list &dest)
   {
+    if (is_const) SNIF();
     if (p == ls->end())
       seek(off);
     while (1) {
@@ -1029,6 +1108,7 @@ using namespace ceph;
   size_t buffer::list::iterator_impl<is_const>::get_ptr_and_advance(
     size_t want, const char **data)
   {
+    if (is_const) SNIF();
     if (p == ls->end()) {
       seek(off);
       if (p == ls->end()) {
@@ -1050,6 +1130,7 @@ using namespace ceph;
   uint32_t buffer::list::iterator_impl<is_const>::crc32c(
     size_t length, uint32_t crc)
   {
+    if (is_const) SNIF();
     length = std::min<size_t>(length, get_remaining());
     while (length > 0) {
       const char *p;
