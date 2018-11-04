@@ -639,7 +639,9 @@ bool AdminSocket::register_inspect(std::string_view command_path,
   } else {
     h = new InspectHook();
     inspects.emplace(command_path, h);
+    lock.unlock();
     int r = register_command(command_path, command_path, h, "debug info slot");
+    lock.lock();
     ceph_assert(r == 0);
   }
   return h->hook(std::string(id), f);
@@ -655,7 +657,9 @@ bool AdminSocket::unregister_inspect(std::string_view command_path,
   InspectHook* h = it->second;
   h->unhook(id);
   if (h->empty()) {
+    lock.unlock();
     int r = unregister_command(command_path);
+    lock.lock();
     ceph_assert(r == 0);
     delete h;
     inspects.erase(it);
