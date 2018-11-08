@@ -734,8 +734,16 @@ static ceph::spinlock debug_lock;
     //     << " (p_off " << p_off << " in " << p->length() << ")"
     //     << std::endl;
 
-    p_off +=o;
-    while (p != ls->end()) {
+    p_off += o;
+
+    if (!o) {
+      return;
+    }
+    while (p_off > 0) {
+      if (p == ls->end()) {
+	seek(off);
+        throw end_of_buffer();
+      }
       if (p_off >= p->length()) {
         // skip this buffer
         p_off -= p->length();
@@ -799,7 +807,6 @@ static ceph::spinlock debug_lock;
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy(unsigned len, char *dest)
   {
-    if (p == ls->end()) seek(off);
     while (len > 0) {
       if (p == ls->end())
 	throw end_of_buffer();
@@ -853,8 +860,6 @@ static ceph::spinlock debug_lock;
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy(unsigned len, list &dest)
   {
-    if (p == ls->end())
-      seek(off);
     while (len > 0) {
       if (p == ls->end())
 	throw end_of_buffer();
@@ -872,8 +877,6 @@ static ceph::spinlock debug_lock;
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy(unsigned len, std::string &dest)
   {
-    if (p == ls->end())
-      seek(off);
     while (len > 0) {
       if (p == ls->end())
 	throw end_of_buffer();
@@ -892,8 +895,6 @@ static ceph::spinlock debug_lock;
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy_all(list &dest)
   {
-    if (p == ls->end())
-      seek(off);
     while (1) {
       if (p == ls->end())
 	return;
@@ -1349,7 +1350,7 @@ static ceph::spinlock debug_lock;
   {
     if (off + len > length())
       throw end_of_buffer();
-    if (last_p.get_off() != off) 
+    if (last_p.end() || last_p.get_off() != off)
       last_p.seek(off);
     last_p.copy(len, dest);
   }
@@ -1367,7 +1368,7 @@ static ceph::spinlock debug_lock;
   {
     if (off + len > length())
       throw end_of_buffer();
-    if (last_p.get_off() != off) 
+    if (last_p.end() || last_p.get_off() != off)
       last_p.seek(off);
     last_p.copy(len, dest);
   }
@@ -1383,7 +1384,9 @@ static ceph::spinlock debug_lock;
     std::string& dest,
     constiter_hint_t& last_p) const
   {
-    if (last_p.get_off() != off) 
+    if (off + len > length())
+      throw end_of_buffer();
+    if (last_p.end() || last_p.get_off() != off)
       last_p.seek(off);
     return last_p.copy(len, dest);
   }
