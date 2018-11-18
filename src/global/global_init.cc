@@ -31,6 +31,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <errno.h>
+#include "common/admin_socket.h"
 
 #ifdef HAVE_SYS_PRCTL_H
 #include <sys/prctl.h>
@@ -42,6 +43,8 @@
 static void global_init_set_globals(CephContext *cct)
 {
   g_ceph_context = cct;
+  AdminSocket* as = g_ceph_context->get_admin_socket();
+  if (as) as->register_deferred();
 }
 
 static void output_ceph_version()

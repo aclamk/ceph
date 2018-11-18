@@ -96,11 +96,12 @@ public:
   void chown(uid_t uid, gid_t gid);
   void chmod(mode_t mode);
 
-  bool register_inspect(std::string_view command_path,
+  static bool register_inspect(std::string_view command_path,
                         std::string_view id,
                         std::function<bool(Formatter*)> f);
-  bool unregister_inspect(std::string_view command_path,
+  static bool unregister_inspect(std::string_view command_path,
                           std::string_view id);
+  void register_deferred();
 private:
 
   void shutdown();
@@ -141,8 +142,8 @@ private:
 
   std::map<std::string, hook_info, std::less<>> hooks;
 
-  std::mutex inspect_lock;
-  std::map<std::string, InspectHook*, std::less<> > inspects;
+//  std::mutex inspect_lock;
+//  std::map<std::string, InspectHook*, std::less<> > inspects;
 
   friend class AdminSocketTest;
   friend class HelpHook;

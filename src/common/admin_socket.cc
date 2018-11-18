@@ -627,6 +627,9 @@ public:
   }
 };
 
+static std::mutex inspect_lock;
+static std::map<std::string, InspectHook*, std::less<> > inspects;
+
 bool AdminSocket::register_inspect(std::string_view command_path,
                                    std::string_view id,
                                    std::function<bool(Formatter*)> f)
@@ -639,8 +642,13 @@ bool AdminSocket::register_inspect(std::string_view command_path,
   } else {
     h = new InspectHook();
     inspects.emplace(command_path, h);
-    int r = register_command(command_path, command_path, h, "debug info slot");
-    ceph_assert(r == 0);
+    if (g_ceph_context) {
+      AdminSocket *admin_socket = g_ceph_context->get_admin_socket();
+      if (admin_socket) {
+        int r = admin_socket->register_command(command_path, command_path, h, "debug info slot");
+        ceph_assert(r == 0);
+      }
+    }
   }
   return h->hook(std::string(id), f);
 }
@@ -655,12 +663,26 @@ bool AdminSocket::unregister_inspect(std::string_view command_path,
   InspectHook* h = it->second;
   h->unhook(id);
   if (h->empty()) {
-    int r = unregister_command(command_path);
-    ceph_assert(r == 0);
+    if (g_ceph_context) {
+      AdminSocket *admin_socket = g_ceph_context->get_admin_socket();
+      if (admin_socket) {
+        int r = admin_socket->unregister_command(command_path);
+        ceph_assert(r == 0);
+      }
+    }
     delete h;
     inspects.erase(it);
   }
   return true;
+}
+
+void AdminSocket::register_deferred()
+{
+  std::unique_lock l(inspect_lock);
+  for (auto &it : inspects) {
+    register_command(it.first, it.first, it.second, "debug info slot");
+  }
+
 }
 
 bool AdminSocket::init(const std::string& path)
