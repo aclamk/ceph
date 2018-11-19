@@ -34,6 +34,9 @@
 #include "common/RWLock.h"
 #include "include/spinlock.h"
 #include "include/scope_guard.h"
+#include "common/admin_socket.h"
+#include "global/global_context.h"
+#include "common/ceph_context.h"
 
 #if defined(HAVE_XIO)
 #include "msg/xio/XioMsg.h"
@@ -837,32 +840,114 @@ using namespace ceph;
     return *this;
     }*/
 
+uint64_t register_perf_atomic(std::atomic<uint64_t>* atom, const char* func, const char* file, int line) {
+  auto stats_dump = [atom, func, file, line](Formatter* f) -> bool {
+    f->open_object_section("atom");
+    f->dump_string("func", func);
+    f->dump_string("file", std::string(file) + ":" + to_string(line));
+    f->dump_int("count", atom->load());
+    f->close_section();
+    return true;
+  };
+  AdminSocket::register_inspect("bufferlist_dump", to_string((uintptr_t)atom), stats_dump );
+  return 0;
+}
+#define TOKENCONCATX(x, y) x ## y
+#define TOKENCONCAT(x, y) TOKENCONCATX(x, y)
+#define HERE() \
+static std::atomic<uint64_t> TOKENCONCAT(perf_atomic_variable,__LINE__) \
+  {register_perf_atomic(&TOKENCONCAT(perf_atomic_variable,__LINE__), __PRETTY_FUNCTION__,__FILE__, __LINE__)}; \
+  TOKENCONCAT(perf_atomic_variable,__LINE__)++;
+
+
+
   template<bool is_const>
   buffer::list::iterator_impl<is_const>::iterator_impl(bl_t *l, unsigned o)
-    : bl(l), ls(&bl->_buffers), off(0), p(ls->begin()), p_off(0)
+    : bl(l), ls(&bl->_buffers)
+#if BLI_OLD
+      , off(0), p(ls->begin()), p_off(0)
+#endif
+#if BLI_NEW
+      , current(nullptr), limit(nullptr), pp(ls->begin()), off_anchor(0)
+#endif
   {
-    advance(o);
+    HERE();
+#if BLI_NEW
+    //current = (const char*)0 + 1;
+    if (pp == ls->end()) {
+      HERE();
+      //empty bufferlist
+      if (o > 0)
+        throw end_of_buffer();
+    } else {
+      if (pp->have_raw()) {
+        HERE();
+        off_anchor = pp->length();
+        current = pp->c_str();
+        limit = pp->end_c_str();
+      }
+    }
+    advance(o, mode_new);
+#endif
+#if BLI_OLD
+    if (o > 0)
+      advance(o,mode_old);
+#endif
   }
 
   template<bool is_const>
   buffer::list::iterator_impl<is_const>::iterator_impl(const buffer::list::iterator& i)
-    : iterator_impl<is_const>(i.bl, i.off, i.p, i.p_off) {}
+    : bl(i.bl), ls(&bl->_buffers)
+#if BLI_OLD
+      , off(i.off), p(i.p), p_off(i.p_off)
+#endif
+#if BLI_NEW
+      , current(i.current), limit(i.limit), pp(i.pp), off_anchor(i.off_anchor)
+#endif
+  {
+  //iterator_impl<is_const>(i.bl, i.off, i.p, i.p_off) {
+    HERE();
+    //current = i.current; limit = i.limit; off_anchor=i.off_anchor;
+  }
 
   template<bool is_const>
-  void buffer::list::iterator_impl<is_const>::advance(unsigned o)
+  bool buffer::list::iterator_impl<is_const>::end() const {
+    if (unlikely(current >= limit)) {
+      normalize();
+    }
+    bool b;
+#if BLI_NEW
+    b = current == limit;
+    if (b) {
+      b = pp == ls->end();
+    }
+#endif
+#if BLI_CHK
+    ceph_assert(b == (p == ls->end()));
+#endif
+#if BLI_OLD
+    b = p == ls->end();
+#endif
+    return b;
+  }
+
+#if BLI_OLD
+  template<bool is_const>
+  void buffer::list::iterator_impl<is_const>::advance_oldpath(unsigned o)
   {
     //cout << this << " advance " << o << " from " << off
     //     << " (p_off " << p_off << " in " << p->length() << ")"
     //     << std::endl;
-
+    HERE();
     p_off += o;
 
     if (!o) {
       return;
     }
+
     while (p_off > 0) {
       if (p == ls->end()) {
-	seek(off);
+        seek(off, mode_old);
         throw end_of_buffer();
       }
       if (p_off >= p->length()) {
@@ -876,49 +961,301 @@ using namespace ceph;
     }
     off += o;
   }
+#endif
+
+  static thread_local char linear_area[16];
+  //function prepares area for linear access
+  //in unlucky case when s spans multiple buffer::ptr data is copied to tls
+  template<bool is_const>
+  void buffer::list::iterator_impl<is_const>::linear_access(unsigned s)
+  {
+    ceph_assert(s <= 16);
+    ceph_assert(current + s > limit);
+    if (likely(current == limit)) {
+      //if (pp == ls->end())
+    }
+  }
+
+  /*
+   * Fixes degenerated state (created by prepare_access) into proper one
+   * this should be used only for recovering from prepare_access()
+   * As a rule, it should fulfill (current < limit),
+   * however, if end reached (pp == ls->end()) then (current == limit).
+   */
+  template<bool is_const>
+  void buffer::list::iterator_impl<is_const>::normalize() const
+  {
+    if (unlikely(current > limit)) {
+      //recover after prepare_access()
+    }
+    if (current == limit) {
+      if (pp != ls->end()) {
+        //pp is already set to new buffer::ptr
+        off_anchor += pp->length();
+        current = pp->c_str();
+        limit = current + pp->length();
+      }
+      return;
+    }
+  }
+
+  /*
+   Fixes current, limit and pp so current < limit.
+   If less then _needed_ bytes are available, throws end_of_buffer.
+   Needs to be invoked in stable state.
+   */
+  template<bool is_const>
+  inline void buffer::list::iterator_impl<is_const>::require(unsigned needed) const {
+    if (current >= limit)
+      normalize();
+
+    if (unlikely(get_off(mode_new) + needed > bl->length())) {
+      throw end_of_buffer();
+    }
+  }
 
   template<bool is_const>
-  void buffer::list::iterator_impl<is_const>::seek(unsigned o)
+  inline void buffer::list::iterator_impl<is_const>::next()
   {
-    p = ls->begin();
-    off = p_off = 0;
-    advance(o);
+    if (current == limit) {
+      pp++;
+      if (pp != ls->end()) {
+        off_anchor += pp->length();
+        current = pp->c_str();
+        limit = current + pp->length();
+      }
+    }
+  }
+
+
+   /*
+    * Contract on pp, current, limit and off_anchor
+    * 1. Generally, current < limit.
+    * If reading from current had to make current == limit, then pp is to go ahead.
+    * So, when current == limit it means that pp is already on next buffer::ptr,
+    * and reload current:=pp->c_str(), limit:=pp->end_c_str(), and off_anchor fixed.
+    *
+    * 2. END
+    * When pp == ls->end() then current == limit; ofs = off_anchor.
+    *
+    * 3. Reading exactly last cnt bytes, e.g. current+cnt == limit,
+    * pp is to be moved ahead on prepare step, including fixing of off_anchor.
+    * So, in case that (pp != ls->end() && current == limit) values of current and limit
+    * must be loaded from pp.
+    *
+    * 4. TLS
+    * In cases when linear access is necessary, data is copied to thread local storage.
+    * _current_ is set to storage, _limit_ is modified, so (_current_ - _limit_) denotes position
+    * inside pp->c_str() after normalization step.
+    *
+    */
+
+  template<bool is_const>
+  void buffer::list::iterator_impl<is_const>::advance(unsigned o, mode m)
+  {
+    HERE();
+#if BLI_OLD
+    bool exc = false;
+    if (m != mode_new) {
+      try {
+      advance_oldpath(o);
+      } catch (...) {exc = true;};
+    }
+#endif
+#if BLI_NEW
+    if (m != mode_old) {
+#if BLI_OLD
+      try {
+#endif
+      if (likely(current + o < limit)) {
+        current +=o;
+      } else {
+        if (o > 0)
+          advance_internal(o);
+      }
+#if BLI_OLD
+      } catch (...) { if(m != mode_new) ceph_assert(exc); throw; }
+#endif
+    }
+#endif
+#if BLI_CHK
+    if (m == mode_api) {
+      ceph_assert(get_off(mode_old) == get_off(mode_new));
+      end();
+    }
+#endif
+  }
+
+  //this is intended for cases when current+o>limit
+#if BLI_NEW
+  template<bool is_const>
+  void buffer::list::iterator_impl<is_const>::advance_internal(unsigned o)
+  {
+    HERE();
+    require(o);
+#if 0
+    if (current >= limit) {
+      normalize();
+    }
+    if (get_off(mode_new) + o > bl->length())
+      throw end_of_buffer();
+#endif
+    current += o;
+    if (o > 0) {
+      while (current > limit) {
+        pp++;
+        ceph_assert(pp != ls->end());
+        off_anchor += pp->length();
+        current = pp->c_str() + (current - limit);
+        limit = pp->end_c_str();
+      }
+      if (current == limit) {
+        pp++;
+        if (pp != ls->end()) {
+          off_anchor += pp->length();
+          current = pp->c_str();
+          limit = pp->end_c_str();
+        }
+      }
+    }
+  }
+#endif
+
+  template<bool is_const>
+  void buffer::list::iterator_impl<is_const>::seek(unsigned o, mode m)
+  {
+    HERE();
+    if(m == mode_api) get_off(mode_api);
+#if BLI_OLD
+    if (m != mode_new) {
+      p = ls->begin();
+      off = p_off = 0;
+      advance(o, mode_old);
+    }
+#endif
+#if BLI_NEW
+    if (m != mode_old) {
+      pp = ls->begin();
+      off_anchor = 0;
+      current = limit = nullptr;
+      advance(o, mode_new);
+#if 0
+      if (pp == ls->end()) {
+        if (o > 0) {
+          throw end_of_buffer();
+        }
+        current = nullptr;
+        limit = nullptr;
+      } else {
+        current = pp->c_str();
+        limit = pp->end_c_str();
+        off_anchor = pp->length();
+        advance(o, mode_new);
+      }
+#endif
+    }
+#endif
+#if BLI_CHK
+    if (m == mode_api)
+      ceph_assert(get_off(mode_api) == o);
+#endif
   }
 
   template<bool is_const>
   char buffer::list::iterator_impl<is_const>::operator*() const
   {
+    HERE();
+#if BLI_NEW
+    //ceph_assert(current <= limit);
+    if (unlikely(current >= limit)) { //either degenerated or end of buffer
+      require(1);
+    }
+#if BLI_CHK
+    ceph_assert(current == &(*p)[p_off]);
+#endif
+    return *current;
+#endif
+#if BLI_OLD
     if (p == ls->end())
       throw end_of_buffer();
     return (*p)[p_off];
+#endif
   }
 
   template<bool is_const>
   buffer::list::iterator_impl<is_const>&
   buffer::list::iterator_impl<is_const>::operator++()
   {
+    HERE();
+#if BLI_CHK
+    get_off();
+#endif
+#if BLI_OLD
     if (p == ls->end())
       throw end_of_buffer();
-    advance(1u);
+    advance(1u, mode_old);
+#endif
+#if BLI_NEW
+    if (likely(current + 1 < limit)) {
+      current++;
+    } else {
+      advance(1u, mode_new);
+    }
+#endif
+#if BLI_CHK
+    get_off(mode_api);//will assert on inconsistency
+#endif
     return *this;
   }
 
   template<bool is_const>
   buffer::ptr buffer::list::iterator_impl<is_const>::get_current_ptr() const
   {
+    HERE();
+#if BLI_NEW
+    if (unlikely(current >= limit)) {
+      normalize();
+      if (pp == ls->end()) {
+        throw end_of_buffer();
+      }
+    }
+#endif
+#if BLI_CHK
+    ceph_assert(pp == p);
+    ceph_assert(current - pp->c_str() == p_off);
+    ceph_assert(limit - current == p->length() - p_off);
+#endif
+#if BLI_NEW
+    return ptr(*pp, current - pp->c_str(), limit - current);
+#endif
+#if BLI_OLD
     if (p == ls->end())
       throw end_of_buffer();
     return ptr(*p, p_off, p->length() - p_off);
+#endif
   }
 
   // copy data out.
   // note that these all _append_ to dest!
   template<bool is_const>
-  void buffer::list::iterator_impl<is_const>::copy(unsigned len, char *dest)
+  void buffer::list::iterator_impl<is_const>::copy_(unsigned len, char *dest)
   {
+    HERE();
+#if BLI_CHK
+    get_off();
+    end();
+#endif
+#if BLI_NEW
+    unsigned len_c = len;
+    char* dest_c = dest;
+#endif
+#if BLI_OLD
+    if (p == ls->end()) {
+      seek(off, mode_old);
+    }
     while (len > 0) {
       if (p == ls->end())
-	throw end_of_buffer();
+        throw end_of_buffer();
       ceph_assert(p->length() > 0);
 
       unsigned howmuch = p->length() - p_off;
@@ -927,19 +1264,70 @@ using namespace ceph;
       dest += howmuch;
 
       len -= howmuch;
-      advance(howmuch);
+      advance_oldpath(howmuch);
     }
+#endif
+#if BLI_NEW
+    len = len_c;
+    dest = dest_c;
+    if (likely(current + len < limit)) {
+#if BLI_CHK
+      ceph_assert(memcmp(dest, current, len) == 0);
+#endif
+      memcpy(dest, current, len);
+      current += len;
+    } else {
+      require(len);
+
+      while (current + len > limit) {
+#if BLI_CHK
+        ceph_assert(memcmp(dest, current, limit - current) == 0);
+#endif
+        memcpy(dest, current, limit - current);
+        dest += (limit - current);
+        len -= (limit - current);
+        pp++;
+#if BLI_CHK
+        ceph_assert(pp != ls->end());
+#endif
+        off_anchor += pp->length();
+        current = pp->c_str();
+        limit = current + pp->length();
+        }
+#if BLI_CHK
+      ceph_assert(len <= limit - current);
+      ceph_assert(memcmp(dest, current, len) == 0);
+#endif
+      if (len > 0) {
+        memcpy(dest, current, len);
+        current += len;
+        next(); //could be weak_normalize, as only current == limit is possible
+      }
+    }
+#endif
+#if BLI_CHK
+    end();
+    get_off();
+#endif
+    return;
   }
 
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy(unsigned len, ptr &dest)
   {
+    HERE();
     copy_deep(len, dest);
   }
 
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy_deep(unsigned len, ptr &dest)
   {
+    HERE();
+#if BLI_CHK
+    get_off();
+    end();
+#endif
+#if BLI_OLD
     if (!len) {
       return;
     }
@@ -948,11 +1336,28 @@ using namespace ceph;
     ceph_assert(p->length() > 0);
     dest = create(len);
     copy(len, dest.c_str());
+    return;
+#endif
+#if BLI_NEW
+    if (unlikely(current >= limit))
+      normalize();
+    if (len > 0) {
+      dest = create(len);
+      copy(len, dest.c_str());
+    }
+#endif
   }
+
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy_shallow(unsigned len,
 							   ptr &dest)
   {
+    HERE();
+#if BLI_CHK
+    get_off();
+    end();
+#endif
+#if BLI_OLD
     if (!len) {
       return;
     }
@@ -965,33 +1370,102 @@ using namespace ceph;
       copy(len, dest.c_str());
     } else {
       dest = ptr(*p, p_off, len);
-      advance(len);
+      advance(len, mode_old);
     }
+    return;
+#endif
+#if BLI_OLD == 0 && BLI_NEW
+    if (unlikely(current >= limit))
+      normalize();
+    if (!len) {
+      return;
+    }
+    if (pp == ls->end())
+      throw end_of_buffer();
+    ceph_assert(pp->length() > 0);
+    unsigned howmuch = limit - current;
+    if (howmuch < len) {
+      dest = create(len);
+      copy(len, dest.c_str());
+    } else {
+      dest = ptr(*pp, current - pp->c_str(), len);
+      advance(len, mode_new);
+    }
+    return;
+#endif
   }
 
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy(unsigned len, list &dest)
   {
+    HERE();
+#if BLI_CHK
+    get_off();
+    unsigned len_c = len;
+    std::list<std::tuple<list_iter_t, unsigned, unsigned> > CC;
+#endif
+
+#if BLI_OLD
     while (len > 0) {
       if (p == ls->end())
-	throw end_of_buffer();
+        throw end_of_buffer();
 
       unsigned howmuch = p->length() - p_off;
       if (len < howmuch)
 	howmuch = len;
       dest.append(*p, p_off, howmuch);
-
+#if BLI_CHK
+      CC.emplace_back(std::make_tuple(p, p_off, howmuch));
+#endif
       len -= howmuch;
-      advance(howmuch);
+      advance(howmuch,mode_old);
+      //advance(howmuch,mode_new);
     }
+#endif
+#if BLI_NEW
+#if BLI_CHK
+    len = len_c;
+#endif
+    if (unlikely(current >= limit))
+      normalize();
+
+    if (get_off(mode_new) + len > bl->length())
+      throw end_of_buffer();
+
+    while (len > 0) {
+      unsigned howmuch = std::min<unsigned>(limit - current, len);
+#if BLI_CHK == 0
+      dest.append(*pp, current - pp->c_str(), howmuch);
+#endif
+#if BLI_CHK
+      auto [a, b, c ] = CC.front();
+      ceph_assert(a == pp);
+      ceph_assert(b == current - pp->c_str());
+      ceph_assert(c == howmuch);
+      CC.pop_front();
+#endif
+      len -= howmuch;
+      advance(howmuch, mode_new);
+    }
+#endif
+#if BLI_CHK
+    get_off();
+#endif
   }
 
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy(unsigned len, std::string &dest)
   {
+    HERE();
+    get_off();
+#if BLI_CHK
+    unsigned len_c = len;
+    std::string dest_c = dest;
+#endif
+#if BLI_OLD
     while (len > 0) {
       if (p == ls->end())
-	throw end_of_buffer();
+        throw end_of_buffer();
 
       unsigned howmuch = p->length() - p_off;
       const char *c_str = p->c_str();
@@ -1000,44 +1474,136 @@ using namespace ceph;
       dest.append(c_str + p_off, howmuch);
 
       len -= howmuch;
-      advance(howmuch);
+      advance(howmuch,mode_old);
     }
+#endif
+
+#if BLI_CHK
+    len = len_c;
+    std::string dest_old = dest;
+    dest = dest_c;
+#endif
+#if BLI_NEW
+    if (len > 0) {
+      require(len);
+      while(current + len > limit) {
+        dest.append(current, limit - current);
+        len -= (limit - current);
+        pp++;
+        ceph_assert(pp != ls->end());
+        off_anchor += pp->length();
+        current = pp->c_str();
+        limit = current + pp->length();
+        }
+      ceph_assert(len <= limit - current);
+      dest.append(current, len);
+      current += len;
+      next(); //should be weak normalize
+      }
+#endif
+#if BLI_CHK
+    ceph_assert(dest_old == dest);
+#endif
+
   }
 
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy_all(list &dest)
   {
+    HERE();
+#if BLI_CHK
+    get_off();
+    end();
+    std::list<std::pair<const char*, unsigned> > CC;
+#endif
+#if BLI_OLD
     while (1) {
       if (p == ls->end())
-	return;
+	break;
       ceph_assert(p->length() > 0);
 
       unsigned howmuch = p->length() - p_off;
       const char *c_str = p->c_str();
       dest.append(c_str + p_off, howmuch);
-
-      advance(howmuch);
+#if BLI_CHK
+      CC.emplace_back(c_str + p_off, howmuch);
+#endif
+      advance(howmuch, mode_old);
     }
+#endif
+#if BLI_NEW
+    if (current >= limit)
+      normalize();
+    while (pp != ls->end()) {
+#if BLI_OLD == 0
+      dest.append(current, limit - current);
+#endif
+#if BLI_CHK
+      auto& cc = CC.front();
+      ceph_assert(cc.first == current);
+      ceph_assert(cc.second = limit - current);
+      CC.pop_front();
+#endif
+      advance(limit - current, mode_new);
+    }
+#endif
+
   }
 
   template<bool is_const>
   size_t buffer::list::iterator_impl<is_const>::get_ptr_and_advance(
     size_t want, const char **data)
   {
+    HERE();
+    get_off();
+    size_t l;
+#if BLI_OLD
     if (p == ls->end()) {
-      seek(off);
+      seek(off, mode_old); //!!!!! other part uses it too!
       if (p == ls->end()) {
 	return 0;
       }
     }
     *data = p->c_str() + p_off;
-    size_t l = std::min<size_t>(p->length() - p_off, want);
+    l = std::min<size_t>(p->length() - p_off, want);
+
     p_off += l;
     if (p_off == p->length()) {
       ++p;
       p_off = 0;
     }
     off += l;
+#endif
+
+#if BLI_NEW
+    normalize();
+    if (pp == ls->end()) {
+      seek(get_off(), mode_new);
+      if (pp == ls->end())
+        return 0;
+    }
+
+    //ceph_assert(current == p->c_str() + p_off);
+#if BLI_CHK
+    ceph_assert(*data == current);
+#endif
+    *data = current;
+    size_t ll = want;
+    if (current + want >= limit) {
+      ll = limit - current;
+      current += ll;
+      next();
+      } else {
+      current += ll;
+    }
+#if BLI_CHK
+    ceph_assert(ll == l);
+#endif
+    l = ll;
+#endif
+    //ceph_assert(pp == p);
+    //if (p!= ls->end())
+    //  ceph_assert(current == p->c_str() + p_off);
     return l;
   }
 
@@ -1045,6 +1611,7 @@ using namespace ceph;
   uint32_t buffer::list::iterator_impl<is_const>::crc32c(
     size_t length, uint32_t crc)
   {
+    HERE();
     length = std::min<size_t>(length, get_remaining());
     while (length > 0) {
       const char *p;
@@ -1064,11 +1631,16 @@ using namespace ceph;
   buffer::list::iterator::iterator(bl_t *l, unsigned o)
     : iterator_impl(l, o)
   {}
-
+/*
   buffer::list::iterator::iterator(bl_t *l, unsigned o, list_iter_t ip, unsigned po)
     : iterator_impl(l, o, ip, po)
   {}
+*/
+  buffer::list::iterator::iterator(bl_t *l, seek_end)
+      : iterator_impl(l, seek_end{})
+  {}
 
+#if 0
   void buffer::list::iterator::advance(unsigned o)
   {
     buffer::list::iterator_impl<false>::advance(o);
@@ -1078,14 +1650,19 @@ using namespace ceph;
   {
     buffer::list::iterator_impl<false>::seek(o);
   }
-
+#endif
+#if 0
   char buffer::list::iterator::operator*()
   {
+    return buffer::list::iterator_impl<false>::operator*();
+#if 0
     if (p == ls->end()) {
       throw end_of_buffer();
     }
     return (*p)[p_off];
+#endif
   }
+#endif
 
   buffer::list::iterator& buffer::list::iterator::operator++()
   {
@@ -1093,14 +1670,17 @@ using namespace ceph;
     return *this;
   }
 
-  buffer::ptr buffer::list::iterator::get_current_ptr()
+  buffer::ptr buffer::list::iterator::get_current_ptr() const
   {
+    return buffer::list::iterator_impl<false>::get_current_ptr();
+#if 0
     if (p == ls->end()) {
       throw end_of_buffer();
     }
     return ptr(*p, p_off, p->length() - p_off);
+#endif
   }
-
+#if 0
   void buffer::list::iterator::copy(unsigned len, char *dest)
   {
     return buffer::list::iterator_impl<false>::copy(len, dest);
@@ -1135,7 +1715,7 @@ using namespace ceph;
   {
     buffer::list::iterator_impl<false>::copy_all(dest);
   }
-
+#endif
   void buffer::list::iterator::copy_in(unsigned len, const char *src)
   {
     copy_in(len, src, true);
@@ -1145,11 +1725,17 @@ using namespace ceph;
   void buffer::list::iterator::copy_in(unsigned len, const char *src, bool crc_reset)
   {
     // copy
-    if (p == ls->end())
-      seek(off);
+#if BLI_CHK
+    unsigned c_len = len;
+#endif
+#if BLI_OLD
+    if (p == ls->end()) {
+      ceph_assert(false);
+      seek(off, mode_old);
+    }
     while (len > 0) {
       if (p == ls->end())
-	throw end_of_buffer();
+        throw end_of_buffer();
       
       unsigned howmuch = p->length() - p_off;
       if (len < howmuch)
@@ -1158,14 +1744,47 @@ using namespace ceph;
 	
       src += howmuch;
       len -= howmuch;
-      advance(howmuch);
+      advance(howmuch, mode_old);
     }
+#endif
+#if BLI_CHK
+    len = c_len;
+#endif
+#if BLI_NEW
+    if (pp == ls->end()) {
+      seek(get_off(), mode_new);
+    }
+    require(len);
+    while (len > 0) {
+      unsigned howmuch = limit - current;
+      if (len < howmuch)
+        howmuch = len;
+#if BLI_OLD == 0
+      pp->copy_in(current - pp->c_str(), howmuch, src, crc_reset);
+#endif
+      src += howmuch;
+      len -= howmuch;
+      advance(howmuch, mode_new);
+    }
+#endif
+#if BLI_CHK
+    get_off(); end();
+#endif
   }
   
   void buffer::list::iterator::copy_in(unsigned len, const list& otherl)
   {
+#if BLI_OLD
     if (p == ls->end())
-      seek(off);
+      seek(off, mode_old);
+#endif
+#if BLI_OLD
+    if (pp == ls->end())
+      seek(get_off(), mode_new);
+#endif
+#if BLI_CHK
+    get_off(); end();
+#endif
     unsigned left = len;
     for (std::list<ptr>::const_iterator i = otherl._buffers.begin();
 	 i != otherl._buffers.end();
@@ -1178,6 +1797,9 @@ using namespace ceph;
       if (left == 0)
 	break;
     }
+#if BLI_CHK
+    get_off(); end();
+#endif
   }
 
   // -- buffer::list --
@@ -1578,14 +2200,14 @@ using namespace ceph;
     if (off + len > length())
       throw end_of_buffer();
     
-    if (last_p.get_off() != off) 
+    if (last_p.end() || last_p.get_off() != off)
       last_p.seek(off);
     last_p.copy_in(len, src, crc_reset);
   }
 
   void buffer::list::copy_in(unsigned off, unsigned len, const list& src)
   {
-    if (last_p.get_off() != off) 
+    if (last_p.end() || last_p.get_off() != off)
       last_p.seek(off);
     last_p.copy_in(len, src);
   }
