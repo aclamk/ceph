@@ -718,79 +718,176 @@ static ceph::spinlock debug_lock;
 
   template<bool is_const>
   buffer::list::iterator_impl<is_const>::iterator_impl(bl_t *l, unsigned o)
-    : bl(l), ls(&bl->_buffers), p(ls->begin()), off(0), p_off(0)
-  {
+    : bl(l), ls(&bl->_buffers), p(ls->begin()), current(nullptr), limit(nullptr), off_anchor(0) {
+    if (p == ls->end()) {
+      if (o > 0)
+        throw end_of_buffer();
+    } else {
+      if (p->have_raw()) {
+        off_anchor = p->length();
+        current = p->c_str();
+        limit = p->end_c_str();
+      }
+    }
     advance(o);
   }
 
   template<bool is_const>
   buffer::list::iterator_impl<is_const>::iterator_impl(const buffer::list::iterator& i)
-    : iterator_impl<is_const>(i.bl, i.off, i.p, i.p_off) {}
+    : bl(i.bl), ls(&bl->_buffers), p(i.p), current(i.current), limit(i.limit), off_anchor(i.off_anchor) {
+  }
+
+  template<bool is_const>
+  bool buffer::list::iterator_impl<is_const>::end() const {
+    if (unlikely(current >= limit)) {
+      normalize();
+    }
+    bool b = current == limit;
+    if (b) {
+      b = get_off() == bl->length();
+    }
+    return b;
+  }
+
+  /*
+   * As a rule, it should fulfill (current < limit),
+   * however, if end reached (p == ls->end()) then (current == limit).
+   */
+  template<bool is_const>
+  inline void buffer::list::iterator_impl<is_const>::normalize() const
+  {
+    if (likely(current == limit)) {
+      if (p != ls->end()) {
+        //p is already set to new buffer::ptr
+        off_anchor += p->length();
+        current = p->c_str();
+        limit = current + p->length();
+      }
+    }
+  }
+
+  /*
+   Fixes current, limit and p so current < limit.
+   If less then _needed_ bytes are available, throws end_of_buffer.
+   Needs to be invoked in stable state.
+   */
+  template<bool is_const>
+  inline void buffer::list::iterator_impl<is_const>::require(unsigned needed) const {
+    if (current >= limit)
+      normalize();
+
+    if (unlikely(get_off() + needed > bl->length())) {
+      throw end_of_buffer();
+    }
+  }
+
+  template<bool is_const>
+  inline void buffer::list::iterator_impl<is_const>::next()
+  {
+    if (current == limit) {
+      p++;
+      if (p != ls->end()) {
+        off_anchor += p->length();
+        current = p->c_str();
+        limit = current + p->length();
+      }
+    }
+  }
+
+
+   /*
+    * Contract on p, current, limit and off_anchor
+    * 1. Generally, current < limit.
+    * If reading from current had to make current == limit, then p is to go ahead.
+    * So, when current == limit it means that p is already on next buffer::ptr,
+    * and reload current:=p->c_str(), limit:=p->end_c_str(), and off_anchor fixed.
+    *
+    * 2. END
+    * When p == ls->end() then current == limit; ofs = off_anchor.
+    *
+    * 3. Reading exactly last cnt bytes, e.g. current+cnt == limit,
+    * p is to be moved ahead on prepare step, including fixing of off_anchor.
+    * So, in case that (p != ls->end() && current == limit) values of current and limit
+    * must be loaded from p.
+    *
+    */
 
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::advance(unsigned o)
   {
-    //cout << this << " advance " << o << " from " << off
-    //     << " (p_off " << p_off << " in " << p->length() << ")"
-    //     << std::endl;
-
-    p_off += o;
-
-    if (!o) {
-      return;
+    if (likely(current + o < limit)) {
+      current +=o;
+    } else {
+      if (o > 0)
+        advance_internal(o);
     }
-    while (p_off > 0) {
-      if (p == ls->end()) {
-	seek(off);
-        throw end_of_buffer();
-      }
-      if (p_off >= p->length()) {
-        // skip this buffer
-        p_off -= p->length();
+  }
+
+  //this is intended for cases when current+o>limit
+  template<bool is_const>
+  void buffer::list::iterator_impl<is_const>::advance_internal(unsigned o)
+  {
+    require(o);
+    current += o;
+    if (o > 0) {
+      while (current > limit) {
         p++;
-      } else {
-        // somewhere in this buffer!
-        break;
+        ceph_assert(p != ls->end());
+        off_anchor += p->length();
+        current = p->c_str() + (current - limit);
+        limit = p->end_c_str();
+      }
+      if (current == limit) {
+        p++;
+        if (p != ls->end()) {
+          off_anchor += p->length();
+          current = p->c_str();
+          limit = p->end_c_str();
+        }
       }
     }
-    if (p == ls->end() && p_off) {
-      throw end_of_buffer();
-    }
-    off += o;
   }
 
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::seek(unsigned o)
   {
     p = ls->begin();
-    off = p_off = 0;
+    off_anchor = 0;
+    current = limit = nullptr;
     advance(o);
   }
 
   template<bool is_const>
   char buffer::list::iterator_impl<is_const>::operator*() const
   {
-    if (p == ls->end())
-      throw end_of_buffer();
-    return (*p)[p_off];
+    if (unlikely(current >= limit)) {
+      require(1);
+    }
+    return *current;
   }
 
   template<bool is_const>
   buffer::list::iterator_impl<is_const>&
   buffer::list::iterator_impl<is_const>::operator++()
   {
-    if (p == ls->end())
-      throw end_of_buffer();
-    advance(1u);
+    if (likely(current + 1 < limit)) {
+      current++;
+    } else {
+      advance(1u);
+    }
     return *this;
   }
 
   template<bool is_const>
   buffer::ptr buffer::list::iterator_impl<is_const>::get_current_ptr() const
   {
-    if (p == ls->end())
-      throw end_of_buffer();
-    return ptr(*p, p_off, p->length() - p_off);
+    if (unlikely(current >= limit)) {
+      normalize();
+      if (p == ls->end()) {
+        throw end_of_buffer();
+      }
+    }
+    return ptr(*p, current - p->c_str(), limit - current);
   }
 
   template<bool is_const>
@@ -805,20 +902,29 @@ static ceph::spinlock debug_lock;
   // copy data out.
   // note that these all _append_ to dest!
   template<bool is_const>
-  void buffer::list::iterator_impl<is_const>::copy(unsigned len, char *dest)
+  void buffer::list::iterator_impl<is_const>::copy_(unsigned len, char *dest)
   {
-    while (len > 0) {
-      if (p == ls->end())
-	throw end_of_buffer();
-
-      unsigned howmuch = p->length() - p_off;
-      if (len < howmuch) howmuch = len;
-      p->copy_out(p_off, howmuch, dest);
-      dest += howmuch;
-
-      len -= howmuch;
-      advance(howmuch);
+    if (likely(current + len < limit)) {
+      memcpy(dest, current, len);
+      current += len;
+    } else {
+      require(len);
+      while (current + len > limit) {
+        memcpy(dest, current, limit - current);
+        dest += (limit - current);
+        len -= (limit - current);
+        p++;
+        off_anchor += p->length();
+        current = p->c_str();
+        limit = current + p->length();
+        }
+      if (len > 0) {
+        memcpy(dest, current, len);
+        current += len;
+        next();
+      }
     }
+    return;
   }
 
   template<bool is_const>
@@ -830,29 +936,32 @@ static ceph::spinlock debug_lock;
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy_deep(unsigned len, ptr &dest)
   {
-    if (!len) {
-      return;
+    if (unlikely(current >= limit))
+      normalize();
+    if (len > 0) {
+      dest = create(len);
+      copy(len, dest.c_str());
     }
-    if (p == ls->end())
-      throw end_of_buffer();
-    dest = create(len);
-    copy(len, dest.c_str());
   }
+
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy_shallow(unsigned len,
 							   ptr &dest)
   {
+    if (unlikely(current >= limit))
+      normalize();
     if (!len) {
       return;
     }
     if (p == ls->end())
       throw end_of_buffer();
-    unsigned howmuch = p->length() - p_off;
+    ceph_assert(p->length() > 0);
+    unsigned howmuch = limit - current;
     if (howmuch < len) {
       dest = create(len);
       copy(len, dest.c_str());
     } else {
-      dest = ptr(*p, p_off, len);
+      dest = ptr(*p, current - p->c_str(), len);
       advance(len);
     }
   }
@@ -860,15 +969,10 @@ static ceph::spinlock debug_lock;
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy(unsigned len, list &dest)
   {
+    require(len);
     while (len > 0) {
-      if (p == ls->end())
-	throw end_of_buffer();
-
-      unsigned howmuch = p->length() - p_off;
-      if (len < howmuch)
-	howmuch = len;
-      dest.append(*p, p_off, howmuch);
-
+      unsigned howmuch = std::min<unsigned>(limit - current, len);
+      dest.append(*p, current - p->c_str(), howmuch);
       len -= howmuch;
       advance(howmuch);
     }
@@ -877,33 +981,32 @@ static ceph::spinlock debug_lock;
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy(unsigned len, std::string &dest)
   {
-    while (len > 0) {
-      if (p == ls->end())
-	throw end_of_buffer();
-
-      unsigned howmuch = p->length() - p_off;
-      const char *c_str = p->c_str();
-      if (len < howmuch)
-	howmuch = len;
-      dest.append(c_str + p_off, howmuch);
-
-      len -= howmuch;
-      advance(howmuch);
-    }
+    if (len > 0) {
+      require(len);
+      while(current + len > limit) {
+        dest.append(current, limit - current);
+        len -= (limit - current);
+        p++;
+        ceph_assert(p != ls->end());
+        off_anchor += p->length();
+        current = p->c_str();
+        limit = current + p->length();
+        }
+      ceph_assert(len <= limit - current);
+      dest.append(current, len);
+      current += len;
+      next();
+      }
   }
 
   template<bool is_const>
   void buffer::list::iterator_impl<is_const>::copy_all(list &dest)
   {
-    while (1) {
-      if (p == ls->end())
-	return;
-
-      unsigned howmuch = p->length() - p_off;
-      const char *c_str = p->c_str();
-      dest.append(c_str + p_off, howmuch);
-
-      advance(howmuch);
+    if (current >= limit)
+      normalize();
+    while (p != ls->end()) {
+      dest.append(current, limit - current);
+      advance((unsigned)(limit - current));
     }
   }
 
@@ -911,20 +1014,22 @@ static ceph::spinlock debug_lock;
   size_t buffer::list::iterator_impl<is_const>::get_ptr_and_advance(
     size_t want, const char **data)
   {
+    normalize();
     if (p == ls->end()) {
-      seek(off);
-      if (p == ls->end()) {
-	return 0;
-      }
+      seek(get_off());
+      if (p == ls->end())
+        return 0;
     }
-    *data = p->c_str() + p_off;
-    size_t l = std::min<size_t>(p->length() - p_off, want);
-    p_off += l;
-    if (p_off == p->length()) {
-      ++p;
-      p_off = 0;
+
+    *data = current;
+    size_t l = want;
+    if (current + want >= limit) {
+      l = limit - current;
+      current += l;
+      next();
+      } else {
+      current += l;
     }
-    off += l;
     return l;
   }
 
@@ -951,26 +1056,33 @@ static ceph::spinlock debug_lock;
   buffer::list::iterator::iterator(bl_t *l, unsigned o)
     : iterator_impl(l, o)
   {}
-
-  buffer::list::iterator::iterator(bl_t *l, unsigned o, list_iter_t ip, unsigned po)
-    : iterator_impl(l, o, ip, po)
+  buffer::list::iterator::iterator(bl_t *l, seek_end)
+      : iterator_impl(l, seek_end{})
   {}
 
+  buffer::list::iterator& buffer::list::iterator::operator++()
+  {
+    buffer::list::iterator_impl<false>::operator++();
+    return *this;
+  }
+
+  buffer::ptr buffer::list::iterator::get_current_ptr() const
+  {
+    return buffer::list::iterator_impl<false>::get_current_ptr();
+  }
   // copy data in
   void buffer::list::iterator::copy_in(unsigned len, const char *src, bool crc_reset)
   {
     // copy
-    if (p == ls->end())
-      seek(off);
+    if (p == ls->end()) {
+      seek(get_off());
+    }
+    require(len);
     while (len > 0) {
-      if (p == ls->end())
-	throw end_of_buffer();
-      
-      unsigned howmuch = p->length() - p_off;
+      unsigned howmuch = limit - current;
       if (len < howmuch)
-	howmuch = len;
-      p->copy_in(p_off, howmuch, src, crc_reset);
-	
+        howmuch = len;
+      p->copy_in(current - p->c_str(), howmuch, src, crc_reset);
       src += howmuch;
       len -= howmuch;
       advance(howmuch);
@@ -980,7 +1092,7 @@ static ceph::spinlock debug_lock;
   void buffer::list::iterator::copy_in(unsigned len, const list& otherl)
   {
     if (p == ls->end())
-      seek(off);
+      seek(get_off());
     unsigned left = len;
     for (const auto& node : otherl._buffers) {
       unsigned l = node.length();
@@ -1406,7 +1518,7 @@ static ceph::spinlock debug_lock;
     if (off + len > length())
       throw end_of_buffer();
     
-    if (last_p.get_off() != off) 
+    if (last_p.end() || last_p.get_off() != off)
       last_p.seek(off);
     last_p.copy_in(len, src, crc_reset);
   }
@@ -1423,7 +1535,7 @@ static ceph::spinlock debug_lock;
     const list& src,
     iter_hint_t& last_p)
   {
-    if (last_p.get_off() != off) 
+    if (last_p.end() || last_p.get_off() != off)
       last_p.seek(off);
     last_p.copy_in(len, src);
   }

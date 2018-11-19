@@ -61,6 +61,7 @@
 #endif
 
 #include "inline_memory.h"
+#include "common/likely.h"
 
 #if __GNUC__ >= 4
   #define CEPH_BUFFER_API  __attribute__ ((visibility ("default")))
@@ -663,6 +664,7 @@ namespace buffer CEPH_BUFFER_API {
     unsigned _len;
     unsigned _memcopy_count; //the total of memcopy using rebuild().
 
+    class seek_end{};
     template <bool is_const>
     class CEPH_BUFFER_API iterator_impl {
     protected:
@@ -678,8 +680,9 @@ namespace buffer CEPH_BUFFER_API {
       bl_t* bl;
       list_t* ls;  // meh.. just here to avoid an extra pointer dereference..
       list_iter_t p;
-      unsigned off; // in bl
-      unsigned p_off;   // in *p
+      mutable const char* current;
+      mutable const char* limit;
+      mutable unsigned off_anchor;
       friend class iterator_impl<true>;
 
     public:
@@ -691,26 +694,32 @@ namespace buffer CEPH_BUFFER_API {
 
       // constructor.  position.
       iterator_impl()
-	: bl(0), ls(0), off(0), p_off(0) {}
+	: bl(0), ls(0) , current(nullptr), limit(nullptr), off_anchor(0)
+      {}
       iterator_impl(bl_t *l, unsigned o=0);
-      iterator_impl(bl_t *l, unsigned o, list_iter_t ip, unsigned po)
-	: bl(l), ls(&bl->_buffers), p(ip), off(o), p_off(po) {}
+      iterator_impl(bl_t *l, seek_end)
+        : bl(l), ls(&bl->_buffers), p(ls->end()), current(nullptr), limit(nullptr), off_anchor(bl->_len)
+      {}
       iterator_impl(const list::iterator& i);
 
       /// get current iterator offset in buffer::list
-      unsigned get_off() const { return off; }
-
+      unsigned get_off() const {
+        return off_anchor - (limit - current);
+      }
+      
       /// get number of bytes remaining from iterator position to the end of the buffer::list
-      unsigned get_remaining() const { return bl->length() - off; }
+      unsigned get_remaining() const { return bl->length() - get_off(); }
 
       /// true if iterator is at the end of the buffer::list
-      bool end() const {
-	return p == ls->end();
-	//return off == bl->length();
-      }
-
+      bool end() const;
       void advance(int o) = delete;
       void advance(unsigned o);
+    protected:
+      void normalize() const;
+      void require(unsigned s) const;
+      void advance_internal(unsigned o);
+      void next();
+    public:
       void advance(size_t o) { advance(static_cast<unsigned>(o)); }
       void seek(unsigned o);
       char operator*() const;
@@ -722,7 +731,15 @@ namespace buffer CEPH_BUFFER_API {
 
       // copy data out.
       // note that these all _append_ to dest!
-      void copy(unsigned len, char *dest);
+      void copy(unsigned len, char *dest) {
+        if (likely(current + len < limit)) {
+          memcpy(dest, current, len);
+          current += len;
+        } else {
+          copy_(len, dest);
+        }
+      }
+      void copy_(unsigned len, char *dest);
       // deprecated, use copy_deep()
       void copy(unsigned len, ptr &dest) __attribute__((deprecated));
       void copy_deep(unsigned len, ptr &dest);
@@ -731,6 +748,7 @@ namespace buffer CEPH_BUFFER_API {
       void copy(unsigned len, std::string &dest);
       void copy_all(list &dest);
 
+    public:
       // get a pointer to the currenet iterator position, return the
       // number of bytes we can read from that position (up to want),
       // and advance the iterator by that amount.
@@ -756,7 +774,11 @@ namespace buffer CEPH_BUFFER_API {
     public:
       iterator() = default;
       iterator(bl_t *l, unsigned o=0);
-      iterator(bl_t *l, unsigned o, list_iter_t ip, unsigned po);
+      iterator(bl_t *l, seek_end);
+
+      iterator& operator++();
+      ptr get_current_ptr() const;
+
       // copy data in
       void copy_in(unsigned len, const char *src, bool crc_reset = true);
       void copy_in(unsigned len, const list& otherl);
@@ -1117,7 +1139,7 @@ namespace buffer CEPH_BUFFER_API {
       return iterator(this, 0);
     }
     iterator end() {
-      return iterator(this, _len, _buffers.end(), 0);
+      return iterator(this, seek_end{});
     }
 
     const_iterator begin() const {
@@ -1127,7 +1149,7 @@ namespace buffer CEPH_BUFFER_API {
       return begin();
     }
     const_iterator end() const {
-      return const_iterator(this, _len, _buffers.end(), 0);
+      return const_iterator(this, seek_end{});
     }
 
     // crope lookalikes.
