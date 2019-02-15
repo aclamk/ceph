@@ -818,8 +818,7 @@ static ceph::spinlock debug_lock;
     if (likely(current + o < limit)) {
       current +=o;
     } else {
-      if (o > 0)
-        advance_internal(o);
+      advance_internal(o);
     }
   }
 
@@ -829,21 +828,19 @@ static ceph::spinlock debug_lock;
   {
     require(o);
     current += o;
-    if (o > 0) {
-      while (current > limit) {
-        p++;
-        ceph_assert(p != ls->end());
+    while (current > limit) {
+      p++;
+      ceph_assert(p != ls->end());
+      off_anchor += p->length();
+      current = p->c_str() + (current - limit);
+      limit = p->end_c_str();
+    }
+    if (current == limit) {
+      p++;
+      if (p != ls->end()) {
         off_anchor += p->length();
-        current = p->c_str() + (current - limit);
+        current = p->c_str();
         limit = p->end_c_str();
-      }
-      if (current == limit) {
-        p++;
-        if (p != ls->end()) {
-          off_anchor += p->length();
-          current = p->c_str();
-          limit = p->end_c_str();
-        }
       }
     }
   }
