@@ -6,6 +6,7 @@
 #include "AsyncMessenger.h"
 #include "common/EventTrace.h"
 #include "include/random.h"
+#include "common/admin_socket.h"
 
 #define dout_subsys ceph_subsys_ms
 #undef dout_prefix
@@ -79,9 +80,26 @@ ProtocolV1::ProtocolV1(AsyncConnection *connection)
       authorizer(nullptr),
       wait_for_seq(false) {
   temp_buffer = new char[4096];
+  AdminSocket *admin_socket = nullptr;
+  if (g_ceph_context) admin_socket = g_ceph_context->get_admin_socket();
+  if (admin_socket) {
+    std::function<bool(Formatter*)> index_dump =
+     [this](Formatter* f) -> bool {
+      f->dump_string("entity", this->connection->get_peer_entity_name().to_str());
+      f->dump_int("count", message_count.load());
+      return true;
+    };
+    admin_socket->register_inspect("protocol_v1", to_string((int64_t)(uintptr_t)this), index_dump);
+  }
+
 }
 
 ProtocolV1::~ProtocolV1() {
+  AdminSocket *admin_socket = nullptr;
+    if (g_ceph_context) admin_socket = g_ceph_context->get_admin_socket();
+    if (admin_socket) {
+      admin_socket->unregister_inspect("protocol_v1", to_string((int64_t)(uintptr_t)this));
+    }
   ceph_assert(out_q.empty());
   ceph_assert(sent.empty());
 
@@ -879,7 +897,7 @@ CtPtr ProtocolV1::handle_message_footer(char *buffer, int r) {
     ldout(cct, 1) << __func__ << " read footer data error " << dendl;
     return _fault();
   }
-
+  message_count++;
   ceph_msg_footer footer;
   ceph_msg_footer_old old_footer;
 

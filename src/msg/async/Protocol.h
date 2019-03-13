@@ -234,6 +234,7 @@ protected:
   bool once_ready;
 
   State state;
+  std::atomic<uint64_t> message_count{0};
 
   void run_continuation(CtPtr continuation);
   CtPtr read(CONTINUATION_PARAM(next, ProtocolV1, char *, int), int len,
