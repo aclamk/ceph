@@ -206,7 +206,7 @@ class BlueRocksWritableFile : public rocksdb::WritableFile {
   }
 
   rocksdb::Status Flush() override {
-    fs->flush(h);
+    fs->flush(h, true);
     return rocksdb::Status::OK();
   }
 

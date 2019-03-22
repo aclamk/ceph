@@ -124,6 +124,10 @@ void BlueFS::_init_logger()
 		    "Maximum bytes allocated from DB");
   b.add_u64_counter(l_bluefs_max_bytes_slow, "max_bytes_slow",
 		    "Maximum bytes allocated from SLOW");
+  b.add_u64_counter(l_bluefs_flushes_true, "flushes_with_true",
+		    "flushes from BlueRocksWritableFile");
+  b.add_u64_counter(l_bluefs_flushes_false, "flushes_with_false",
+		    "flushes other");
   logger = b.create_perf_counters();
   cct->get_perfcounters_collection()->add(logger);
 }

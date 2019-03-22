@@ -39,6 +39,8 @@ enum {
   l_bluefs_max_bytes_wal,
   l_bluefs_max_bytes_db,
   l_bluefs_max_bytes_slow,
+  l_bluefs_flushes_true,
+  l_bluefs_flushes_false,
   l_bluefs_last,
 };
 
@@ -454,8 +456,10 @@ public:
   // handler for discard event
   void handle_discard(unsigned dev, interval_set<uint64_t>& to_release);
 
-  void flush(FileWriter *h) {
+  void flush(FileWriter *h, bool xxx = false) {
     std::lock_guard l(lock);
+    if (xxx) logger->inc(l_bluefs_flushes_true, 1);
+    else logger->inc(l_bluefs_flushes_false, 1);
     _flush(h, false);
   }
   void flush_range(FileWriter *h, uint64_t offset, uint64_t length) {
