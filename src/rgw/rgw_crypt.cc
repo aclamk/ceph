@@ -569,13 +569,13 @@ int RGWGetObj_BlockDecrypt::fixup_range(off_t& bl_ofs, off_t& bl_end) {
     off_t in_end = bl_end;
 
     auto i = parts_len.cbegin();
-    while (i != parts_len.cend() && (in_ofs > (off_t)*i)) {
+    while (i != parts_len.cend() && (in_ofs >= (off_t)*i)) {
       in_ofs -= *i;
       ++i;
     }
     //in_ofs is inside block i
     auto j = parts_len.cbegin();
-    while (j != parts_len.cend() && (in_end > (off_t)*j)) {
+    while (j != parts_len.cend() && (in_end >= (off_t)*j)) {
       in_end -= *j;
       ++j;
     }
