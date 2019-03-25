@@ -25,6 +25,14 @@
 #include "aio.h"
 #include "BlockDevice.h"
 
+enum {
+  l_kerneldevice_first = 732700,
+  l_kerneldevice_sync_writes,
+  l_kerneldevice_sync_write_overlaps,
+  l_kerneldevice_sync_write_change,
+  l_kerneldevice_last
+};
+
 class KernelDevice : public BlockDevice {
   std::vector<int> fd_directs, fd_buffereds;
   bool enable_wrt = true;
@@ -54,6 +62,9 @@ class KernelDevice : public BlockDevice {
   bool discard_running = false;
   interval_set<uint64_t> discard_queued;
   interval_set<uint64_t> discard_finishing;
+
+  PerfCounters *logger = nullptr;
+  uint64_t last_off = 0;
 
   struct AioCompletionThread : public Thread {
     KernelDevice *bdev;

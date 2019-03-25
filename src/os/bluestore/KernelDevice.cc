@@ -193,6 +193,20 @@ int KernelDevice::open(const string& p)
 	  << " " << (rotational ? "rotational" : "non-rotational")
       << " discard " << (support_discard ? "supported" : "not supported")
 	  << dendl;
+  {
+    PerfCountersBuilder b(cct, "kerneldevice",
+                          l_kerneldevice_first, l_kerneldevice_last);
+    b.add_u64_counter(l_kerneldevice_sync_writes, "sync_writes_count",
+                      "Number of times sync_write was invoked", NULL, 0, unit_t(UNIT_BYTES));
+    b.add_u64_counter(l_kerneldevice_sync_write_overlaps, "sync_write_overlaps",
+                      "Number of times sync_write overlapped end of previous write", NULL, 0, unit_t(UNIT_BYTES));
+    b.add_u64_counter(l_kerneldevice_sync_write_change, "sync_write_change",
+                      "Number of times sync_write changed position to write", NULL, 0, unit_t(UNIT_BYTES));
+    logger = b.create_perf_counters();
+    cct->get_perfcounters_collection()->add(logger);
+  }
+
+
   return 0;
 
 out_fail:
@@ -246,6 +260,9 @@ void KernelDevice::close()
     fd_buffereds[i] = -1;
   }
   path.clear();
+
+  cct->get_perfcounters_collection()->remove(logger);
+    delete logger;
 }
 
 int KernelDevice::collect_metadata(const string& prefix, map<string,string> *pm) const
@@ -709,7 +726,18 @@ void KernelDevice::aio_submit(IOContext *ioc)
 
 int KernelDevice::_sync_write(uint64_t off, bufferlist &bl, bool buffered, int write_hint)
 {
+  logger->inc(l_kerneldevice_sync_writes);
+  if (off != last_off) {
+    if (off == last_off - 0x1000) {
+      logger->inc(l_kerneldevice_sync_write_overlaps);
+    } else {
+      logger->inc(l_kerneldevice_sync_write_change);
+    }
+  }
   uint64_t len = bl.length();
+
+  last_off = off + len;
+
   dout(5) << __func__ << " 0x" << std::hex << off << "~" << len
 	  << std::dec << (buffered ? " (buffered)" : " (direct)") << dendl;
   if (cct->_conf->bdev_inject_crash &&
