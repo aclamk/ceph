@@ -200,8 +200,10 @@ int KernelDevice::open(const string& p)
                       "Number of times sync_write was invoked", NULL, 0, unit_t(UNIT_BYTES));
     b.add_u64_counter(l_kerneldevice_sync_write_overlaps, "sync_write_overlaps",
                       "Number of times sync_write overlapped end of previous write", NULL, 0, unit_t(UNIT_BYTES));
-    b.add_u64_counter(l_kerneldevice_sync_write_change, "sync_write_change",
+    b.add_u64_counter(l_kerneldevice_sync_write_change, "sync_write_changes",
                       "Number of times sync_write changed position to write", NULL, 0, unit_t(UNIT_BYTES));
+    b.add_u64_counter(l_kerneldevice_sync_write_bytes, "sync_write_bytes",
+                      "Number of bytes sync_write processed", NULL, 0, unit_t(UNIT_BYTES));
     logger = b.create_perf_counters();
     cct->get_perfcounters_collection()->add(logger);
   }
@@ -735,7 +737,7 @@ int KernelDevice::_sync_write(uint64_t off, bufferlist &bl, bool buffered, int w
     }
   }
   uint64_t len = bl.length();
-
+  logger->inc(l_kerneldevice_sync_write_bytes, len);
   last_off = off + len;
 
   dout(5) << __func__ << " 0x" << std::hex << off << "~" << len

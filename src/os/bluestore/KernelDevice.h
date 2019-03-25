@@ -30,6 +30,7 @@ enum {
   l_kerneldevice_sync_writes,
   l_kerneldevice_sync_write_overlaps,
   l_kerneldevice_sync_write_change,
+  l_kerneldevice_sync_write_bytes,
   l_kerneldevice_last
 };
 
