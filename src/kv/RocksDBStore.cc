@@ -563,6 +563,8 @@ int RocksDBStore::open(ostream &out, const std::vector<ColumnFamily>& options)
       //find proper merge operator for column family
       std::shared_ptr<rocksdb::MergeOperator> mo = cf_get_merge_operator(cf_name);
       cf_opt.merge_operator = mo;
+      cf_opt.vlogring_activation_level.push_back(0);
+      cf_opt.min_indirect_val_size.push_back(0);
       column_family_descriptors.push_back(
           rocksdb::ColumnFamilyDescriptor(cf_name, cf_opt));
     }
@@ -765,6 +767,8 @@ int RocksDBStore::load_rocksdb_options(bool create_if_missing, rocksdb::Options&
 	   << dendl;
 
   opt.merge_operator.reset(new MergeOperatorRouter(*this));
+  opt.vlogring_activation_level.push_back(0);
+  opt.min_indirect_val_size.push_back(0);
 
   return 0;
 }
@@ -1021,6 +1025,8 @@ int RocksDBStore::cf_create(const std::string& cf_name, const std::string& cf_op
   // find proper merge operator for column family
   std::shared_ptr<rocksdb::MergeOperator> mo = cf_get_merge_operator(cf_name);
   cf_opt.merge_operator = mo;
+  cf_opt.vlogring_activation_level.push_back(0);
+  cf_opt.min_indirect_val_size.push_back(0);
 
   rocksdb::ColumnFamilyHandle *cf_handle;
   status = db->CreateColumnFamily(cf_opt, cf_name, &cf_handle);

@@ -22,6 +22,8 @@ set(prefix ${CMAKE_INSTALL_PREFIX})
 
 add_definitions("-DHAVE_CONFIG_H -D__CEPH__ -D_REENTRANT -D_THREAD_SAFE -D__STDC_FORMAT_MACROS")
 add_definitions("-D_FILE_OFFSET_BITS=64")
+add_definitions("-DINDIRECT_VALUE_SUPPORT=1")
+
 if(LINUX)
   add_definitions("-D_GNU_SOURCE")
 endif()
