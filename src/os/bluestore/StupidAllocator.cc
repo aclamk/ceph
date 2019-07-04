@@ -4,6 +4,7 @@
 #include "StupidAllocator.h"
 #include "bluestore_types.h"
 #include "common/debug.h"
+#include "common/admin_socket.h"
 
 #define dout_context cct
 #define dout_subsys ceph_subsys_bluestore
@@ -16,10 +17,39 @@ StupidAllocator::StupidAllocator(CephContext* cct)
     free(10),
     last_alloc(0)
 {
+  auto dump_files = [this](Formatter* f) -> bool {
+    std::lock_guard<std::mutex> l(lock);
+    f->open_array_section("bins");
+    for (unsigned bin = 0; bin < free.size(); ++bin) {
+      f->open_array_section("bin");
+      f->dump_integer("bin", bin);
+      f->open_object_section("chunks")
+	for (auto p = free[bin].begin(); p != free[bin].end(); ++p) {
+	  stringstream ss;
+	  ss << std::hex << p.get_start() << "~" << p.get_len() << std::dec;
+	  f->dump_string("chunk", ss.str().c_str());
+	}
+      f->close_section();
+    }
+    f->close_section();
+    return true;
+
+  };
+  AdminSocket *admin_socket = nullptr;
+  admin_socket = g_ceph_context->get_admin_socket();
+  if (admin_socket)
+    admin_socket->register_inspect("perf inspect stupidalloc dump", to_string(uintptr_t(this)), dump_files);
+
 }
 
 StupidAllocator::~StupidAllocator()
 {
+  AdminSocket *admin_socket = nullptr;
+  admin_socket = g_ceph_context->get_admin_socket();
+  if (admin_socket)
+    admin_socket->unregister_inspect("perf inspect stupidalloc_dump", to_string(uintptr_t(this)));
+  
+
 }
 
 unsigned StupidAllocator::_choose_bin(uint64_t orig_len)
