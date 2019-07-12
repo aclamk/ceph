@@ -48,9 +48,9 @@ public:
   explicit SocketHook(BlueFS *m) : bluefs(m) {}
   bool call(std::string_view command, const cmdmap_t& cmdmap,
             std::string_view format, bufferlist& out) override {
-    stringstream ss;
     bool r = true;
     if (command == "bluefs files move") {
+      stringstream ss;
       string file_name;
       cmd_getval(g_ceph_context, cmdmap, "file", file_name);
       string device;
@@ -80,9 +80,10 @@ public:
         if (file)
           bluefs->file_move_start(file, dev_id);
       }
+      out.append(ss);
     } else if (command == "bluefs files list") {
+      stringstream ss;
       Formatter *f = Formatter::create(format, "json-pretty", "json-pretty");
-
       std::lock_guard l(bluefs->lock);
       f->open_array_section("files");
       for (auto &d : bluefs->dir_map) {
@@ -112,6 +113,7 @@ public:
       f->close_section();
       f->flush(ss);
       delete f;
+      out.append(ss);
     } else if (command == "bluefs files get") {
       string file_name;
       cmd_getval(g_ceph_context, cmdmap, "file", file_name);
@@ -136,10 +138,11 @@ public:
         out.append(p);
       }
     } else {
+      stringstream ss;
       ss << "Invalid command" << std::endl;
+      out.append(ss);
       r = false;
     }
-    out.append(ss);
     return r;
   }
 };
