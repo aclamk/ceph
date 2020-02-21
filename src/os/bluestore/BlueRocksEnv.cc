@@ -326,13 +326,27 @@ BlueRocksEnv::BlueRocksEnv(BlueFS *f)
 
 }
 
+void BlueRocksEnv::split(const std::string &fn, std::string *dir, std::string *file) {
+  size_t slash = fn.rfind('/');
+  if (slash != std::string::npos) {
+    *file = fn.substr(slash + 1);
+    while (slash && fn[slash-1] == '/')
+      --slash;
+    *dir = fn.substr(0, slash);
+  } else {
+    *dir = "";
+    *file = fn;
+  }
+}
+
+
 rocksdb::Status BlueRocksEnv::NewSequentialFile(
   const std::string& fname,
   std::unique_ptr<rocksdb::SequentialFile>* result,
   const rocksdb::EnvOptions& options)
 {
-  if (fname[0] == '/')
-    return target()->NewSequentialFile(fname, result, options);
+  //  if (fname[0] == '/')
+  //  return target()->NewSequentialFile(fname, result, options);
   std::string dir, file;
   split(fname, &dir, &file);
   BlueFS::FileReader *h;
@@ -408,8 +422,8 @@ rocksdb::Status BlueRocksEnv::NewDirectory(
 
 rocksdb::Status BlueRocksEnv::FileExists(const std::string& fname)
 {
-  if (fname[0] == '/')
-    return target()->FileExists(fname);
+  //  if (fname[0] == '/')
+  //  return target()->FileExists(fname);
   std::string dir, file;
   split(fname, &dir, &file);
   if (fs->stat(dir, file, NULL, NULL) == 0)

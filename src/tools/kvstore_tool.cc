@@ -162,7 +162,7 @@ uint64_t StoreTool::get_size()
 
 bool StoreTool::set(const string &prefix, const string &key, bufferlist &val)
 {
-  ceph_assert(!prefix.empty());
+  //ceph_assert(!prefix.empty());
   ceph_assert(!key.empty());
   ceph_assert(val.length() > 0);
 
