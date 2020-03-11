@@ -128,6 +128,12 @@ if(WITH_BLUESTORE)
     )
   target_link_libraries(unittest_alloc_aging os global)
 
+  add_executable(unittest_alloc_aging_perf
+    Allocator_aging_perf.cc
+    $<TARGET_OBJECTS:unit-main>
+    )
+  target_link_libraries(unittest_alloc_aging_perf os global)
+
   # unittest_bluefs
   add_executable(unittest_bluefs
     test_bluefs.cc
