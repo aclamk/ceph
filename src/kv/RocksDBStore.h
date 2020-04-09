@@ -262,9 +262,6 @@ public:
   int64_t estimate_prefix_size(const std::string& prefix,
 			       const std::string& key_prefix) override;
 
-  struct  RocksWBHandler: public rocksdb::WriteBatch::Handler {
-    std::string seen ;
-    int num_seen = 0;
     static std::string pretty_binary_string(const std::string& in) {
       char buf[10];
       std::string out;
@@ -313,6 +310,10 @@ public:
       }
       return out;
     }
+
+  struct  RocksWBHandler: public rocksdb::WriteBatch::Handler {
+    std::string seen ;
+    int num_seen = 0;
     void Put(const rocksdb::Slice& key,
                     const rocksdb::Slice& value) override {
       std::string prefix ((key.ToString()).substr(0,1));
@@ -568,6 +569,14 @@ err:
   WholeSpaceIterator get_wholespace_iterator() override;
 private:
   WholeSpaceIterator get_default_cf_iterator();
+
+  int prepare_for_reshard(const std::string& new_sharding,
+			  std::vector<std::string>& to_process_columns,
+			  std::vector<rocksdb::ColumnFamilyHandle*>& to_process_handles);
+  int reshard_cleanup(const std::vector<std::string>& current_columns,
+		      const std::vector<rocksdb::ColumnFamilyHandle*>& current_handles);
+public:
+  int reshard(const std::string& new_sharding);
 };
 
 #endif
