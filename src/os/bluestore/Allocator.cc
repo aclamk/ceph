@@ -210,6 +210,7 @@ class BufferedIteratorImpl : public KeyValueDB::IteratorImpl, public Thread
   const size_t kv_per_batch = 1000;
 
   std::list<kv_batch*> batches;
+  std::list<kv_batch*> to_delete;
   ceph::mutex lock;
   ceph::condition_variable consume_cond;
   ceph::condition_variable produce_cond;
@@ -234,6 +235,10 @@ public:
       delete batches.front();
       batches.pop_front();
     }
+    while (to_delete.size() != 0) {
+      delete to_delete.front();
+      to_delete.pop_front();
+    }
   }
 
   void *entry() override {
@@ -249,6 +254,10 @@ public:
 
 	  consume_cond.notify_one();
 	  produce_cond.wait(l, [this]() { return (batches.size() < 10); });
+	  if (to_delete.size() > 0) {
+	    delete to_delete.front();
+	    to_delete.pop_front();
+	  }
 	}
 	batch = new kv_batch;
       }
@@ -269,7 +278,8 @@ public:
   
   void pull_batch() {
     std::unique_lock l(lock);
-    delete current_batch;
+    if (current_batch != nullptr)
+      to_delete.push_back(current_batch);
     current_batch = nullptr;
     consume_cond.wait(l, [this]() { return (batches.size() != 0); });
     produce_cond.notify_one();
