@@ -7319,6 +7319,7 @@ void BlueStore::_fsck_check_pool_statfs(
 {
   auto it = db->get_iterator(PREFIX_STAT);
   if (it) {
+    it = make_buffered(it);
     for (it->lower_bound(string()); it->valid(); it->next()) {
       string key = it->key();
       if (key == BLUESTORE_GLOBAL_STATFS_KEY) {
@@ -7948,6 +7949,7 @@ void BlueStore::_fsck_check_objects(FSCKDepth depth,
   auto it = db->get_iterator(PREFIX_OBJ);
   mempool::bluestore_fsck::list<string> expecting_shards;
   if (it) {
+    it = make_buffered(it);
     const size_t thread_count = cct->_conf->bluestore_fsck_quick_fix_threads;
     typedef ShallowFSCKThreadPool::FSCKWorkQueue<256> WQ;
     std::unique_ptr<WQ> wq(
@@ -8452,6 +8454,7 @@ int BlueStore::_fsck_on_open(BlueStore::FSCKDepth depth, bool repair)
   dout(1) << __func__ << " checking shared_blobs" << dendl;
   it = db->get_iterator(PREFIX_SHARED_BLOB);
   if (it) {
+    it = make_buffered(it);
     // FIXME minor: perhaps simplify for shallow mode?
     // fill global if not overriden below
     auto expected_statfs = &expected_store_statfs;
@@ -8773,6 +8776,7 @@ int BlueStore::_fsck_on_open(BlueStore::FSCKDepth depth, bool repair)
     dout(1) << __func__ << " checking for stray omap data " << dendl;
     it = db->get_iterator(PREFIX_OMAP);
     if (it) {
+      it = make_buffered(it);
       uint64_t last_omap_head = 0;
       for (it->lower_bound(string()); it->valid(); it->next()) {
         uint64_t omap_head;
@@ -8826,6 +8830,7 @@ int BlueStore::_fsck_on_open(BlueStore::FSCKDepth depth, bool repair)
     dout(1) << __func__ << " checking deferred events" << dendl;
     it = db->get_iterator(PREFIX_DEFERRED);
     if (it) {
+      it = make_buffered(it);      
       for (it->lower_bound(string()); it->valid(); it->next()) {
         bufferlist bl = it->value();
         auto p = bl.cbegin();

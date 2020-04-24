@@ -193,3 +193,147 @@ double Allocator::get_fragmentation_score()
   double terrible = sum * get_score(1);
   return (ideal - score_sum) / (ideal - terrible);
 }
+
+
+
+class BufferedIteratorImpl : public KeyValueDB::IteratorImpl, public Thread
+{
+  CephContext* dout_context  = g_ceph_context;
+  struct key_value {
+    key_value(std::string&& k, ceph::buffer::list&& v)
+      : k(std::move(k)), v(std::move(v)) {}
+    std::string k;
+    ceph::buffer::list v;
+  };
+
+  typedef std::vector<key_value> kv_batch;
+  const size_t kv_per_batch = 1000;
+
+  std::list<kv_batch*> batches;
+  ceph::mutex lock;
+  ceph::condition_variable consume_cond;
+  ceph::condition_variable produce_cond;
+  bool stop = false;
+  kv_batch* current_batch = nullptr;
+  size_t pos = 0;
+
+  KeyValueDB::Iterator it;
+public:
+  BufferedIteratorImpl(KeyValueDB::Iterator it)
+    : it(it) {} ;
+  ~BufferedIteratorImpl() {
+    delete current_batch;
+    current_batch = nullptr;
+    {
+    std::unique_lock l(lock);
+    stop = true;
+    produce_cond.notify_one();
+    }
+    join();
+    while (batches.size() != 0) {
+      delete batches.front();
+      batches.pop_front();
+    }
+  }
+
+  void *entry() override {
+    kv_batch* batch = new kv_batch;
+    while (it->valid() && !stop) {
+      //dout(0) << "key= " << it->key() << dendl;
+      batch->emplace_back(it->key(), it->value());
+      if (batch->size() == kv_per_batch) {
+	{
+	  std::unique_lock l(lock);
+	  batches.push_back(batch);
+	  //dout(0) << "batch pushed" << dendl;
+
+	  consume_cond.notify_one();
+	  produce_cond.wait(l, [this]() { return (batches.size() < 10); });
+	}
+	batch = new kv_batch;
+      }
+      it->next();
+    }
+    {
+      std::unique_lock l(lock);
+      if (batch->size() != 0)
+	batches.push_back(batch);
+      //dout(0) << "batch pushed - end" << dendl;
+      batches.push_back(nullptr);
+      consume_cond.notify_one();
+    }
+    //dout(0) << "exit entry" << dendl;
+    return nullptr;
+  }
+
+  
+  void pull_batch() {
+    std::unique_lock l(lock);
+    delete current_batch;
+    current_batch = nullptr;
+    consume_cond.wait(l, [this]() { return (batches.size() != 0); });
+    produce_cond.notify_one();
+    current_batch = batches.front();
+    batches.pop_front();
+    pos = 0;
+  }
+  int lower_bound(const std::string &to) override {
+    ceph_assert(!is_started());
+    int r = it->lower_bound(to);
+    if (r != 0)
+      return r;
+    create("key_fetch");
+    ceph_assert(is_started());
+    pull_batch();
+    pos = 0;
+    return r;
+  }
+  bool valid() override {
+    //dout(0) << "valid= " << (void*)current_batch << dendl;
+    return (current_batch != nullptr);
+  };
+  int next() override {
+    if (!current_batch)
+      return -1;
+    pos++;
+    if (pos < current_batch->size())
+      return 0;
+    pull_batch();
+    return 0;
+  };
+  std::string key() override {
+    //dout(0) << "current_batch=" << (void*)current_batch << " pos=" << pos << dendl;
+    return (*current_batch)[pos].k;
+  }
+  ceph::buffer::list value() override {
+    return (*current_batch)[pos].v;
+  }
+
+  int seek_to_first() override {
+    ceph_assert(false && "not_implemented");
+  };
+  int upper_bound(const std::string &after) override {
+    ceph_assert(false && "not_implemented");
+  }  
+  int status() override {
+    ceph_assert(false && "not_implemented");
+  };
+  int seek_to_last() override {
+    ceph_assert(false && "not_implemented");
+  };
+  int prev() override {
+    ceph_assert(false && "not_implemented");
+  }
+  std::pair<std::string, std::string> raw_key() override {
+    ceph_assert(false && "not_implemented");
+  };
+};
+
+
+
+KeyValueDB::Iterator make_buffered(KeyValueDB::Iterator it) {
+  return std::make_shared<BufferedIteratorImpl>(it);
+
+  return it;
+}
+

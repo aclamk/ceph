@@ -69,4 +69,9 @@ private:
   SocketHook* asok_hook = nullptr;
 };
 
+#include "kv/KeyValueDB.h"
+
+KeyValueDB::Iterator make_buffered(KeyValueDB::Iterator);
+
+
 #endif
