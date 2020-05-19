@@ -1383,6 +1383,9 @@ public:
     f->dump_int("buffer_warm_out", list_bytes[BUFFER_WARM_OUT]);
     f->dump_int("buffer_hot", list_bytes[BUFFER_HOT]);
     f->dump_int("buffer_bytes", buffer_bytes);
+    f->dump_int("num", num);
+    f->dump_int("num_extents", num_extents);
+    f->dump_int("num_blobs", num_blobs);
     f->dump_int("last_trim_to", last_trim_to);
     f->close_section();
   }
