@@ -52,6 +52,7 @@
 #include "BlockDevice.h"
 #include "BlueFS.h"
 #include "common/EventTrace.h"
+#include "common/admin_socket.h"
 
 class Allocator;
 class FreelistManager;
@@ -1147,7 +1148,7 @@ public:
   typedef boost::intrusive_ptr<Onode> OnodeRef;
 
   /// A generic Cache Shard
-  struct CacheShard {
+  struct CacheShard : public AdminSocketHook {
     CephContext *cct;
     PerfCounters *logger;
 
@@ -1159,7 +1160,23 @@ public:
     std::atomic<uint64_t> num = {0};
 
     CacheShard(CephContext* cct) : cct(cct), logger(nullptr) {}
-    virtual ~CacheShard() {}
+    virtual ~CacheShard() {
+      cct->get_admin_socket()->unregister_commands(this);
+    }
+    void register_hook(std::string_view id) {
+      int r = cct->get_admin_socket()->register_command(
+	"bluestore cache name=cache,req=false,type=CephString",
+        this,
+        "dumps stats of bluestore cache",
+	"cache", id);
+        ceph_assert(r == 0);
+    }
+    int call(std::string_view command, const cmdmap_t& cmdmap,
+	     ceph::Formatter *f, std::ostream& errss, ceph::buffer::list& out) {
+      dump(f);
+      return 0;
+    }
+    virtual void dump(ceph::Formatter *f) = 0;
 
     void set_max(uint64_t max_) {
       max = max_;
@@ -1204,7 +1221,7 @@ public:
   public:
     OnodeCacheShard(CephContext* cct) : CacheShard(cct) {}
     static OnodeCacheShard *create(CephContext* cct, std::string type,
-                                   PerfCounters *logger);
+                                   PerfCounters *logger, int32_t id = -1);
     virtual void _add(OnodeRef& o, int level) = 0;
     virtual void _rm(OnodeRef& o) = 0;
     virtual void _touch(OnodeRef& o) = 0;
@@ -1236,7 +1253,7 @@ public:
   public:
     BufferCacheShard(CephContext* cct) : CacheShard(cct) {}
     static BufferCacheShard *create(CephContext* cct, std::string type, 
-                                    PerfCounters *logger);
+                                    PerfCounters *logger, int32_t id = -1);
     virtual void _add(Buffer *b, int level, Buffer *near) = 0;
     virtual void _rm(Buffer *b) = 0;
     virtual void _move(BufferCacheShard *src, Buffer *b) = 0;

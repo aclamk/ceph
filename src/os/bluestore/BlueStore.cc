@@ -826,8 +826,13 @@ struct LruOnodeCacheShard : public BlueStore::OnodeCacheShard {
 
   list_t lru;
   pin_list_t pin_list;
+  uint64_t last_trim_to = 0;
 
-  explicit LruOnodeCacheShard(CephContext *cct) : BlueStore::OnodeCacheShard(cct) {}
+  explicit LruOnodeCacheShard(CephContext *cct, int32_t id) : BlueStore::OnodeCacheShard(cct)
+  {
+    if (id >= 0)
+      register_hook(std::string("Onode-"+to_string(id)));
+  }
 
   void _add(BlueStore::OnodeRef& o, int level) override
   {
@@ -890,6 +895,7 @@ struct LruOnodeCacheShard : public BlueStore::OnodeCacheShard {
   }
   void _trim_to(uint64_t new_size) override
   {
+    last_trim_to = new_size;
     if (new_size >= lru.size()) {
       return; // don't even try
     } 
@@ -919,17 +925,27 @@ struct LruOnodeCacheShard : public BlueStore::OnodeCacheShard {
     *onodes += num + num_pinned;
     *pinned_onodes += num_pinned;
   }
+
+  void dump(ceph::Formatter *f) override {
+    std::lock_guard l(lock);
+    f->open_object_section("LruOnodeCacheShard");
+    f->dump_int("num", num);
+    f->dump_int("num_pinned", num_pinned);
+    f->dump_int("last_trim_to", last_trim_to);
+    f->close_section();
+  }
 };
 
 // OnodeCacheShard
 BlueStore::OnodeCacheShard *BlueStore::OnodeCacheShard::create(
     CephContext* cct,
     string type,
-    PerfCounters *logger)
+    PerfCounters *logger,
+    int32_t id)
 {
   BlueStore::OnodeCacheShard *c = nullptr;
   // Currently we only implement an LRU cache for onodes
-  c = new LruOnodeCacheShard(cct);
+  c = new LruOnodeCacheShard(cct, id);
   c->logger = logger;
   return c;
 }
@@ -943,8 +959,11 @@ struct LruBufferCacheShard : public BlueStore::BufferCacheShard {
       boost::intrusive::list_member_hook<>,
       &BlueStore::Buffer::lru_item> > list_t;
   list_t lru;
-
-  explicit LruBufferCacheShard(CephContext *cct) : BlueStore::BufferCacheShard(cct) {}
+  uint64_t last_trim_to = 0;
+  explicit LruBufferCacheShard(CephContext *cct, int32_t id) : BlueStore::BufferCacheShard(cct) {
+    if (id >= 0)
+      register_hook(std::string("Buffer-"+to_string(id)));
+  }
 
   void _add(BlueStore::Buffer *b, int level, BlueStore::Buffer *near) override {
     if (near) {
@@ -983,6 +1002,7 @@ struct LruBufferCacheShard : public BlueStore::BufferCacheShard {
 
   void _trim_to(uint64_t max) override
   {
+    last_trim_to = max;
     while (buffer_bytes > max) {
       auto i = lru.rbegin();
       if (i == lru.rend()) {
@@ -1027,6 +1047,15 @@ struct LruBufferCacheShard : public BlueStore::BufferCacheShard {
              << " ok" << dendl;
   }
 #endif
+  void dump(ceph::Formatter* f) override {
+    f->open_object_section("LruBufferCacheShard");
+    f->dump_int("num", num);
+    f->dump_int("buffer_bytes", buffer_bytes);
+    f->dump_int("num_extents", num_extents);
+    f->dump_int("num_blobs", num_blobs);
+    f->dump_int("last_trim_to", last_trim_to);
+    f->close_section();
+  }
 };
 
 // TwoQBufferCacheShard
@@ -1052,9 +1081,12 @@ struct TwoQBufferCacheShard : public BlueStore::BufferCacheShard {
   };
 
   uint64_t list_bytes[BUFFER_TYPE_MAX] = {0}; ///< bytes per type
-
+  uint64_t last_trim_to = 0;
 public:
-  explicit TwoQBufferCacheShard(CephContext *cct) : BufferCacheShard(cct) {}
+  explicit TwoQBufferCacheShard(CephContext *cct, int32_t id) : BufferCacheShard(cct) {
+    if (id >= 0)
+      register_hook(std::string("Buffer-"+to_string(id)));
+  }
 
   void _add(BlueStore::Buffer *b, int level, BlueStore::Buffer *near) override
   {
@@ -1198,6 +1230,7 @@ public:
 
   void _trim_to(uint64_t max) override
   {
+    last_trim_to = max;
     if (buffer_bytes > max) {
       uint64_t kin = max * cct->_conf->bluestore_2q_cache_kin_ratio;
       uint64_t khot = max - kin;
@@ -1343,6 +1376,16 @@ public:
              << " ok" << dendl;
   }
 #endif
+  void dump(ceph::Formatter* f) override {
+    f->open_object_section("TwoQBufferCacheShard");
+    f->dump_int("buffer_new", list_bytes[BUFFER_NEW]);
+    f->dump_int("buffer_warm_in", list_bytes[BUFFER_WARM_IN]);
+    f->dump_int("buffer_warm_out", list_bytes[BUFFER_WARM_OUT]);
+    f->dump_int("buffer_hot", list_bytes[BUFFER_HOT]);
+    f->dump_int("buffer_bytes", buffer_bytes);
+    f->dump_int("last_trim_to", last_trim_to);
+    f->close_section();
+  }
 };
 
 // BuferCacheShard
@@ -1350,13 +1393,14 @@ public:
 BlueStore::BufferCacheShard *BlueStore::BufferCacheShard::create(
     CephContext* cct,
     string type,
-    PerfCounters *logger)
+    PerfCounters *logger,
+    int32_t id)
 {
   BufferCacheShard *c = nullptr;
   if (type == "lru")
-    c = new LruBufferCacheShard(cct);
+    c = new LruBufferCacheShard(cct, id);
   else if (type == "2q")
-    c = new TwoQBufferCacheShard(cct);
+    c = new TwoQBufferCacheShard(cct, id);
   else
     ceph_abort_msg("unrecognized cache type");
   c->logger = logger;
@@ -6883,12 +6927,12 @@ void BlueStore::set_cache_shards(unsigned num)
   for (unsigned i = oold; i < num; ++i) {
     onode_cache_shards[i] = 
         OnodeCacheShard::create(cct, cct->_conf->bluestore_cache_type,
-                                 logger);
+				logger, i);
   }
   for (unsigned i = bold; i < num; ++i) {
     buffer_cache_shards[i] = 
         BufferCacheShard::create(cct, cct->_conf->bluestore_cache_type,
-                                 logger);
+                                 logger, i);
   }
 }
 
