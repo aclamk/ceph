@@ -2500,6 +2500,8 @@ public:
   BlueStore(CephContext *cct, const std::string& path);
   BlueStore(CephContext *cct, const std::string& path, uint64_t min_alloc_size); // Ctor for UT only
   ~BlueStore() override;
+  int call(std::string_view command, const cmdmap_t& cmdmap,
+	   ceph::Formatter *f, std::ostream& errss, ceph::buffer::list& out) override;
 
   std::string get_type() override {
     return "bluestore";
