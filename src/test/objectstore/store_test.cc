@@ -4425,7 +4425,7 @@ public:
 
     map<string, bufferlist> attrs;
     set<string> keys;
-
+    srand(0);
     while (entries--) {
       bufferlist name, value;
       filled_byte_array(value, val_size);
@@ -8751,7 +8751,7 @@ void doManySetAttr(ObjectStore* store,
   std::function<void(ObjectStore*)> do_check_fn)
 {
   MixedGenerator gen(447);
-  gen_type rng(time(NULL));
+  gen_type rng(0);
   coll_t cid(spg_t(pg_t(0, 447), shard_id_t::NO_SHARD));
 
   SyntheticWorkloadState test_obj(store, &gen, &rng, cid, 0, 0, 0);
@@ -8761,6 +8761,7 @@ void doManySetAttr(ObjectStore* store,
     if (!(i % 10)) cerr << "seeding object " << i << std::endl;
     test_obj.touch();
   }
+  for (int j = 0; j < 10; j++)
   for (size_t i = 0; i < object_count; ++i) {
     if (!(i % 100)) {
       cerr << "Op " << i << std::endl;
