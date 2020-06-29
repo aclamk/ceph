@@ -141,7 +141,9 @@ class BlueRocksRandomAccessFile : public rocksdb::RandomAccessFile {
   // of this file. If the length is 0, then it refers to the end of file.
   // If the system is not caching the file contents, then this is a noop.
   rocksdb::Status InvalidateCache(size_t offset, size_t length) override {
+    ceph_assert(h->file->num_reading == 0);
     h->buf.invalidate_cache(offset, length);
+    ceph_assert(h->file->num_reading == 0);
     fs->invalidate_cache(h->file, offset, length);
     return rocksdb::Status::OK();
   }
