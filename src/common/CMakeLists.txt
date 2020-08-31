@@ -14,6 +14,7 @@ set(common_srcs
   Cycles.cc
   DecayCounter.cc
   Finisher.cc
+  formatter_filter.cc
   Formatter.cc
   Graylog.cc
   HTMLFormatter.cc

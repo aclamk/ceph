@@ -12,6 +12,7 @@
 #include <stdarg.h>
 #include <sstream>
 #include <map>
+#include <functional>
 
 namespace ceph {
 
@@ -301,5 +302,47 @@ namespace ceph {
 
   std::string fixed_to_string(int64_t num, int scale);
   std::string fixed_u_to_string(uint64_t num, int scale);
+
+  /*
+     Trimmer is a transform for Formatter that eliminates unwanted sections of data structure.
+  */
+  class Trimmer {
+  public:
+    virtual ~Trimmer() {}
+    /*
+       Parse provided stencil into template for future transforms
+       TODO - grammar!!
+    */
+    static Trimmer* create();
+    virtual bool setup(std::string_view stencil, std::string& error) = 0;
+    /*
+       Create new trim processor.
+       Input:
+       - formatter - Formatter to recieve those parts of structure that passed filtering 
+       Return:
+       new formatter to feed input. User must delete it.
+    */
+    virtual Formatter* attach(Formatter* sink) = 0;
+    virtual void detach() = 0;
+  };
+
+  class Buffer {
+  public:
+    virtual ~Buffer() {};
+    static Buffer* create();
+    virtual Formatter* attach(Formatter* sink) = 0;
+    virtual void detach() = 0;
+    virtual void unbuffer() = 0;
+  };
+
+  class Filter {
+  public:
+    virtual ~Filter() {};
+    static Filter* create();
+    virtual bool setup(const std::string& condition,
+		       std::string& error) = 0;
+    virtual Formatter* attach(Formatter* sink, std::function<void()> on_match) = 0;
+    virtual void detach() = 0;
+  };
 }
 #endif
