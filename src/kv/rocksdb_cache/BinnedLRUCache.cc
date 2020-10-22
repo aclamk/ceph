@@ -331,6 +331,7 @@ rocksdb::Cache::Handle* BinnedLRUCacheShard::Lookup(const rocksdb::Slice& key, u
     } else {
       lookup_hits_low++;
     }
+    e->touch = ceph::mono_clock::now();
   }
   return reinterpret_cast<rocksdb::Cache::Handle*>(e);
 }
@@ -412,7 +413,7 @@ rocksdb::Status BinnedLRUCacheShard::Insert(const rocksdb::Slice& key, uint32_t 
   e->SetInCache(true);
   e->SetPriority(priority);
   std::copy_n(key.data(), e->key_length, e->key_data);
-
+  e->touch = ceph::mono_clock::now();
   {
     std::lock_guard<std::mutex> l(mutex_);
     // Free the space following strict LRU policy until enough space
@@ -550,6 +551,13 @@ BinnedLRUCache::BinnedLRUCache(CephContext *c,
       "cache",
       name);
     ceph_assert(r == 0);
+    r = admin_socket->register_command(
+      "rocksdb cache list name=cache,req=false,type=CephString",
+      this,
+      "list cached elements",
+      "cache",
+      name);
+    ceph_assert(r == 0);
   }
 }
 
@@ -630,6 +638,35 @@ int BinnedLRUCache::call(std::string_view command, const cmdmap_t& cmdmap,
       f->dump_unsigned("evicts_high", evicts_high);
       f->close_section();
     }
+  } else if (command == "rocksdb cache list") {
+    ceph::mono_clock::time_point now = ceph::mono_clock::now();
+    f->open_object_section("lru_lists");
+    for (int i = 0; i < num_shards_; i++) {
+      f->open_object_section("shard");
+      f->dump_unsigned("id", i);
+      std::lock_guard<std::mutex> l(shards_[i].mutex_);
+      BinnedLRUHandle* start = &shards_[i].lru_;//low_pri_;
+      BinnedLRUHandle* e = start->prev;
+      bool in_low = false;
+      while (e != start) {
+	if (e == shards_[i].lru_low_pri_) {
+	  in_low = true;
+	}
+	if (in_low) {
+	  f->open_object_section("low");
+	} else {
+	  f->open_object_section("high");
+	}
+	f->dump_string("key", std::string(e->key_data, e->key_length));
+        f->dump_unsigned("charge", e->charge);
+	f->dump_unsigned("refs", e->refs);
+	f->dump_float("age", ceph::to_seconds<double>(now - e->touch));
+	f->close_section();
+	e = e->prev;
+      }
+      f->close_section();
+    }
+    f->close_section();
   } else {
     ss << "Invalid command" << std::endl;
     r = -ENOSYS;
