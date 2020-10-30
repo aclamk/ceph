@@ -1302,7 +1302,6 @@ public:
     friend struct Collection; // for split_cache()
 
     friend struct LruOnodeCacheShard;
-    void _remove(const ghobject_t& oid);
   public:
     OnodeSpace(OnodeCacheShard *c) : cache(c) {}
     ~OnodeSpace() {
@@ -1316,6 +1315,7 @@ public:
 		const mempool::bluestore_cache_meta::string& new_okey);
     void clear();
     bool empty();
+    void _remove(const ghobject_t& oid);
 
     template <int LogLevelV>
     void dump(CephContext *cct);

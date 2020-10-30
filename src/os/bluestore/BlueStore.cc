@@ -14306,6 +14306,8 @@ int BlueStore::_do_remove(
   o->extent_map.clear();
   o->onode = bluestore_onode_t();
   _debug_obj_on_delete(o->oid);
+  c->get_onode_cache()->_rm(o.get());
+  c->onode_map._remove(o->oid);
 
   if (!is_gen || maybe_unshared_blobs.empty()) {
     return 0;
