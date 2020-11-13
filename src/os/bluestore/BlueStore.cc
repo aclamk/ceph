@@ -61,19 +61,18 @@
 
 using bid_t = decltype(BlueStore::Blob::id);
 
+// defined group allocator for onodes
+thread_local onode_alloc* onode_alloc::onode_alloc_tls = nullptr;
+
 // bluestore_cache_onode
-MEMPOOL_DEFINE_OBJECT_FACTORY(BlueStore::Onode, bluestore_onode,
-			      bluestore_cache_onode);
+TLS_ALLOC_DEFINE_OBJECT_FACTORY(BlueStore::Onode, onode_alloc);
 
 // bluestore_cache_other
 MEMPOOL_DEFINE_OBJECT_FACTORY(BlueStore::Buffer, bluestore_buffer,
 			      bluestore_Buffer);
-MEMPOOL_DEFINE_OBJECT_FACTORY(BlueStore::Extent, bluestore_extent,
-			      bluestore_Extent);
-MEMPOOL_DEFINE_OBJECT_FACTORY(BlueStore::Blob, bluestore_blob,
-			      bluestore_Blob);
-MEMPOOL_DEFINE_OBJECT_FACTORY(BlueStore::SharedBlob, bluestore_shared_blob,
-			      bluestore_SharedBlob);
+TLS_ALLOC_DEFINE_OBJECT_FACTORY(BlueStore::Extent, onode_alloc);
+TLS_ALLOC_DEFINE_OBJECT_FACTORY(BlueStore::Blob, onode_alloc);
+TLS_ALLOC_DEFINE_OBJECT_FACTORY(BlueStore::SharedBlob, onode_alloc);
 
 // bluestore_txc
 MEMPOOL_DEFINE_OBJECT_FACTORY(BlueStore::TransContext, bluestore_transcontext,
@@ -3873,9 +3872,15 @@ BlueStore::OnodeRef BlueStore::Collection::get_onode(
   }
 
   OnodeRef o = onode_map.lookup(oid);
-  if (o)
+  if (o) {
+    ceph_assert(onode_alloc::get_alloc() == nullptr);
+    onode_alloc::set_alloc(o->alloc);
     return o;
-
+  }
+  onode_alloc* alloc = store->alloc_mgr.alloc_for_onode();
+  ceph_assert(alloc);
+  ceph_assert(onode_alloc::get_alloc() == nullptr);
+  onode_alloc::set_alloc(alloc);
   string key;
   get_object_key(store->cct, oid, &key);
 
@@ -3902,6 +3907,7 @@ BlueStore::OnodeRef BlueStore::Collection::get_onode(
     ceph_assert(r >= 0);
     on = Onode::decode(this, oid, key, v);
   }
+  on->alloc = alloc;
   o.reset(on);
   return onode_map.add(oid, o);
 }
@@ -9175,6 +9181,7 @@ bool BlueStore::exists(CollectionHandle &c_, const ghobject_t& oid)
   {
     std::shared_lock l(c->lock);
     OnodeRef o = c->get_onode(oid, false);
+    ClearAlloc ca;
     if (!o || !o->exists)
       r = false;
   }
@@ -9196,6 +9203,7 @@ int BlueStore::stat(
   {
     std::shared_lock l(c->lock);
     OnodeRef o = c->get_onode(oid, false);
+    ClearAlloc ca;
     if (!o || !o->exists)
       return -ENOENT;
     st->st_size = o->onode.size;
@@ -9247,6 +9255,8 @@ int BlueStore::read(
     std::shared_lock l(c->lock);
     auto start1 = mono_clock::now();
     OnodeRef o = c->get_onode(oid, false);
+    ClearAlloc ca;
+
     log_latency("get_onode@read",
       l_bluestore_read_onode_meta_lat,
       mono_clock::now() - start1,
@@ -9765,6 +9775,8 @@ int BlueStore::_fiemap(
     std::shared_lock l(c->lock);
 
     OnodeRef o = c->get_onode(oid, false);
+    ClearAlloc ca;
+
     if (!o || !o->exists) {
       return -ENOENT;
     }
@@ -9872,6 +9884,8 @@ int BlueStore::readv(
     std::shared_lock l(c->lock);
     auto start1 = mono_clock::now();
     OnodeRef o = c->get_onode(oid, false);
+    ClearAlloc ca;
+
     log_latency("get_onode@read",
       l_bluestore_read_onode_meta_lat,
       mono_clock::now() - start1,
@@ -10036,6 +10050,8 @@ int BlueStore::dump_onode(CollectionHandle &c_,
     std::shared_lock l(c->lock);
 
     OnodeRef o = c->get_onode(oid, false);
+    ClearAlloc ca;
+
     if (!o || !o->exists) {
       r = -ENOENT;
       goto out;
@@ -10074,6 +10090,8 @@ int BlueStore::getattr(
     mempool::bluestore_cache_meta::string k(name);
 
     OnodeRef o = c->get_onode(oid, false);
+    ClearAlloc ca;
+
     if (!o || !o->exists) {
       r = -ENOENT;
       goto out;
@@ -10111,6 +10129,8 @@ int BlueStore::getattrs(
     std::shared_lock l(c->lock);
 
     OnodeRef o = c->get_onode(oid, false);
+    ClearAlloc ca;
+
     if (!o || !o->exists) {
       r = -ENOENT;
       goto out;
@@ -10369,6 +10389,7 @@ int BlueStore::_omap_get(
   std::shared_lock l(c->lock);
   int r = 0;
   OnodeRef o = c->get_onode(oid, false);
+  ClearAlloc ca;
   if (!o || !o->exists) {
     r = -ENOENT;
     goto out;
@@ -10436,6 +10457,8 @@ int BlueStore::omap_get_header(
   std::shared_lock l(c->lock);
   int r = 0;
   OnodeRef o = c->get_onode(oid, false);
+  ClearAlloc ca;
+
   if (!o || !o->exists) {
     r = -ENOENT;
     goto out;
@@ -10471,6 +10494,8 @@ int BlueStore::omap_get_keys(
   std::shared_lock l(c->lock);
   int r = 0;
   OnodeRef o = c->get_onode(oid, false);
+  ClearAlloc ca;
+
   if (!o || !o->exists) {
     r = -ENOENT;
     goto out;
@@ -10519,6 +10544,8 @@ int BlueStore::omap_get_values(
   int r = 0;
   string final_key;
   OnodeRef o = c->get_onode(oid, false);
+  ClearAlloc ca;
+  
   if (!o || !o->exists) {
     r = -ENOENT;
     goto out;
@@ -10605,6 +10632,7 @@ int BlueStore::omap_check_keys(
   int r = 0;
   string final_key;
   OnodeRef o = c->get_onode(oid, false);
+  ClearAlloc ca;
   if (!o || !o->exists) {
     r = -ENOENT;
     goto out;
@@ -10649,6 +10677,8 @@ ObjectMap::ObjectMapIterator BlueStore::get_omap_iterator(
   }
   std::shared_lock l(c->lock);
   OnodeRef o = c->get_onode(oid, false);
+  ClearAlloc ca;
+
   if (!o || !o->exists) {
     dout(10) << __func__ << " " << oid << "doesn't exist" <<dendl;
     return ObjectMap::ObjectMapIterator();
@@ -12578,6 +12608,7 @@ void BlueStore::_txc_add_transaction(TransContext *txc, Transaction *t)
 
     case Transaction::OP_CLONE:
       {
+	ceph_assert(false && "disabled for onode_alloc");
 	OnodeRef& no = ovec[op->dest_oid];
 	if (!no) {
           const ghobject_t& noid = i.get_oid(op->dest_oid);
@@ -12593,6 +12624,7 @@ void BlueStore::_txc_add_transaction(TransContext *txc, Transaction *t)
 
     case Transaction::OP_CLONERANGE2:
       {
+	ceph_assert(false && "disabled for onode_alloc");
 	OnodeRef& no = ovec[op->dest_oid];
 	if (!no) {
 	  const ghobject_t& noid = i.get_oid(op->dest_oid);
@@ -12680,6 +12712,7 @@ void BlueStore::_txc_add_transaction(TransContext *txc, Transaction *t)
     }
 
   endop:
+    onode_alloc::clear_alloc();
     if (r < 0) {
       bool ok = false;
 

@@ -34,6 +34,7 @@ if(WITH_BLUESTORE)
     bluestore/BitmapAllocator.cc
     bluestore/AvlAllocator.cc
     bluestore/HybridAllocator.cc
+    bluestore/tls_alloc.cc
   )
 endif(WITH_BLUESTORE)
 

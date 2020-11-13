@@ -51,6 +51,7 @@
 #include "bluestore_types.h"
 #include "BlueFS.h"
 #include "common/EventTrace.h"
+#include "tls_alloc.h"
 
 #ifdef WITH_BLKIN
 #include "common/zipkin_trace.h"
@@ -406,7 +407,7 @@ public:
 
   /// in-memory shared blob state (incl cached buffers)
   struct SharedBlob {
-    MEMPOOL_CLASS_HELPERS();
+    TLS_ALLOC_CLASS_HELPERS();
 
     std::atomic_int nref = {0}; ///< reference count
     bool loaded = false;
@@ -519,7 +520,7 @@ public:
 
   /// in-memory blob metadata and associated cached buffers (if any)
   struct Blob {
-    MEMPOOL_CLASS_HELPERS();
+    TLS_ALLOC_CLASS_HELPERS();
 
     std::atomic_int nref = {0};     ///< reference count
     int16_t id = -1;                ///< id, for spanning blobs only, >= 0
@@ -693,7 +694,7 @@ public:
   /// a logical extent, pointing to (some portion of) a blob
   typedef boost::intrusive::set_base_hook<boost::intrusive::optimize_size<true> > ExtentBase; //making an alias to avoid build warnings
   struct Extent : public ExtentBase {
-    MEMPOOL_CLASS_HELPERS();
+    TLS_ALLOC_CLASS_HELPERS();
 
     uint32_t logical_offset = 0;      ///< logical offset
     uint32_t blob_offset = 0;         ///< blob offset
@@ -1056,10 +1057,11 @@ public:
   struct OnodeSpace;
   /// an in-memory object
   struct Onode {
-    MEMPOOL_CLASS_HELPERS();
+    TLS_ALLOC_CLASS_HELPERS();
 
     std::atomic_int nref;  ///< reference count
     Collection *c;
+    onode_alloc *alloc;
     ghobject_t oid;
 
     /// key under PREFIX_OBJ where we are stored
@@ -1088,6 +1090,7 @@ public:
 	  const mempool::bluestore_cache_meta::string& k)
       : nref(0),
 	c(c),
+	alloc(nullptr),
 	oid(o),
 	key(k),
 	exists(false),
@@ -1099,6 +1102,7 @@ public:
       const std::string& k)
       : nref(0),
       c(c),
+      alloc(nullptr),
       oid(o),
       key(k),
       exists(false),
@@ -1110,6 +1114,7 @@ public:
       const char* k)
       : nref(0),
       c(c),
+      alloc(nullptr),
       oid(o),
       key(k),
       exists(false),
@@ -1159,6 +1164,12 @@ public:
     }
   };
   typedef boost::intrusive_ptr<Onode> OnodeRef;
+  //moved up  typedef boost::intrusive_ptr<Onode> OnodeRef;
+  struct ClearAlloc {
+    ~ClearAlloc() {
+      onode_alloc::clear_alloc();
+    }
+  };
 
   /// A generic Cache Shard
   struct CacheShard {
@@ -2051,7 +2062,8 @@ private:
   BlockDevice *bdev = nullptr;
   std::string freelist_type;
   FreelistManager *fm = nullptr;
-
+  onode_alloc_mgr alloc_mgr;
+  
   bluefs_shared_alloc_context_t shared_alloc;
 
   uuid_d fsid;
