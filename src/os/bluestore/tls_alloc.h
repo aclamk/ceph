@@ -3,6 +3,10 @@
 #include <utility>
 #include <cstddef>
 #include <vector>
+#include <unistd.h>
+#include "common/ceph_context.h"
+
+
 /* 
    this has context and has actual meaningful instances 
  */
@@ -17,6 +21,8 @@ class onode_alloc {
   static constexpr size_t max_align = alignof(max_align_t);   // exposition only
   static thread_local onode_alloc* onode_alloc_tls;
 public:
+ onode_alloc(size_t size)
+   : size(size) {}
   static void set_alloc(onode_alloc* a) {
     onode_alloc_tls = a;
   }
@@ -30,7 +36,7 @@ public:
   void deallocate(void* p, size_t bytes, size_t alignment = max_align);
   void list_onodes();
 
-  size_t get_free();
+  ssize_t get_free();
   size_t get_allocated();
 
   /* signals Onodes that use this as primary container */
@@ -38,11 +44,12 @@ public:
   /* copy Onode from some other container here */
   Onode* copy(Onode*);
 private:
-  void* storage;
+  ceph::mutex lock = ceph::make_mutex("onode_alloc::lock");
+  void* storage = nullptr;
   size_t size;
-  size_t alloc_pos; /// next allocation position
-  size_t free_cnt;  /// count of bytes in range <0..alloc_pos) that is already freed
-  
+  size_t alloc_pos = 0; /// next allocation position
+  size_t free_cnt = 0;  /// count of bytes in range <0..alloc_pos) that is already freed
+  friend class onode_alloc_mgr;
 };
 
 /*
@@ -54,11 +61,18 @@ private:
 /* manager for onode_alloc instances */
 class onode_alloc_mgr {
 public:
-  onode_alloc_mgr() {};
-  ~onode_alloc_mgr() {};
+  onode_alloc_mgr(CephContext *cct);
+  ~onode_alloc_mgr();
   onode_alloc* alloc_for_onode();
 private:
+  CephContext *cct;
+  ceph::mutex lock = ceph::make_mutex("onode_alloc_mgr::lock");
   std::vector<onode_alloc*> alloc_groups;
+  const size_t group_size = 1 * 1024 * 1024;
+
+  class SocketHook;
+  friend class SocketHook;
+  SocketHook* asok_hook = nullptr;
 };
 
 /* 
