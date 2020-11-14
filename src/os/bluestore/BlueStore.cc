@@ -1880,7 +1880,7 @@ void BlueStore::OnodeSpace::rename(
   OnodeRef o = po->second;
 
   // install a non-existent onode at old location
-  oldo.reset(new Onode(o->c, old_oid, o->key));
+  oldo.reset(new Onode(o->c, old_oid, o->key, nullptr));
   po->second = oldo;
   cache->_add(oldo.get(), 1);
   // add at new position and fix oid, key.
@@ -3490,8 +3490,16 @@ void BlueStore::Onode::put() {
         return cached && r;
       });
   }
+  ceph_assert(alloc);
   if (nref == 0) {
-    delete this;
+    onode_alloc* a = onode_alloc::get_alloc();
+    if (a == alloc) {
+      delete this;
+    } else {
+      onode_alloc::set_alloc(alloc);
+      delete this;
+      onode_alloc::set_alloc(a);
+    }
   }
 }
 
@@ -3501,7 +3509,9 @@ BlueStore::Onode* BlueStore::Onode::decode(
   const string& key,
   const bufferlist& v)
 {
-  Onode* on = new Onode(c.get(), oid, key);
+  onode_alloc* alloc = onode_alloc::get_alloc();
+  ceph_assert(alloc);
+  Onode* on = new Onode(c.get(), oid, key, alloc);
   on->exists = true;
   auto p = v.front().begin_deep();
   on->onode.decode(p);
@@ -3901,13 +3911,12 @@ BlueStore::OnodeRef BlueStore::Collection::get_onode(
       return OnodeRef();
 
     // new object, new onode
-    on = new Onode(this, oid, key);
+    on = new Onode(this, oid, key, alloc);
   } else {
     // loaded
     ceph_assert(r >= 0);
     on = Onode::decode(this, oid, key, v);
   }
-  on->alloc = alloc;
   o.reset(on);
   return onode_map.add(oid, o);
 }
@@ -4396,6 +4405,7 @@ BlueStore::BlueStore(CephContext *cct,
   uint64_t _min_alloc_size)
   : ObjectStore(cct, path),
     throttle(cct),
+    alloc_mgr(cct),
     finisher(cct, "commit_finisher", "cfin"),
     kv_sync_thread(this),
     kv_finalize_thread(this),
@@ -7171,9 +7181,13 @@ BlueStore::OnodeRef BlueStore::fsck_check_objects_shallow(
 
   dout(10) << __func__ << "  " << oid << dendl;
   OnodeRef o;
+  onode_alloc* alloc = alloc_mgr.alloc_for_onode();
+  ceph_assert(alloc);
+  ceph_assert(onode_alloc::get_alloc() == nullptr);
+  onode_alloc::set_alloc(alloc);
   o.reset(Onode::decode(c, oid, key, value));
   ++num_objects;
-
+  ceph_assert(o->alloc);
   num_spanning_blobs += o->extent_map.spanning_blob_map.size();
 
   o->extent_map.fault_range(db, 0, OBJECT_MAX_SIZE);
@@ -7809,6 +7823,7 @@ void BlueStore::_fsck_check_objects(FSCKDepth depth,
           &expecting_shards,
           &referenced,
           ctx);
+	 ceph_assert(o->alloc);
       }
 
       if (depth != FSCK_SHALLOW) {
@@ -7899,6 +7914,9 @@ void BlueStore::_fsck_check_objects(FSCKDepth depth,
           } while (offset < o->onode.size);
         } // deep
       } //if (depth != FSCK_SHALLOW)
+      ceph_assert(onode_alloc::get_alloc() != nullptr);
+      o.reset(nullptr);
+      onode_alloc::set_alloc(nullptr);
     } // for (it->lower_bound(string()); it->valid(); it->next())
     if (depth == FSCK_SHALLOW && thread_count > 0) {
       wq->finalize(thread_pool, ctx);

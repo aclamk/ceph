@@ -1087,40 +1087,44 @@ public:
     ceph::condition_variable flush_cond;   ///< wait here for uncommitted txns
 
     Onode(Collection *c, const ghobject_t& o,
-	  const mempool::bluestore_cache_meta::string& k)
+	  const mempool::bluestore_cache_meta::string& k,
+	  onode_alloc* alloc)
       : nref(0),
 	c(c),
-	alloc(nullptr),
+	alloc(alloc),
 	oid(o),
 	key(k),
 	exists(false),
         cached(false),
         pinned(false),
 	extent_map(this) {
+      ceph_assert(alloc);
     }
     Onode(Collection* c, const ghobject_t& o,
-      const std::string& k)
+	  const std::string& k, onode_alloc* alloc)
       : nref(0),
       c(c),
-      alloc(nullptr),
+      alloc(alloc),
       oid(o),
       key(k),
       exists(false),
       cached(false),
       pinned(false),
       extent_map(this) {
+      ceph_assert(alloc);
     }
     Onode(Collection* c, const ghobject_t& o,
-      const char* k)
+	  const char* k, onode_alloc* alloc)
       : nref(0),
       c(c),
-      alloc(nullptr),
+      alloc(alloc),
       oid(o),
       key(k),
       exists(false),
       cached(false),
       pinned(false),
       extent_map(this) {
+      ceph_assert(alloc);
     }
 
     static Onode* decode(
