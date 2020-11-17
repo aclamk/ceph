@@ -14515,10 +14515,11 @@ int BlueStore::_omap_clear(TransContext *txc,
 bool is_pglog_entry(const std::string& key) {
 //const char* path = "";
 //lderr(g_ceph_context) << "key=" << key << dendl;
-if (key.find("0000")==0 || key.find("dup_") == 0)
+  if (key.length() < 11) 
+    return false;
+  if (key[10] == '_' || key[10] == 'm')
+    return false;
   return true;
-else
-  return false;
 }
 
 int BlueStore::_omap_setkeys(TransContext *txc,
