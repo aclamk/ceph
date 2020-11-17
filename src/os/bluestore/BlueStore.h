@@ -1099,6 +1099,7 @@ public:
         pinned(false),
 	extent_map(this) {
       ceph_assert(alloc);
+      mempool::get_pool(mempool::pool_index_t(mempool::mempool_bluestore_cache_onode)).adjust_count(1, 0);
     }
     Onode(Collection* c, const ghobject_t& o,
 	  const std::string& k, onode_alloc* alloc)
@@ -1112,6 +1113,7 @@ public:
       pinned(false),
       extent_map(this) {
       ceph_assert(alloc);
+      mempool::get_pool(mempool::pool_index_t(mempool::mempool_bluestore_cache_onode)).adjust_count(1, 0);
     }
     Onode(Collection* c, const ghobject_t& o,
 	  const char* k, onode_alloc* alloc)
@@ -1125,8 +1127,11 @@ public:
       pinned(false),
       extent_map(this) {
       ceph_assert(alloc);
+      mempool::get_pool(mempool::pool_index_t(mempool::mempool_bluestore_cache_onode)).adjust_count(1, 0);
     }
-
+    ~Onode() {
+      mempool::get_pool(mempool::pool_index_t(mempool::mempool_bluestore_cache_onode)).adjust_count(-1, 0);
+    }
     static Onode* decode(
       CollectionRef c,
       const ghobject_t& oid,
