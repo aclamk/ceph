@@ -12542,6 +12542,11 @@ void BlueStore::_txc_add_transaction(TransContext *txc, Transaction *t)
     if (!o) {
       ghobject_t oid = i.get_oid(op->oid);
       o = c->get_onode(oid, create, op->op == Transaction::OP_CREATE);
+    } else {
+      ceph_assert(o->alloc);
+      onode_alloc* alloc = onode_alloc::get_alloc();
+      ceph_assert(alloc == nullptr);
+      onode_alloc::set_alloc(o->alloc);
     }
     if (!create && (!o || !o->exists)) {
       dout(10) << __func__ << " op " << op->op << " got ENOENT on "
