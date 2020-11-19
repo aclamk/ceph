@@ -307,6 +307,11 @@ TEST_P(StoreTest, SimpleRemount) {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
     t.remove(cid, hoid2);
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+  }
+  {
+    ObjectStore::Transaction t;
     t.remove_collection(cid);
     cerr << "remove collection" << std::endl;
     r = queue_transaction(store, ch, std::move(t));
@@ -368,12 +373,18 @@ TEST_P(StoreTest, IORemount) {
   ASSERT_EQ(0, r);
   r = store->mount();
   ASSERT_EQ(0, r);
+  ch = store->open_collection(cid);
   {
     ObjectStore::Transaction t;
     for (int n=1; n<=100; ++n) {
       ghobject_t hoid(hobject_t(sobject_t("Object " + stringify(n), CEPH_NOSNAP)));
       t.remove(cid, hoid);
     }
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+  }
+  {
+    ObjectStore::Transaction t;
     t.remove_collection(cid);
     auto ch = store->open_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
@@ -403,12 +414,17 @@ TEST_P(StoreTest, UnprintableCharsName) {
   ASSERT_EQ(0, r);
   r = store->mount();
   ASSERT_EQ(0, r);
+  ch = store->open_collection(cid);
   {
     cout << "removing" << std::endl;
     ObjectStore::Transaction t;
     t.remove(cid, oid);
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+  }
+  {
+    ObjectStore::Transaction t;
     t.remove_collection(cid);
-    auto ch = store->open_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -440,6 +456,11 @@ TEST_P(StoreTest, FiemapEmpty) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, oid);
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+  }
+  {
+    ObjectStore::Transaction t;
     t.remove_collection(cid);
     cerr << "remove collection" << std::endl;
     r = queue_transaction(store, ch, std::move(t));
@@ -512,6 +533,11 @@ TEST_P(StoreTest, FiemapHoles) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, oid);
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+  }
+  {
+    ObjectStore::Transaction t;
     t.remove_collection(cid);
     cerr << "remove collection" << std::endl;
     r = queue_transaction(store, ch, std::move(t));
@@ -741,6 +767,11 @@ TEST_P(StoreTest, SmallBlockWrites) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+  }
+  {
+    ObjectStore::Transaction t;
     t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
     r = queue_transaction(store, ch, std::move(t));
@@ -1087,6 +1118,11 @@ void StoreTest::doCompressionTest()
   {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+  }
+  {
+    ObjectStore::Transaction t;
     t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
     r = queue_transaction(store, ch, std::move(t));
@@ -1317,6 +1353,11 @@ TEST_P(StoreTest, SimpleObjectTest) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+  }
+  {
+    ObjectStore::Transaction t;
     t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
     r = queue_transaction(store, ch, std::move(t));
@@ -1413,6 +1454,11 @@ TEST_P(StoreTestSpecificAUSize, ReproBug41901Test) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+  }
+  {
+    ObjectStore::Transaction t;
     t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
     r = queue_transaction(store, ch, std::move(t));
@@ -1829,10 +1875,15 @@ TEST_P(StoreTestSpecificAUSize, BluestoreStatFSTest) {
 
       t = ObjectStore::Transaction();
       t.remove(cid2, hoid);
-      t.remove_collection(cid2);
       cerr << "Cleaning" << std::endl;
       r = queue_transaction(store, ch, std::move(t));
       ASSERT_EQ(r, 0);
+
+      t = ObjectStore::Transaction();
+      t.remove_collection(cid2);
+      r = queue_transaction(store, ch, std::move(t));
+      ASSERT_EQ(r, 0);
+
     }
   }
 
@@ -1914,8 +1965,12 @@ TEST_P(StoreTestSpecificAUSize, BluestoreStatFSTest) {
 
       t = ObjectStore::Transaction();
       t.remove(cid3, hoid3);
-      t.remove_collection(cid3);
       cerr << "Cleaning" << std::endl;
+      r = queue_transaction(store, ch3, std::move(t));
+      ASSERT_EQ(r, 0);
+
+      t = ObjectStore::Transaction();
+      t.remove_collection(cid3);
       r = queue_transaction(store, ch3, std::move(t));
       ASSERT_EQ(r, 0);
     }
@@ -1925,8 +1980,12 @@ TEST_P(StoreTestSpecificAUSize, BluestoreStatFSTest) {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
     t.remove(cid, hoid2);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
 
@@ -2142,8 +2201,12 @@ TEST_P(StoreTestSpecificAUSize, BluestoreFragmentedBlobTest) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
 
@@ -2192,8 +2255,12 @@ TEST_P(StoreTest, ManySmallWrite) {
     ObjectStore::Transaction t;
     t.remove(cid, a);
     t.remove(cid, b);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -2249,8 +2316,12 @@ TEST_P(StoreTest, MultiSmallWriteSameBlock) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, a);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -2296,8 +2367,12 @@ TEST_P(StoreTest, SmallSkipFront) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, a);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -2371,8 +2446,12 @@ TEST_P(StoreTest, AppendDeferredVsTailCache) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, a);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = store->queue_transaction(ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = store->queue_transaction(ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -2452,8 +2531,12 @@ TEST_P(StoreTest, AppendZeroTrailingSharedBlock) {
     ObjectStore::Transaction t;
     t.remove(cid, a);
     t.remove(cid, b);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = store->queue_transaction(ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = store->queue_transaction(ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -2485,8 +2568,12 @@ TEST_P(StoreTest, SmallSequentialUnaligned) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, a);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -2540,8 +2627,12 @@ TEST_P(StoreTest, ManyBigWrite) {
     ObjectStore::Transaction t;
     t.remove(cid, a);
     t.remove(cid, b);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -2587,6 +2678,10 @@ TEST_P(StoreTest, BigWriteBigZero) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, a);
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
     t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
@@ -2637,8 +2732,12 @@ TEST_P(StoreTest, MiscFragmentTests) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, a);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -2813,6 +2912,10 @@ TEST_P(StoreTest, SimpleAttrTest) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
     t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
@@ -2875,8 +2978,12 @@ TEST_P(StoreTest, SimpleListTest) {
     ObjectStore::Transaction t;
     for (set<ghobject_t>::iterator p = all.begin(); p != all.end(); ++p)
       t.remove(cid, *p);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -2925,8 +3032,12 @@ TEST_P(StoreTest, ListEndTest) {
     ObjectStore::Transaction t;
     for (set<ghobject_t>::iterator p = all.begin(); p != all.end(); ++p)
       t.remove(cid, *p);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -3011,8 +3122,12 @@ TEST_P(StoreTest, MultipoolListTest) {
     ObjectStore::Transaction t;
     for (set<ghobject_t>::iterator p = all.begin(); p != all.end(); ++p)
       t.remove(cid, *p);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -3339,8 +3454,12 @@ TEST_P(StoreTest, SimpleCloneTest) {
     t.remove(cid, hoid);
     t.remove(cid, hoid2);
     t.remove(cid, hoid3);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -3407,8 +3526,12 @@ TEST_P(StoreTest, OmapSimple) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -3463,8 +3586,12 @@ TEST_P(StoreTest, OmapCloneTest) {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
     t.remove(cid, hoid2);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -3607,8 +3734,12 @@ TEST_P(StoreTest, BlueStoreUnshareBlobTest) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -3698,8 +3829,12 @@ TEST_P(StoreTest, BlueStoreUnshareBlobBugTest) {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
     t.remove(cid, hoid2);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -3728,8 +3863,12 @@ TEST_P(StoreTest, SimpleObjectLongnameTest) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -3789,10 +3928,14 @@ TEST_P(StoreTest, LongnameSplitTest) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, test_obj_2);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(0, r);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
   }
 
 }
@@ -4969,8 +5112,12 @@ TEST_P(StoreTestSpecificAUSize, ZipperPatternSharded) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, a);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -5595,6 +5742,10 @@ TEST_P(StoreTest, OMapTest) {
 
   ObjectStore::Transaction t;
   t.remove(cid, hoid);
+  r = queue_transaction(store, ch, std::move(t));
+  ASSERT_EQ(r, 0);
+
+  t = ObjectStore::Transaction();
   t.remove_collection(cid);
   r = queue_transaction(store, ch, std::move(t));
   ASSERT_EQ(r, 0);
@@ -5690,6 +5841,10 @@ TEST_P(StoreTest, OMapIterator) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
     t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
@@ -5778,6 +5933,10 @@ TEST_P(StoreTest, XattrTest) {
 
   ObjectStore::Transaction t;
   t.remove(cid, hoid);
+  r = queue_transaction(store, ch, std::move(t));
+  ASSERT_EQ(r, 0);
+
+  t = ObjectStore::Transaction();
   t.remove_collection(cid);
   r = queue_transaction(store, ch, std::move(t));
   ASSERT_EQ(r, 0);
@@ -5895,6 +6054,10 @@ void colsplittest(
       }
     }
   }
+  r = queue_transaction(store, ch, std::move(t));
+  ASSERT_EQ(r, 0);
+
+  t = ObjectStore::Transaction();
   t.remove_collection(cid);
   r = queue_transaction(store, ch, std::move(t));
   ASSERT_EQ(r, 0);
@@ -6051,6 +6214,10 @@ void test_merge_skewed(ObjectStore *store,
     for (auto &o : bobjects) {
       t.remove(a, o);
     }
+    r = queue_transaction(store, cha, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
     t.remove_collection(a);
     r = queue_transaction(store, cha, std::move(t));
     ASSERT_EQ(r, 0);
@@ -6214,6 +6381,10 @@ TEST_P(StoreTest, Rename) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, dstoid);
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
     t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
@@ -6279,6 +6450,10 @@ TEST_P(StoreTest, MoveRename) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, oid);
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
     t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
@@ -6337,10 +6512,13 @@ TEST_P(StoreTest, BigRGWObjectName) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, oid2);
-    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
 
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
   }
 }
 
@@ -6591,8 +6769,12 @@ TEST_P(StoreTest, BluestoreOnOffCSumTest) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -6808,8 +6990,12 @@ TEST_P(StoreTestSpecificAUSize, OnodeSizeTracking) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -6981,8 +7167,12 @@ TEST_P(StoreTestSpecificAUSize, BlobReuseOnOverwrite) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -7414,8 +7604,12 @@ TEST_P(StoreTestSpecificAUSize, DeferredOnBigOverwrite) {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
     t.remove(cid, hoid2);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -7511,8 +7705,12 @@ TEST_P(StoreTestSpecificAUSize, DeferredDifferentChunks) {
       ghobject_t hoid(hobject_t("test-"+to_string(expected_write_size), "", CEPH_NOSNAP, 0, -1, ""));
       t.remove(cid, hoid);
     }
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -7692,8 +7890,12 @@ TEST_P(StoreTestSpecificAUSize, BlobReuseOnOverwriteReverse) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -7765,8 +7967,12 @@ TEST_P(StoreTestSpecificAUSize, BlobReuseOnSmallOverwrite) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, hoid);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
@@ -7855,8 +8061,12 @@ TEST_P(StoreTestSpecificAUSize, SmallWriteOnShardedExtents) {
   {
     ObjectStore::Transaction t;
     t.remove(cid, hoid1);
-    t.remove_collection(cid);
     cerr << "Cleaning" << std::endl;
+    r = queue_transaction(store, ch, std::move(t));
+    ASSERT_EQ(r, 0);
+
+    t = ObjectStore::Transaction();
+    t.remove_collection(cid);
     r = queue_transaction(store, ch, std::move(t));
     ASSERT_EQ(r, 0);
   }
