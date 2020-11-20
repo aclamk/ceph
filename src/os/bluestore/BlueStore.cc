@@ -3764,6 +3764,46 @@ BlueStore::Collection::Collection(BlueStore *store_, OnodeCacheShard *oc, Buffer
     onode_map(oc),
     commit_queue(nullptr)
 {
+  if (AdminSocket *admin_socket = store->cct->get_admin_socket(); admin_socket) {
+    stringstream ss;
+    ss << cid;
+    std::string name = ss.str();
+    int r = admin_socket->register_command(
+      "bluestore collection name=coll,req=false,type=CephString",
+      this,
+      "dump stats of rocksdb cache",
+      "coll",
+      name);
+    ceph_assert(r == 0);
+  }
+}
+
+int BlueStore::Collection::call(std::string_view command, const cmdmap_t& cmdmap,
+                        Formatter *f, std::ostream& ss, bufferlist& out) {
+  int r = 0;
+  std::lock_guard l(lock);
+
+  if (command == "bluestore collection") {
+    stringstream ss;
+    ss << cid;
+    std::string name = ss.str();
+    f->open_object_section("collection");
+    f->dump_string("cid", name);
+
+    for (const auto& o : onode_map.onode_map) {
+      f->open_object_section("object");
+      stringstream ss;
+      ss << o.second->oid;
+      f->dump_string("oid", ss.str());
+      f->dump_unsigned("ref", o.second->nref.load());
+      f->close_section();
+    }
+    f->close_section();
+  } else {
+    ss << "Invalid command" << std::endl;
+    r = -ENOSYS;
+  }
+  return r;
 }
 
 bool BlueStore::Collection::flush_commit(Context *c)

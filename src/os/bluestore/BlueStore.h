@@ -52,6 +52,7 @@
 #include "BlueFS.h"
 #include "common/EventTrace.h"
 #include "tls_alloc.h"
+#include "common/admin_socket.h"
 
 #ifdef WITH_BLKIN
 #include "common/zipkin_trace.h"
@@ -1347,7 +1348,7 @@ public:
   class OpSequencer;
   using OpSequencerRef = ceph::ref_t<OpSequencer>;
 
-  struct Collection : public CollectionImpl {
+  struct Collection : public CollectionImpl, public AdminSocketHook {
     BlueStore *store;
     OpSequencerRef osr;
     BufferCacheShard *cache;       ///< our cache shard
@@ -1416,6 +1417,8 @@ public:
     void flush_all_but_last();
 
     Collection(BlueStore *ns, OnodeCacheShard *oc, BufferCacheShard *bc, coll_t c);
+    int call(std::string_view command, const cmdmap_t& cmdmap,
+	     Formatter *f, std::ostream& ss, bufferlist& out);
   };
 
   class OmapIteratorImpl : public ObjectMap::ObjectMapIteratorImpl {
