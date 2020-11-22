@@ -497,7 +497,7 @@ void BitmapFreelistManager::release(
 	   << std::dec << dendl;
   _xor(offset, length, txn);
 }
-
+extern bool has_done_mkfs;
 void BitmapFreelistManager::_xor(
   uint64_t offset, uint64_t length,
   KeyValueDB::Transaction txn)
@@ -526,7 +526,8 @@ void BitmapFreelistManager::_xor(
     dout(30) << __func__ << " 0x" << std::hex << first_key << std::dec << ": ";
     bl.hexdump(*_dout, false);
     *_dout << dendl;
-    txn->merge(bitmap_prefix, k, bl);
+    if (has_done_mkfs)
+      txn->merge(bitmap_prefix, k, bl);
   } else {
     // first key
     {
@@ -544,7 +545,8 @@ void BitmapFreelistManager::_xor(
       dout(30) << __func__ << " 0x" << std::hex << first_key << std::dec << ": ";
       bl.hexdump(*_dout, false);
       *_dout << dendl;
-      txn->merge(bitmap_prefix, k, bl);
+      if (has_done_mkfs)
+	txn->merge(bitmap_prefix, k, bl);
       first_key += bytes_per_key;
     }
     // middle keys
@@ -555,7 +557,8 @@ void BitmapFreelistManager::_xor(
       	 << ": ";
       all_set_bl.hexdump(*_dout, false);
       *_dout << dendl;
-      txn->merge(bitmap_prefix, k, all_set_bl);
+      if (has_done_mkfs)
+	txn->merge(bitmap_prefix, k, all_set_bl);
       first_key += bytes_per_key;
     }
     ceph_assert(first_key == last_key);
@@ -573,7 +576,8 @@ void BitmapFreelistManager::_xor(
       dout(30) << __func__ << " 0x" << std::hex << first_key << std::dec << ": ";
       bl.hexdump(*_dout, false);
       *_dout << dendl;
-      txn->merge(bitmap_prefix, k, bl);
+      if (has_done_mkfs)
+	txn->merge(bitmap_prefix, k, bl);
     }
   }
 }

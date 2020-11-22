@@ -6213,9 +6213,10 @@ int BlueStore::_setup_block_symlink_or_file(
   }
   return 0;
 }
-
+bool has_done_mkfs = false;
 int BlueStore::mkfs()
 {
+  has_done_mkfs = true;
   dout(1) << __func__ << " path " << path << dendl;
   int r;
   uuid_d old_fsid;
