@@ -1010,12 +1010,15 @@ struct LruOnodeCacheShard : public BlueStore::OnodeCacheShard {
 
   explicit LruOnodeCacheShard(CephContext *cct) : BlueStore::OnodeCacheShard(cct) {}
 
-  void _add(BlueStore::Onode* o, int level) override
+  void _addx(BlueStore::Onode* o, int level) override
   {
+    ceph_assert(o->nref > 1);
+    o->pinned = true;
     if (o->put_cache()) {
       (level > 0) ? lru.push_front(*o) : lru.push_back(*o);
     } else {
       ++num_pinned;
+      //ceph_assert(false && "only adding to cache allowed");
     }
     ++num; // we count both pinned and unpinned entries
     dout(20) << __func__ << " " << this << " " << o->oid << " added, num=" << num << dendl;
@@ -1069,7 +1072,7 @@ struct LruOnodeCacheShard : public BlueStore::OnodeCacheShard {
       }
       auto pinned = !o->pop_cache();
       ceph_assert(!pinned);
-      o->c->onode_map._remove(o->oid);
+      o->c->onode_map._removex(o->oid);
     }
   }
   void move_pinned(OnodeCacheShard *to, BlueStore::Onode *o) override
@@ -1796,13 +1799,14 @@ BlueStore::OnodeRef BlueStore::OnodeSpace::add(const ghobject_t& oid,
   }
   ldout(cache->cct, 20) << __func__ << " " << oid << " " << o << dendl;
   onode_map[oid] = o;
-  cache->_add(o.get(), 1);
+  cache->_addx(o.get(), 1);
   cache->_trim();
   return o;
 }
 
-void BlueStore::OnodeSpace::_remove(const ghobject_t& oid)
+void BlueStore::OnodeSpace::_removex(const ghobject_t& oid)
 {
+  //akak invoked only from cache side,
   ldout(cache->cct, 20) << __func__ << " " << oid << " " << dendl;
   onode_map.erase(oid);
 }
@@ -1826,8 +1830,27 @@ BlueStore::OnodeRef BlueStore::OnodeSpace::lookup(const ghobject_t& oid)
 			    << dendl;
       // This will pin onode and implicitly touch the cache when Onode
       // eventually will become unpinned
-      o = p->second;
-      ceph_assert(!o->cached || o->pinned);
+      //akak o = p->second;
+      OnodeRef& oo = p->second;
+      //akak here o->cached must be true, as we have found entry under cache->lock
+      //akak we remove from collection the same moment we clear cache
+      ceph_assert(oo->cached);
+      //akak here are 2 possiblites, either:
+      //akak o.nref == 1 and we will be pinning onode to cache
+      //akak o.nref > 1 and we just increment nref, and onode is pinned already
+      int n = oo->nref;
+      ceph_assert(n > 0);
+      if (n == 1) {
+	//akak p->second is the only owner of OnodeRef
+	if (oo->pinned == false) {
+	  cache->_pin(oo.get());
+	  oo->pinned = true;
+	}
+
+      }
+      ceph_assert(oo->pinned);
+      o = oo;
+      //ceph_assert(!o->cached || o->pinned);
 
       hit = true;
     }
@@ -1883,7 +1906,7 @@ void BlueStore::OnodeSpace::rename(
   // install a non-existent onode at old location
   oldo.reset(new Onode(o->c, old_oid, o->key));
   po->second = oldo;
-  cache->_add(oldo.get(), 1);
+  cache->_addx(oldo.get(), 1);
   // add at new position and fix oid, key.
   // This will pin 'o' and implicitly touch cache
   // when it will eventually become unpinned
@@ -3464,35 +3487,31 @@ BlueStore::BlobRef BlueStore::ExtentMap::split_blob(
 // decremented. And another 'putting' thread on the instance will release it.
 //
 void BlueStore::Onode::get() {
-  if (++nref == 2) {
-    c->get_onode_cache()->pin(this, [&]() {
-        bool was_pinned = pinned;
-        pinned = nref >= 2;
-        // additional increment for newly pinned instance
-        bool r = !was_pinned && pinned;
-        if (r) {
-          ++nref;
-        }
-        return cached && r;
-      });
-  }
+  //the only case when pinning can be done is from OnodeSpace::lookup
+  ++nref;
+  //ceph_assert(nref == 1 || pinned == true); 
 }
 void BlueStore::Onode::put() {
-  if (--nref == 2) {
+  int n = --nref;
+  if (n == 1) {
     c->get_onode_cache()->unpin(this, [&]() {
-        bool was_pinned = pinned;
-        pinned = pinned && nref > 2; // intentionally use > not >= as we have
-                                     // +1 due to pinned state
-        bool r = was_pinned && !pinned;
-        // additional decrement for newly unpinned instance
-        if (r) {
-          --nref;
+	//check if should make transition to unpinned
+	//cached == false means we should not unpin
+	//unpin if we are still cached and we wre pinned before
+	
+	//check if we are still at ref==1
+	if (nref == 1) {
+  	  bool r = cached && pinned;
+	  pinned = false;
+	  return r;
+        } else {
+          return false;
         }
-        return cached && r;
       });
-  }
-  if (nref == 0) {
-    delete this;
+  } else {
+    if (n == 0) {
+      delete this;
+    }
   }
 }
 

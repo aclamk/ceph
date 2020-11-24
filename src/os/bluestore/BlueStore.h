@@ -1133,12 +1133,15 @@ public:
     inline bool put_cache() {
       ceph_assert(!cached);
       cached = true;
-      return !pinned;
+      return false; //akak
+      //akak return !pinned;
     }
     inline bool pop_cache() {
       ceph_assert(cached);
       cached = false;
-      return !pinned;
+      //akak pinned == cached && nref > 1
+      return !pinned;//(nref != 1); //akak was in cache?
+      //akak return !pinned;
     }
 
     const std::string& get_omap_prefix();
@@ -1166,8 +1169,8 @@ public:
     PerfCounters *logger;
 
     /// protect lru and other structures
-    ceph::recursive_mutex lock = {
-      ceph::make_recursive_mutex("BlueStore::CacheShard::lock") };
+    ceph::mutex lock = {
+      ceph::make_mutex("BlueStore::CacheShard::lock") };
 
     std::atomic<uint64_t> max = {0};
     std::atomic<uint64_t> num = {0};
@@ -1223,7 +1226,7 @@ public:
     OnodeCacheShard(CephContext* cct) : CacheShard(cct) {}
     static OnodeCacheShard *create(CephContext* cct, std::string type,
                                    PerfCounters *logger);
-    virtual void _add(Onode* o, int level) = 0;
+    virtual void _addx(Onode* o, int level) = 0;
     virtual void _rm(Onode* o) = 0;
 
     void pin(Onode* o, std::function<bool ()> validator) {
@@ -1302,7 +1305,7 @@ public:
     friend struct Collection; // for split_cache()
 
     friend struct LruOnodeCacheShard;
-    void _remove(const ghobject_t& oid);
+    void _removex(const ghobject_t& oid);
   public:
     OnodeSpace(OnodeCacheShard *c) : cache(c) {}
     ~OnodeSpace() {
