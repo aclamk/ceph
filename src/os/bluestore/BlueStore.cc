@@ -3491,9 +3491,17 @@ void BlueStore::Onode::put() {
     // additional decrement for newly unpinned instance
     if (r) {
       n = --nref;
-    }
-    if (cached && r) {
-      ocs->_unpin(this);
+      if (cached) {
+	ocs->_unpin(this);
+      }
+      if (!exists) {
+	// logic of deleting from onode_map when last reference of non-existent object
+	if (cached) {
+	  ocs->_rm(this);
+	}
+	// remove will also decrement nref and delete Onode
+	c->onode_map._remove(oid);
+      }
     }
   }
   if (n == 0) {
