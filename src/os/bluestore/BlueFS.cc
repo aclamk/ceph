@@ -1660,6 +1660,7 @@ BlueFS::FileRef BlueFS::_get_file(uint64_t ino)
   auto p = file_map.find(ino);
   if (p == file_map.end()) {
     FileRef f = ceph::make_ref<File>();
+    f->reads_reftime = ceph_clock_now();
     file_map[ino] = f;
     dout(30) << __func__ << " ino " << ino << " = " << f
 	     << " (new)" << dendl;
@@ -1799,6 +1800,7 @@ int64_t BlueFS::_read(
 	   << dendl;
 
   ++h->file->num_reading;
+  ++h->file->reads_count;
 
   if (!h->ignore_eof &&
       off + len > h->file->fnode.size) {
@@ -3024,6 +3026,7 @@ int BlueFS::open_for_write(
     }
     file = ceph::make_ref<File>();
     file->fnode.ino = ++ino_last;
+    file->reads_reftime = ceph_clock_now();
     file_map[ino_last] = file;
     dir->file_map[filename] = file;
     ++file->refs;
@@ -3279,6 +3282,7 @@ int BlueFS::lock_file(const string& dirname, const string& filename,
     file = ceph::make_ref<File>();
     file->fnode.ino = ++ino_last;
     file->fnode.mtime = ceph_clock_now();
+    file->reads_reftime = file->fnode.mtime;
     file_map[ino_last] = file;
     dir->file_map[filename] = file;
     ++file->refs;

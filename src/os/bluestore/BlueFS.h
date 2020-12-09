@@ -115,6 +115,8 @@ public:
 
     std::atomic_int num_readers, num_writers;
     std::atomic_int num_reading;
+    std::atomic_uint reads_count; // how may times this file has been read
+    utime_t reads_reftime;        // we measure reads_count since this time
 
     void* vselector_hint = nullptr;
 
@@ -129,6 +131,7 @@ public:
 	num_readers(0),
 	num_writers(0),
 	num_reading(0),
+	reads_count(0),
         vselector_hint(nullptr)
       {}
     ~File() override {
