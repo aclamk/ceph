@@ -88,6 +88,12 @@ public:
 	r = admin_socket->register_command("bluefs files list", hook,
 					   "print files in bluefs");
 	ceph_assert(r == 0);
+	int r = admin_socket->register_command("bluefs files move"
+					       " name=file,type=CephString"
+					       " name=device,type=CephString",
+					       hook,
+					       "move bluefs files between devices");
+	ceph_assert(r == 0);
       }
     }
     return hook;
@@ -162,6 +168,55 @@ private:
       }
       f->close_section();
       f->flush(out);
+    } else if (command == "bluefs files move") {
+      string file_name;
+      cmd_getval(cmdmap, "file", file_name);
+      string device;
+      cmd_getval(cmdmap, "device", device);
+      int8_t dev_id = -1;
+      if (device == "wal") {
+        dev_id = BDEV_WAL;
+      } else if (device == "db") {
+        dev_id = BDEV_DB;
+      } else if (device == "slow") {
+        dev_id = BDEV_SLOW;
+      } else {
+        errss << "Invalid bdev; expected 'wal'/'db'/'slow'" << std::endl;
+	return -ENOSYS;
+      }
+      FileRef file;
+      {
+	std::lock_guard l(bluefs->lock);
+	for (auto &d : bluefs->dir_map) {
+	  std::string dir = d.first;
+	  for (auto &r : d.second->file_map) {
+	    if (file_name == dir + "/" + r.first) {
+	      file = r.second;
+
+	    }
+	  }
+	}
+      }
+      if (!file) {
+	errss << "File not found" << std::endl;
+	return -EINVAL;
+      }
+      ceph::mutex m;
+      m.lock();
+      int rr = bluefs->file_move_start(file, dev_id,
+				       [this, &m](int r) {
+					 ldout(bluefs->cct,10) << "file move completed r=" << r << dendl;
+					 m.unlock();
+				       });
+      if (rr == 0) {
+	//wait for completion
+	m.lock();
+      }
+      m.unlock();
+      if (rr != 0) {
+	errss << "Failed to start move" << std::endl;
+	return rr;
+      }
     } else {
       errss << "Invalid command" << std::endl;
       return -ENOSYS;
@@ -321,7 +376,7 @@ int BlueFS::add_block_device(unsigned id, const string& path, bool trim,
            << reserved << dendl;
   ceph_assert(id < bdev.size());
   ceph_assert(bdev[id] == NULL);
-  BlockDevice *b = BlockDevice::create(cct, path, NULL, NULL,
+  BlockDevice *b = BlockDevice::create(cct, path, aio_cb, static_cast<void*>(this),
 				       discard_cb[id], static_cast<void*>(this));
   block_reserved[id] = reserved;
   if (_shared_alloc) {
@@ -1679,7 +1734,8 @@ void BlueFS::_drop_link(FileRef file)
   --file->refs;
   if (file->refs == 0) {
     dout(20) << __func__ << " destroying " << file->fnode << dendl;
-    ceph_assert(file->num_reading.load() == 0);
+    ceph_assert(file->num_reading.try_lock() == true);
+    file->num_reading.unlock();
     vselector->sub_usage(file->vselector_hint, file->fnode);
     log_t.op_file_remove(file->fnode.ino);
     for (auto& r : file->fnode.extents) {
@@ -1711,7 +1767,7 @@ int64_t BlueFS::_read_random(
            << " 0x" << std::hex << off << "~" << len << std::dec
 	   << " from " << h->file->fnode << dendl;
 
-  ++h->file->num_reading;
+  h->file->num_reading.lock_shared();
 
   if (!h->ignore_eof &&
       off + len > h->file->fnode.size) {
@@ -1779,7 +1835,7 @@ int64_t BlueFS::_read_random(
     }
   }
   dout(20) << __func__ << " got " << ret << dendl;
-  --h->file->num_reading;
+  h->file->num_reading.unlock_shared();
   return ret;
 }
 
@@ -1799,7 +1855,7 @@ int64_t BlueFS::_read(
 	   << (prefetch ? " prefetch" : "")
 	   << dendl;
 
-  ++h->file->num_reading;
+  h->file->num_reading.lock_shared();
   ++h->file->reads_count;
 
   if (!h->ignore_eof &&
@@ -1895,7 +1951,7 @@ int64_t BlueFS::_read(
 
   dout(20) << __func__ << " got " << ret << dendl;
   ceph_assert(!outbl || (int)outbl->length() == ret);
-  --h->file->num_reading;
+  h->file->num_reading.unlock_shared();
   return ret;
 }
 
@@ -3566,6 +3622,9 @@ int BlueFS::do_replay_recovery_read(FileReader *log_reader,
 // ===============================================
 // OriginalVolumeSelector
 
+#undef dout_prefix
+#define dout_prefix *_dout << "OriginalVolumeSelector: "
+
 void* OriginalVolumeSelector::get_hint_for_log() const {
   return reinterpret_cast<void*>(BlueFS::BDEV_WAL);
 }
@@ -3597,12 +3656,205 @@ void OriginalVolumeSelector::get_paths(const std::string& base, paths& res) cons
   res.emplace_back(base + ".slow", slow_total);
 }
 
-#undef dout_prefix
-#define dout_prefix *_dout << "OriginalVolumeSelector: "
-
 void OriginalVolumeSelector::dump(ostream& sout) {
   sout<< "wal_total:" << wal_total
     << ", db_total:" << db_total
     << ", slow_total:" << slow_total
     << std::endl;
+}
+
+#undef dout_prefix
+#define dout_prefix *_dout << "bluefs move "
+#undef dout_context
+#define dout_context bluefs->cct
+
+struct BlueFS::AioMoveFileCtx {
+  BlueFS* bluefs;
+  IOContext ioc;
+
+  BlueFS::FileRef file;
+  size_t file_offset;
+  uint32_t move_tag;
+  static std::atomic_uint32_t move_tag_gen;
+  mempool::bluefs::vector<bluefs_extent_t> target;
+  mempool::bluefs::vector<bluefs_extent_t>::iterator target_it;
+  size_t target_offset;
+  
+  std::function<void(int result)> on_complete;
+  bufferlist read_bl;
+
+  AioMoveFileCtx(BlueFS* bluefs, FileRef f, std::function<void(int result)> on_complete)
+    : bluefs(bluefs)
+    , ioc(bluefs->cct, this, true)
+    , file(f)
+    , file_offset(0)
+    , target_offset(0)
+    , on_complete(on_complete)
+  {
+    ceph_assert(f->move_tag == 0);
+    uint32_t tag = move_tag_gen.fetch_add(2);
+    f->move_tag = tag;
+    move_tag = tag;
+  }
+
+  void read_chunk()
+  {
+    if (file->move_tag != move_tag) {
+      finished(-EINTR);
+      return;
+    }
+    ceph_assert(read_bl.length() == 0);
+    if (file_offset >= file->fnode.size) {
+      //copy data successfull
+      finished(0);
+      return;
+    }
+    file->num_reading.lock_shared();
+    uint64_t in_extent_ofs;
+    auto it = file->fnode.seek(file_offset, &in_extent_ofs);
+    uint64_t length = std::min(file->fnode.size - file_offset,
+			       it->length - in_extent_ofs);
+    uint8_t dev = it->bdev;
+    if (length > 10 * 1024 * 1024)
+      length = 10 * 1024 * 1024;
+    length = round_up_to(length, bluefs->bdev[dev]->get_block_size());
+    ceph_assert(length > 0);
+
+    dout(20) << __func__ << " ino=" << file->fnode.ino << " read 0x"
+	     << std::hex << file_offset << "+" << length << std::dec << dendl;
+    int r = bluefs->bdev[dev]->aio_read(
+		   it->offset + in_extent_ofs, length, &read_bl, &ioc);
+    file_offset += length;
+    file->num_reading.unlock_shared();
+    
+    if (r < 0) {
+      finished(-EIO);
+      return;
+    }
+    bluefs->bdev[dev]->aio_submit(&ioc);
+  }
+
+  void write_chunk()
+  {
+    if (file->move_tag != move_tag) {
+      finished(-EINTR);
+      return;
+    }
+    ceph_assert(read_bl.length() > 0);
+    ceph_assert(target_it != target.end());
+    uint64_t length = std::min<uint64_t>(
+					 target_it->length - target_offset,
+					 read_bl.length());
+    dout(20) << __func__ << " ino=" << file->fnode.ino
+	     << " read_bl.len=0x" << std::hex << read_bl.length()
+	     << " writing=0x"  << length << std::dec <<dendl;
+    bufferlist write_bl;
+    read_bl.splice(0, length, &write_bl);
+    ceph_assert(write_bl.length() > 0);
+    uint8_t dev = target_it->bdev;
+    ceph_assert(round_up_to(length, bluefs->bdev[dev]->get_block_size()) == length);
+    int r = bluefs->bdev[dev]->aio_write(
+		   target_it->offset + target_offset, write_bl, &ioc, false);
+    target_offset += length;
+    if (target_it->length == target_offset) {
+      target_it++;
+      target_offset = 0;
+    }
+    if (r < 0) {
+      finished(-EIO);
+      return;
+    }
+    bluefs->bdev[dev]->aio_submit(&ioc);
+  }
+
+  void aio_cb()
+  {
+    if (read_bl.length() > 0) {
+      //there is still something to write
+      write_chunk();
+    } else {
+      //this may call finished()
+      read_chunk();
+    }
+  }
+
+  void finished(int result)
+  {
+    dout(15) << __func__ << " ino=" << file->fnode.ino << " result=" << result << dendl;
+    {
+      std::lock_guard l(bluefs->lock);
+      if (file->move_tag == move_tag) {
+	// only react if we are doing the moving
+	file->move_tag = 0;
+	if (result == 0) {
+	  if (file->num_reading.try_lock()) {
+	    // if just now reading this file, ignore it for now
+	    if (file->num_writers == 0) {
+	      bluefs->vselector->sub_usage(file->vselector_hint, file->fnode);
+	      std::swap(file->fnode.extents, target);
+	      bluefs->vselector->add_usage(file->vselector_hint, file->fnode);
+	      file->fnode.recalc_allocated();
+	      //sync file state
+	      bluefs->log_t.op_file_update(file->fnode);
+	    }
+	    file->num_reading.unlock();
+	  }
+	}
+      }
+      //mark now unneeded chunks for deallocation
+      for (auto& p : target) {
+	bluefs->pending_release[p.bdev].insert(p.offset, p.length);
+      }
+    }
+    on_complete(result);
+    delete this;
+  }
+};
+
+std::atomic_uint32_t BlueFS::AioMoveFileCtx::move_tag_gen(1);
+
+#undef dout_context
+#define dout_context cct
+
+int BlueFS::file_move_start(FileRef f,
+			    unsigned target_device,
+			    std::function<void(int result)> on_complete)
+{
+  dout(15) << __func__ << " ino=" << f->fnode.ino << " to dev=" << target_device << dendl;
+  PExtentVector temp_extents;
+  std::unique_lock l(lock);
+  if (f->num_writers > 0) {
+    dout(15) << __func__ << " file opened for write, cannot move" << dendl;
+    return -EBADF;
+  }
+  if (f->move_tag != 0) {
+    dout(15) << __func__ << " file already moving" << dendl;
+    return -EBADF;
+  }
+  if (target_device >= alloc.size() || alloc[target_device] == nullptr) {
+    dout(15) << __func__ << " bad target dev=" << target_device << dendl;
+    return -EINVAL;
+  }
+  uint64_t need = f->fnode.get_allocated();
+  int r = _allocate_without_fallback(target_device,
+                             need,
+                             &temp_extents);
+  if (r != 0) {
+    return -ENOMEM;
+  }
+  AioMoveFileCtx* c = new AioMoveFileCtx(this, f, on_complete);
+  for (auto& i:temp_extents) {
+    c->target.emplace_back(target_device, i.offset, i.length);
+  }
+  c->target_it = c->target.begin();
+  dout(15) << __func__ << " new extents=" << c->target << dendl;
+  //start copying
+  c->read_chunk();
+  return 0;
+}
+
+void BlueFS::aio_cb(void *v_bluefs, void *v_aio)
+{
+  BlueFS::AioMoveFileCtx *c = static_cast<BlueFS::AioMoveFileCtx*>(v_aio);
+  c->aio_cb();
 }

@@ -114,10 +114,11 @@ public:
     boost::intrusive::list_member_hook<> dirty_item;
 
     std::atomic_int num_readers, num_writers;
-    std::atomic_int num_reading;
+    shared_mutex num_reading;
     std::atomic_uint reads_count; // how may times this file has been read
     utime_t reads_reftime;        // we measure reads_count since this time
-
+    uint32_t move_tag;            // set uniquely when move starts
+                                  // set to 0 when file changes to cancel move
     void* vselector_hint = nullptr;
 
   private:
@@ -130,14 +131,15 @@ public:
 	deleted(false),
 	num_readers(0),
 	num_writers(0),
-	num_reading(0),
 	reads_count(0),
+	move_tag(0),
         vselector_hint(nullptr)
       {}
     ~File() override {
       ceph_assert(num_readers.load() == 0);
       ceph_assert(num_writers.load() == 0);
-      ceph_assert(num_reading.load() == 0);
+      ceph_assert(num_reading.try_lock_shared() == true);
+      num_reading.unlock_shared();
       ceph_assert(!locked);
     }
   };
@@ -604,13 +606,25 @@ public:
     std::lock_guard l(lock);
     return _truncate(h, offset);
   }
+
   int do_replay_recovery_read(FileReader *log,
 			      size_t log_pos,
 			      size_t read_offset,
 			      size_t read_len,
 			      bufferlist* bl);
 
-  /// test purpose methods
+  struct AioMoveFileCtx;
+  friend struct AioMoveFileCtx;
+  
+private:
+  int file_move_start(FileRef f,
+		      unsigned target_device,
+		      std::function<void(int result)> on_complete);
+
+  static void aio_cb(void *v_bluefs, void *v_ctx);
+
+public:
+/// test purpose methods
   const PerfCounters* get_perf_counters() const {
     return logger;
   }
