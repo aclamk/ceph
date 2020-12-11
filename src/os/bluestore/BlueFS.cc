@@ -150,6 +150,13 @@ private:
         for (auto &r : d.second->file_map) {
           f->open_object_section("file");
           f->dump_string("name", (dir + "/" + r.first).c_str());
+	  f->dump_int("size", r.second->fnode.size);
+	  stringstream ss;
+	  ss << r.second->fnode.mtime;
+	  f->dump_string("mtime", ss.str());
+	  f->dump_int("reads", r.second->reads_count.load());
+	  f->dump_string("uptime", utimespan_str(ceph_clock_now() - r.second->reads_reftime));
+
           std::vector<size_t> sizes;
           sizes.resize(bluefs->bdev.size());
           for(auto& i : r.second->fnode.extents) {
