@@ -53,23 +53,8 @@ enum {
   l_bluefs_last,
 };
 
-class BlueFSVolumeSelector {
-public:
-  typedef std::vector<std::pair<std::string, uint64_t>> paths;
 
-  virtual ~BlueFSVolumeSelector() {
-  }
-  virtual void* get_hint_for_log() const = 0;
-  virtual void* get_hint_by_dir(const std::string& dirname) const = 0;
-
-  virtual void add_usage(void* file_hint, const bluefs_fnode_t& fnode) = 0;
-  virtual void sub_usage(void* file_hint, const bluefs_fnode_t& fnode) = 0;
-  virtual void add_usage(void* file_hint, uint64_t fsize) = 0;
-  virtual void sub_usage(void* file_hint, uint64_t fsize) = 0;
-  virtual uint8_t select_prefer_bdev(void* hint) = 0;
-  virtual void get_paths(const std::string& base, paths& res) const = 0;
-  virtual void dump(std::ostream& sout) = 0;
-};
+class BlueFSVolumeSelector;
 
 struct bluefs_shared_alloc_context_t {
   bool need_init = false;
@@ -543,13 +528,9 @@ public:
   void set_volume_selector(BlueFSVolumeSelector* s) {
     vselector.reset(s);
   }
-  void dump_volume_selector(std::ostream& sout) {
-    vselector->dump(sout);
-  }
+  void dump_volume_selector(std::ostream& sout);
   void get_vselector_paths(const std::string& base,
-                           BlueFSVolumeSelector::paths& res) const {
-    return vselector->get_paths(base, res);
-  }
+                           std::vector<std::pair<std::string, uint64_t>>& paths) const;
 
   int add_block_device(unsigned bdev, const std::string& path, bool trim,
                        uint64_t reserved,
@@ -628,6 +609,36 @@ public:
   const PerfCounters* get_perf_counters() const {
     return logger;
   }
+};
+
+class BlueFSVolumeSelector {
+public:
+  typedef std::vector<std::pair<std::string, uint64_t>> paths;
+
+  virtual ~BlueFSVolumeSelector() {
+  }
+  virtual void* get_hint_for_log() const = 0;
+  virtual void* get_hint_by_dir(const std::string& dirname) const = 0;
+
+  virtual void add_usage_f(const BlueFS::FileRef f) {
+    add_usage(f->vselector_hint, f->fnode); };
+  virtual void sub_usage_f(const BlueFS::FileRef f) {
+    sub_usage(f->vselector_hint, f->fnode); };
+
+  virtual void add_usage_f(const BlueFS::FileRef f, uint64_t fsize) {
+    add_usage(f->vselector_hint, fsize); };
+  virtual void sub_usage_f(const BlueFS::FileRef f, uint64_t fsize) {
+    sub_usage(f->vselector_hint, fsize); };
+
+  virtual uint8_t select_prefer_bdev(void* hint) = 0;
+  virtual void get_paths(const std::string& base, paths& res) const = 0;
+  virtual void dump(std::ostream& sout) = 0;
+protected:
+  virtual void add_usage(void* file_hint, const bluefs_fnode_t& fnode) = 0;
+  virtual void sub_usage(void* file_hint, const bluefs_fnode_t& fnode) = 0;
+
+  virtual void add_usage(void* file_hint, uint64_t fsize) = 0;
+  virtual void sub_usage(void* file_hint, uint64_t fsize) = 0;
 };
 
 class OriginalVolumeSelector : public BlueFSVolumeSelector {
