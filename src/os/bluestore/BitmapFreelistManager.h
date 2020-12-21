@@ -12,6 +12,7 @@
 #include "common/ceph_mutex.h"
 #include "include/buffer.h"
 #include "kv/KeyValueDB.h"
+#include "BlueFS.h"
 
 class BitmapFreelistManager : public FreelistManager {
   std::string meta_prefix, bitmap_prefix;
@@ -95,5 +96,42 @@ public:
   void get_meta(uint64_t target_size,
     std::vector<std::pair<string, string>>*) const override;
 };
+
+class BitmapFreelistManagerOnFile : public BitmapFreelistManager
+{
+  BlueFS* bluefs;
+  Allocator* alloc;
+  BlueFS::FileReader* reader;
+public:
+  BitmapFreelistManagerOnFile(BlueFS* bluefs,
+			      Allocator* alloc,
+			      CephContext* cct,
+			      std::string meta_prefix,
+			      std::string bitmap_prefix)
+    : BitmapFreelistManager(cct, meta_prefix, bitmap_prefix)
+    , bluefs(bluefs)
+    , alloc(alloc)
+    , reader(nullptr)
+  {
+  }
+  void enumerate_reset() override;
+  bool enumerate_next(KeyValueDB *kvdb, uint64_t *offset, uint64_t *length) override;
+
+  void allocate(
+    uint64_t offset, uint64_t length,
+    KeyValueDB::Transaction txn) override
+  {
+    //empty implementation to skip writes to db
+  }
+  void release(
+    uint64_t offset, uint64_t length,
+    KeyValueDB::Transaction txn) override {
+    //empty implementation to skip writes to db
+  }
+
+  void shutdown() override;
+
+};
+
 
 #endif

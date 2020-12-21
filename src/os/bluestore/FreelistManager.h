@@ -10,6 +10,8 @@
 #include <ostream>
 #include "kv/KeyValueDB.h"
 #include "bluestore_types.h"
+#include "Allocator.h"
+#include "BlueFS.h"
 #include "zoned_types.h"
 
 class FreelistManager {
@@ -21,7 +23,9 @@ public:
   static FreelistManager *create(
     CephContext* cct,
     std::string type,
-    std::string prefix);
+    std::string prefix,
+    BlueFS* bluefs,
+    Allocator* alloc);
 
   static void setup_merge_operators(KeyValueDB *db, const std::string &type);
 

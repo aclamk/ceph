@@ -604,3 +604,52 @@ void BitmapFreelistManager::get_meta(
   res->emplace_back("bfm_bytes_per_block", stringify(bytes_per_block));
   res->emplace_back("bfm_blocks_per_key", stringify(blocks_per_key));
 }
+
+
+
+void BitmapFreelistManagerOnFile::enumerate_reset()
+{
+  
+}
+
+bool BitmapFreelistManagerOnFile::enumerate_next(KeyValueDB *kvdb, uint64_t *offset, uint64_t *length)
+{
+  // when not started reading yet
+  std::string dir, file;
+  int rr = bluefs->open_for_read(dir, file, &reader, false);
+  
+  int64_t file_offset;
+  int64_t size;
+  char* scratch;
+  int64_t r = bluefs->read(reader, file_offset, size, nullptr, scratch);
+
+  //when end
+  delete reader;
+}
+
+
+void BitmapFreelistManagerOnFile::shutdown()
+{
+  BlueFS::FileWriter *h;
+  std::string new_dir, new_file;
+  int r = bluefs->open_for_write(new_dir, new_file, &h, true);
+
+  size_t max_size = 1000000000;
+  r = bluefs->preallocate(h->file, 0, max_size);
+
+
+  auto iterated_allocation = [&](size_t off, size_t len) {
+    char* data;
+    size_t dlen;
+    h->append(data, dlen);
+  };
+  alloc->dump(iterated_allocation);
+
+
+
+
+  
+  bluefs->flush(h, true);
+
+  delete h;
+}

@@ -5188,7 +5188,7 @@ int BlueStore::_open_fm(KeyValueDB::Transaction t, bool read_only)
   int r;
 
   ceph_assert(fm == NULL);
-  fm = FreelistManager::create(cct, freelist_type, PREFIX_ALLOC);
+  fm = FreelistManager::create(cct, freelist_type, PREFIX_ALLOC, bluefs, shared_alloc.a);
   ceph_assert(fm);
   if (t) {
     // create mode. initialize freespace
@@ -5216,6 +5216,9 @@ int BlueStore::_open_fm(KeyValueDB::Transaction t, bool read_only)
     fm->allocate(0, reserved, t);
 
     if (cct->_conf->bluestore_debug_prefill > 0) {
+      //this debug_prefill is problematic, because it goes directly too fm to alloc space,
+      //and "allocates" space without going through allocator. bitmap-file will not notice it
+      
       uint64_t end = bdev->get_size() - reserved;
       dout(1) << __func__ << " pre-fragmenting freespace, using "
 	      << cct->_conf->bluestore_debug_prefill << " with max free extent "
@@ -5815,8 +5818,8 @@ out_fm:
 
 void BlueStore::_close_db_and_around(bool read_only)
 {
-  _close_db(read_only);
   _close_fm();
+  _close_db(read_only);
   _close_alloc();
   _close_bdev();
   _close_fsid();
@@ -6312,7 +6315,7 @@ int BlueStore::mkfs()
     }
   }
 
-  freelist_type = "bitmap";
+  freelist_type = "bitmap-file";
 
   r = _open_path();
   if (r < 0)

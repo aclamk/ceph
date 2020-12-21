@@ -10,7 +10,9 @@
 FreelistManager *FreelistManager::create(
   CephContext* cct,
   std::string type,
-  std::string prefix)
+  std::string prefix,
+  BlueFS* bluefs,
+  Allocator* alloc)
 {
   // a bit of a hack... we hard-code the prefixes here.  we need to
   // put the freelistmanagers in different prefixes because the merge
@@ -19,6 +21,8 @@ FreelistManager *FreelistManager::create(
   ceph_assert(prefix == "B");
   if (type == "bitmap")
     return new BitmapFreelistManager(cct, "B", "b");
+  if (type == "bitmap-file")
+    return new BitmapFreelistManagerOnFile(bluefs, alloc, cct, "B", "b");
 
 #ifdef HAVE_LIBZBD
   // With zoned drives there is only one FreelistManager implementation that we
