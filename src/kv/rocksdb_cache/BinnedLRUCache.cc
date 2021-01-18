@@ -464,12 +464,13 @@ std::string BinnedLRUCacheShard::GetPrintableOptions() const {
   return std::string(buffer);
 }
 
-BinnedLRUCache::BinnedLRUCache(CephContext *c, 
+BinnedLRUCache::BinnedLRUCache(CephContext *c,
+			       PerfCounters *logger,
                                size_t capacity, 
                                int num_shard_bits,
                                bool strict_capacity_limit, 
                                double high_pri_pool_ratio)
-    : ShardedCache(capacity, num_shard_bits, strict_capacity_limit), cct(c) {
+  : ShardedCache(logger, capacity, num_shard_bits, strict_capacity_limit), cct(c) {
   num_shards_ = 1 << num_shard_bits;
   // TODO: Switch over to use mempool
   int rc = posix_memalign((void**) &shards_, 
@@ -602,7 +603,8 @@ int64_t BinnedLRUCache::commit_cache_size(uint64_t total_bytes)
 }
 
 std::shared_ptr<rocksdb::Cache> NewBinnedLRUCache(
-    CephContext *c, 
+    CephContext *c,
+    PerfCounters *logger,
     size_t capacity,
     int num_shard_bits,
     bool strict_capacity_limit,
@@ -618,7 +620,7 @@ std::shared_ptr<rocksdb::Cache> NewBinnedLRUCache(
     num_shard_bits = GetDefaultCacheShardBits(capacity);
   }
   return std::make_shared<BinnedLRUCache>(
-      c, capacity, num_shard_bits, strict_capacity_limit, high_pri_pool_ratio);
+    c, logger, capacity, num_shard_bits, strict_capacity_limit, high_pri_pool_ratio);
 }
 
 }  // namespace rocksdb_cache

@@ -43,6 +43,7 @@ enum {
   l_rocksdb_write_memtable_time,
   l_rocksdb_write_delay_time,
   l_rocksdb_write_pre_and_post_process_time,
+  l_rocksdb_cache_miss_time,
   l_rocksdb_last,
 };
 

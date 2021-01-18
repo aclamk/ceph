@@ -461,7 +461,7 @@ std::shared_ptr<rocksdb::Cache> RocksDBStore::create_block_cache(
   std::shared_ptr<rocksdb::Cache> cache;
   auto shard_bits = cct->_conf->rocksdb_cache_shard_bits;
   if (cache_type == "binned_lru") {
-    cache = rocksdb_cache::NewBinnedLRUCache(cct, cache_size, shard_bits, false, cache_prio_high);
+    cache = rocksdb_cache::NewBinnedLRUCache(cct, logger, cache_size, shard_bits, false, cache_prio_high);
   } else if (cache_type == "lru") {
     cache = rocksdb::NewLRUCache(cache_size, shard_bits);
   } else if (cache_type == "clock") {
@@ -1054,6 +1054,25 @@ int RocksDBStore::do_open(ostream &out,
 			  bool open_readonly,
 			  const std::string& sharding_text)
 {
+  PerfCountersBuilder plb(cct, "rocksdb", l_rocksdb_first, l_rocksdb_last);
+  plb.add_u64_counter(l_rocksdb_gets, "get", "Gets");
+  plb.add_time_avg(l_rocksdb_get_latency, "get_latency", "Get latency");
+  plb.add_time_avg(l_rocksdb_submit_latency, "submit_latency", "Submit Latency");
+  plb.add_time_avg(l_rocksdb_submit_sync_latency, "submit_sync_latency", "Submit Sync Latency");
+  plb.add_u64_counter(l_rocksdb_compact, "compact", "Compactions");
+  plb.add_u64_counter(l_rocksdb_compact_range, "compact_range", "Compactions by range");
+  plb.add_u64_counter(l_rocksdb_compact_queue_merge, "compact_queue_merge", "Mergings of ranges in compaction queue");
+  plb.add_u64(l_rocksdb_compact_queue_len, "compact_queue_len", "Length of compaction queue");
+  plb.add_time_avg(l_rocksdb_write_wal_time, "rocksdb_write_wal_time", "Rocksdb write wal time");
+  plb.add_time_avg(l_rocksdb_write_memtable_time, "rocksdb_write_memtable_time", "Rocksdb write memtable time");
+  plb.add_time_avg(l_rocksdb_write_delay_time, "rocksdb_write_delay_time", "Rocksdb write delay time");
+  plb.add_time_avg(l_rocksdb_write_pre_and_post_process_time, 
+      "rocksdb_write_pre_and_post_time", "total time spent on writing a record, excluding write process");
+  plb.add_time_avg(l_rocksdb_cache_miss_time, 
+      "rocksdb_cache_miss_penalty", "total time spent waiting when rocksdb cache miss happened");
+  logger = plb.create_perf_counters();
+  cct->get_perfcounters_collection()->add(logger);
+
   ceph_assert(!(create_if_missing && open_readonly));
   rocksdb::Options opt;
   int r = load_rocksdb_options(create_if_missing, opt);
@@ -1159,7 +1178,8 @@ int RocksDBStore::do_open(ostream &out,
     }
   }
   ceph_assert(default_cf != nullptr);
-  
+
+#if 0
   PerfCountersBuilder plb(cct, "rocksdb", l_rocksdb_first, l_rocksdb_last);
   plb.add_u64_counter(l_rocksdb_gets, "get", "Gets");
   plb.add_time_avg(l_rocksdb_get_latency, "get_latency", "Get latency");
@@ -1174,9 +1194,12 @@ int RocksDBStore::do_open(ostream &out,
   plb.add_time_avg(l_rocksdb_write_delay_time, "rocksdb_write_delay_time", "Rocksdb write delay time");
   plb.add_time_avg(l_rocksdb_write_pre_and_post_process_time, 
       "rocksdb_write_pre_and_post_time", "total time spent on writing a record, excluding write process");
+  plb.add_time_avg(l_rocksdb_cache_miss_time, 
+      "rocksdb_cache_miss_penalty", "total time spent waiting when rocksdb cache miss happened");
   logger = plb.create_perf_counters();
   cct->get_perfcounters_collection()->add(logger);
-
+#endif
+  
   if (compact_on_mount) {
     derr << "Compacting rocksdb store..." << dendl;
     compact();

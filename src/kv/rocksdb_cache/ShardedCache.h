@@ -55,7 +55,7 @@ class CacheShard {
 // Keys are sharded by the highest num_shard_bits bits of hash value.
 class ShardedCache : public rocksdb::Cache, public PriorityCache::PriCache {
  public:
-  ShardedCache(size_t capacity, int num_shard_bits, bool strict_capacity_limit);
+  ShardedCache(PerfCounters *logger, size_t capacity, int num_shard_bits, bool strict_capacity_limit);
   virtual ~ShardedCache() = default;
   virtual const char* Name() const override = 0;
   virtual CacheShard* GetShard(int shard) = 0;
@@ -127,7 +127,7 @@ class ShardedCache : public rocksdb::Cache, public PriorityCache::PriCache {
 
   int64_t cache_bytes[PriorityCache::Priority::LAST+1] = {0};
   double cache_ratio = 0;
-
+  PerfCounters *logger;
   int num_shard_bits_;
   mutable std::mutex capacity_mutex_;
   size_t capacity_;

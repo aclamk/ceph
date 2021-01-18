@@ -49,6 +49,7 @@ namespace rocksdb_cache {
 
 std::shared_ptr<rocksdb::Cache> NewBinnedLRUCache(
     CephContext *c,
+    PerfCounters *logger,
     size_t capacity,
     int num_shard_bits = -1,
     bool strict_capacity_limit = false,
@@ -294,7 +295,7 @@ class alignas(CACHE_LINE_SIZE) BinnedLRUCacheShard : public CacheShard {
 
 class BinnedLRUCache : public ShardedCache {
  public:
-  BinnedLRUCache(CephContext *c, size_t capacity, int num_shard_bits,
+  BinnedLRUCache(CephContext *c, PerfCounters *logger, size_t capacity, int num_shard_bits,
       bool strict_capacity_limit, double high_pri_pool_ratio);
   virtual ~BinnedLRUCache();
   virtual const char* Name() const override { return "BinnedLRUCache"; }

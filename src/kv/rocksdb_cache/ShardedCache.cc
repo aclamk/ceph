@@ -12,14 +12,15 @@
 #endif
 
 #include "ShardedCache.h"
-
+#include "kv/RocksDBStore.h"
 #include <string>
 
 namespace rocksdb_cache {
 
-ShardedCache::ShardedCache(size_t capacity, int num_shard_bits,
+ShardedCache::ShardedCache(PerfCounters *logger, size_t capacity, int num_shard_bits,
                            bool strict_capacity_limit)
-    : num_shard_bits_(num_shard_bits),
+  : logger(logger),
+      num_shard_bits_(num_shard_bits),
       capacity_(capacity),
       strict_capacity_limit_(strict_capacity_limit),
       last_id_(1) {}
@@ -42,18 +43,28 @@ void ShardedCache::SetStrictCapacityLimit(bool strict_capacity_limit) {
   }
   strict_capacity_limit_ = strict_capacity_limit;
 }
-
+static thread_local utime_t cache_miss_time = utime_t();
+  
 rocksdb::Status ShardedCache::Insert(const rocksdb::Slice& key, void* value, size_t charge,
                             void (*deleter)(const rocksdb::Slice& key, void* value),
                             rocksdb::Cache::Handle** handle, Priority priority) {
   uint32_t hash = HashSlice(key);
-  return GetShard(Shard(hash))
+  auto r = GetShard(Shard(hash))
       ->Insert(key, hash, value, charge, deleter, handle, priority);
+  if (logger) {
+    logger->tinc(l_rocksdb_cache_miss_time, ceph_clock_now() - cache_miss_time);
+  }
+  cache_miss_time = utime_t();
+  return r;
 }
 
 rocksdb::Cache::Handle* ShardedCache::Lookup(const rocksdb::Slice& key, rocksdb::Statistics* /*stats*/) {
   uint32_t hash = HashSlice(key);
-  return GetShard(Shard(hash))->Lookup(key, hash);
+  auto r = GetShard(Shard(hash))->Lookup(key, hash);
+  if (r == nullptr) {
+    cache_miss_time = ceph_clock_now();
+  }
+  return r;
 }
 
 bool ShardedCache::Ref(rocksdb::Cache::Handle* handle) {
