@@ -2068,6 +2068,7 @@ private:
 
   std::vector<OnodeCacheShard*> onode_cache_shards;
   std::vector<BufferCacheShard*> buffer_cache_shards;
+  size_t onode_cache_shards_trim = 0; ///< for forced cyclic trim
 
   /// protect zombie_osr_set
   ceph::mutex zombie_osr_lock = ceph::make_mutex("BlueStore::zombie_osr_lock");
