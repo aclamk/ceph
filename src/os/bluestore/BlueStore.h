@@ -1218,6 +1218,7 @@ public:
   /// A Generic onode Cache Shard
   struct OnodeCacheShard : public CacheShard {
     std::atomic<uint64_t> num_pinned = {0};
+    std::atomic<uint64_t> num_misses = {0};
 
     std::array<std::pair<ghobject_t, ceph::mono_clock::time_point>, 64> dumped_onodes;
 
@@ -1237,6 +1238,8 @@ public:
     bool empty() {
       return _get_num() == 0;
     }
+    virtual uint64_t get_misses() = 0;
+    virtual void reset_misses() = 0;
   };
 
   /// A Generic buffer Cache Shard

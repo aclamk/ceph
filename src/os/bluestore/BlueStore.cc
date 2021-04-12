@@ -1127,6 +1127,15 @@ struct LruOnodeCacheShard : public BlueStore::OnodeCacheShard {
     *onodes += num;
     *pinned_onodes += num_pinned;
   }
+  uint64_t get_misses() override
+  {
+    return num_misses.load();
+  }
+  void reset_misses() override
+  {
+    num_misses = 0;
+  }
+
 };
 
 // OnodeCacheShard
@@ -4267,9 +4276,63 @@ void BlueStore::MempoolThread::_resize_shards(bool interval_stats)
   dout(30) << __func__ << " max_shard_onodes: " << max_shard_onodes
                  << " max_shard_buffer: " << max_shard_buffer << dendl;
 
+
+  // first make a snapshot of what we have in onode cache shards
+  uint64_t sum_onodes = 0;
+  uint64_t sum_pinned_onodes = 0;
+  struct shard_state {
+    uint64_t onodes;
+    uint64_t pinned;
+    uint64_t misses;
+    uint64_t want;
+  };
+  std::vector<shard_state> shard_states;
   for (auto i : store->onode_cache_shards) {
-    i->set_max(max_shard_onodes);
+    shard_state t;
+    i->add_stats(&t.onodes, &t.pinned);
+    t.misses = i->get_misses();
+    shard_states.push_back(t);
+    sum_onodes += t.onodes;
+    sum_pinned_onodes += t.pinned;
   }
+  ceph_assert(onode_shards == shard_states.size());
+
+  double equal_share = (sum_onodes - sum_pinned_onodes) / onode_shards;
+  if (equal_share < 0) {
+    equal_share = 0;
+  }
+  uint64_t min = equal_share * 0.1 + 0.5;
+  uint64_t sum_min = min * onode_shards;
+
+  uint64_t max_growth_step = 10;
+  uint64_t sum_want = 0;
+  for (size_t i = 0; i < shard_states.size(); ++i) {
+    shard_state& t = shard_states[i];
+    t.want = (t.onodes - t.pinned) + std::min(t.misses, max_growth_step);
+    sum_want += t.want;
+  }
+
+  uint64_t onode_budget = meta_cache->_get_num_onodes();
+  // fullfil_ratio = (0=sum_min, 1=sum_want), a proportion from onode_budget;
+  if (onode_budget < sum_min) {
+    sum_min = onode_budget;
+  }
+  if (onode_budget > sum_want) {
+    sum_want = onode_budget;
+  }
+  double fulfil_ratio = double(onode_budget - sum_min) / double(sum_want - sum_min);
+  dout(20) << __func__  << " sum_min: " << sum_min <<
+    " sum_want: " << sum_want <<
+    " onode_budget: " << onode_budget <<
+    " fulfil_ratio: " << fulfil_ratio << dendl;
+
+  for (size_t i = 0; i < shard_states.size(); ++i) {
+    shard_state& t = shard_states[i];
+    uint64_t allowed = t.pinned + min + t.want * fulfil_ratio;
+    store->onode_cache_shards[i]->set_max(allowed);
+    store->onode_cache_shards[i]->reset_misses();
+  }
+
   for (auto i : store->buffer_cache_shards) {
     i->set_max(max_shard_buffer);
   }
