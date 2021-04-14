@@ -4298,11 +4298,13 @@ void BlueStore::MempoolThread::_resize_shards(bool interval_stats)
   }
   ceph_assert(onode_shards == shard_states.size());
 
-  double equal_share = (sum_onodes - sum_pinned_onodes) / onode_shards;
+  uint64_t onode_budget = meta_alloc / meta_cache->get_bytes_per_onode();
+
+  double equal_share = (onode_budget - sum_pinned_onodes) / onode_shards; // can't negotiate with pinned
   if (equal_share < 0) {
     equal_share = 0;
   }
-  uint64_t min = equal_share * 0.1 + 0.5;
+  uint64_t min = equal_share * 0.1 + 0.5; // represents miniumum this shard should have
   uint64_t sum_min = min * onode_shards;
 
   uint64_t max_growth_step = 10;
@@ -4313,7 +4315,6 @@ void BlueStore::MempoolThread::_resize_shards(bool interval_stats)
     sum_want += t.want;
   }
 
-  uint64_t onode_budget = meta_alloc / meta_cache->get_bytes_per_onode();
   // fullfil_ratio = (0=sum_min, 1=sum_want), a proportion from onode_budget;
   if (onode_budget < sum_min) {
     sum_min = onode_budget;
