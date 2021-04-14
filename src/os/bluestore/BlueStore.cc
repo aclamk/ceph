@@ -45,6 +45,7 @@
 #include "common/numa.h"
 #include "common/pretty_binary.h"
 #include "kv/KeyValueHistogram.h"
+#include "common/admin_socket.h"
 
 #if defined(WITH_LTTNG)
 #define TRACEPOINT_DEFINE
@@ -4368,6 +4369,68 @@ void BlueStore::MempoolThread::_update_cache_settings()
 }
 
 // =======================================================
+// AdminSocket
+
+#undef dout_prefix
+#define dout_prefix *_dout << "bluestore.AdminSocket "
+
+class BlueStore::SocketHook : public AdminSocketHook {
+  BlueStore* store;
+public:
+  static BlueStore::SocketHook* create(BlueStore* store)
+  {
+    BlueStore::SocketHook* hook = nullptr;
+    AdminSocket* admin_socket = store->cct->get_admin_socket();
+    if (admin_socket) {
+      hook = new BlueStore::SocketHook(store);
+      int r = admin_socket->register_command("bluestore onode cache info",
+                                             hook,
+                                             "todo");
+      if (r != 0) {
+        ldout(store->cct, 1) << __func__ << " cannot register SocketHook" << dendl;
+        delete hook;
+        hook = nullptr;
+      }
+    }
+    return hook;
+  }
+
+  ~SocketHook() {
+    AdminSocket* admin_socket = store->cct->get_admin_socket();
+    admin_socket->unregister_commands(this);
+  }
+private:
+  SocketHook(BlueStore* store) :
+    store(store) {}
+  int call(std::string_view command, const cmdmap_t& cmdmap,
+	   Formatter *f,
+	   std::ostream& errss,
+	   bufferlist& out) override {
+    if (command == "bluestore onode cache info") {
+      f->open_array_section("onode_cache_shards");
+      for (size_t i = 0; i < store->onode_cache_shards.size(); i++) {
+	auto& shard = store->onode_cache_shards[i];
+	f->open_object_section("onode_cache_shard");
+	f->dump_int("idx", i);
+	uint64_t onodes = 0;
+	uint64_t pinned = 0;
+	shard->add_stats(&onodes, &pinned);
+	f->dump_int("onodes", onodes);
+	f->dump_int("pinned", pinned);
+	f->dump_int("misses", shard->get_misses());
+	f->dump_int("max", shard->max);
+	f->close_section();
+      }
+      f->close_section();
+    } else {
+      errss << "Invalid command" << std::endl;
+      return -ENOSYS;
+    }
+    return 0;
+  }
+};
+
+// =======================================================
 
 // OmapIteratorImpl
 
@@ -4562,10 +4625,12 @@ BlueStore::BlueStore(CephContext *cct,
   _init_logger();
   cct->_conf.add_observer(this);
   set_cache_shards(1);
+  asok_hook = SocketHook::create(this);
 }
 
 BlueStore::~BlueStore()
 {
+  delete asok_hook;
   cct->_conf.remove_observer(this);
   _shutdown_logger();
   ceph_assert(!mounted);

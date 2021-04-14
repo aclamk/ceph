@@ -2317,6 +2317,10 @@ private:
     void _resize_shards(bool interval_stats);
   } mempool_thread;
 
+  class SocketHook;
+  SocketHook* asok_hook = nullptr;
+  friend class SocketHook;
+
 #ifdef WITH_BLKIN
   ZTracer::Endpoint trace_endpoint {"0.0.0.0", 0, "BlueStore"};
 #endif
