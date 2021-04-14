@@ -4313,7 +4313,7 @@ void BlueStore::MempoolThread::_resize_shards(bool interval_stats)
     sum_want += t.want;
   }
 
-  uint64_t onode_budget = meta_cache->_get_num_onodes();
+  uint64_t onode_budget = meta_alloc / meta_cache->get_bytes_per_onode();
   // fullfil_ratio = (0=sum_min, 1=sum_want), a proportion from onode_budget;
   if (onode_budget < sum_min) {
     sum_min = onode_budget;
