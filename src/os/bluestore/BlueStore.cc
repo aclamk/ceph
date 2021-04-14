@@ -4282,10 +4282,10 @@ void BlueStore::MempoolThread::_resize_shards(bool interval_stats)
   uint64_t sum_onodes = 0;
   uint64_t sum_pinned_onodes = 0;
   struct shard_state {
-    uint64_t onodes;
-    uint64_t pinned;
-    uint64_t misses;
-    uint64_t want;
+    uint64_t onodes = 0;
+    uint64_t pinned = 0;
+    uint64_t misses = 0;
+    uint64_t want = 0;
   };
   std::vector<shard_state> shard_states;
   for (auto i : store->onode_cache_shards) {
