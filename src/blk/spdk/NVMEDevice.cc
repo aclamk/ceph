@@ -862,12 +862,10 @@ int NVMEDevice::aio_write(
     uint64_t off,
     bufferlist &bl,
     IOContext *ioc,
-    bool buffered,
     int write_hint)
 {
   uint64_t len = bl.length();
-  dout(20) << __func__ << " " << off << "~" << len << " ioc " << ioc
-           << " buffered " << buffered << dendl;
+  dout(20) << __func__ << " " << off << "~" << len << " ioc " << ioc << dendl;
   ceph_assert(is_valid_io(off, len));
 
   write_split(this, off, bl, ioc);

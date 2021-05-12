@@ -236,10 +236,9 @@ int PMEMDevice::aio_write(
   uint64_t off,
   bufferlist &bl,
   IOContext *ioc,
-  bool buffered,
   int write_hint)
 {
-  return write(off, bl, buffered);
+  return write(off, bl, false);
 }
 
 

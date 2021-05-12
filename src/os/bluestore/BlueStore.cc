@@ -12525,7 +12525,7 @@ void BlueStore::_deferred_submit_unlock(OpSequencer *osr)
 	if (!g_conf()->bluestore_debug_omit_block_device_write) {
 	  logger->inc(l_bluestore_deferred_write_ops);
 	  logger->inc(l_bluestore_deferred_write_bytes, bl.length());
-	  int r = bdev->aio_write(start, bl, &b->ioc, false);
+	  int r = bdev->aio_write(start, bl, &b->ioc);
 	  ceph_assert(r == 0);
 	}
       }
@@ -13395,7 +13395,7 @@ void BlueStore::_do_write_small(
 		b_off, bl,
 		[&](uint64_t offset, bufferlist& t) {
 		  bdev->aio_write(offset, t,
-				  &txc->ioc, false);
+				  &txc->ioc);
 		});
 	    }
 	  }
@@ -14223,7 +14223,7 @@ int BlueStore::_do_alloc_write(
 	b->get_blob().map_bl(
 	  b_off, *l,
 	  [&](uint64_t offset, bufferlist& t) {
-	    bdev->aio_write(offset, t, &txc->ioc, false);
+	    bdev->aio_write(offset, t, &txc->ioc);
 	  });
 	logger->inc(l_bluestore_write_new);
       }

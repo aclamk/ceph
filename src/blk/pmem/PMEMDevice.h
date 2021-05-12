@@ -56,7 +56,6 @@ public:
   int sync_range(uint64_t off, uint64_t len) override;
   int aio_write(uint64_t off, bufferlist& bl,
 		IOContext *ioc,
-		bool buffered,
 		int write_hint = WRITE_LIFE_NOT_SET) override;
   int flush() override;
 

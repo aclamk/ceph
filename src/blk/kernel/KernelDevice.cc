@@ -932,13 +932,11 @@ int KernelDevice::aio_write(
   uint64_t off,
   bufferlist &bl,
   IOContext *ioc,
-  bool buffered,
   int write_hint)
 {
   uint64_t len = bl.length();
   dout(20) << __func__ << " 0x" << std::hex << off << "~" << len << std::dec
-	   << (buffered ? " (buffered)" : " (direct)")
-	   << dendl;
+	   << " (direct)" << dendl;
   ceph_assert(is_valid_io(off, len));
   if (cct->_conf->objectstore_blackhole) {
     lderr(cct) << __func__ << " objectstore_blackhole=true, throwing out IO"
@@ -946,8 +944,7 @@ int KernelDevice::aio_write(
     return 0;
   }
 
-  if ((!buffered || bl.get_num_buffers() >= IOV_MAX) &&
-      bl.rebuild_aligned_size_and_memory(block_size, block_size, IOV_MAX)) {
+  if (bl.rebuild_aligned_size_and_memory(block_size, block_size, IOV_MAX)) {
     dout(20) << __func__ << " rebuilding buffer to be aligned" << dendl;
   }
   dout(40) << "data: ";
@@ -957,7 +954,7 @@ int KernelDevice::aio_write(
   _aio_log_start(ioc, off, len);
 
 #ifdef HAVE_LIBAIO
-  if (aio && dio && !buffered) {
+  if (aio && dio) {
     if (cct->_conf->bdev_inject_crash &&
 	rand() % cct->_conf->bdev_inject_crash == 0) {
       derr << __func__ << " bdev_inject_crash: dropping io 0x" << std::hex
@@ -1013,7 +1010,7 @@ int KernelDevice::aio_write(
   } else
 #endif
   {
-    int r = _do_write(off, bl, buffered, write_hint);
+    int r = _do_write(off, bl, false, write_hint);
     if (r >= 0) {
       sync_range(off, len);
     }

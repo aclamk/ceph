@@ -151,7 +151,6 @@ public:
   int sync_range(uint64_t off, uint64_t len) final;
   int aio_write(uint64_t off, bufferlist& bl,
 		IOContext *ioc,
-		bool buffered,
 		int write_hint = WRITE_LIFE_NOT_SET) final;
   int flush() final;
   int discard(uint64_t offset, uint64_t len) final;
