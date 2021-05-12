@@ -831,55 +831,13 @@ void HMSMRDevice::aio_submit(IOContext *ioc)
   }
 }
 
-int HMSMRDevice::_sync_write(uint64_t off, bufferlist &bl, bool buffered, int write_hint)
-{
-  uint64_t len = bl.length();
-  dout(5) << __func__ << " 0x" << std::hex << off << "~" << len
-	  << std::dec << (buffered ? " (buffered)" : " (direct)") << dendl;
-  if (cct->_conf->bdev_inject_crash &&
-      rand() % cct->_conf->bdev_inject_crash == 0) {
-    derr << __func__ << " bdev_inject_crash: dropping io 0x" << std::hex
-	 << off << "~" << len << std::dec << dendl;
-    ++injecting_crash;
-    return 0;
-  }
-  vector<iovec> iov;
-  bl.prepare_iov(&iov);
-  int r = ::pwritev(choose_fd(buffered, write_hint),
-		    &iov[0], iov.size(), off);
-
-  if (r < 0) {
-    r = -errno;
-    derr << __func__ << " pwritev error: " << cpp_strerror(r) << dendl;
-    return r;
-  }
-#ifdef HAVE_SYNC_FILE_RANGE
-  if (buffered) {
-    // initiate IO and wait till it completes
-    r = ::sync_file_range(fd_buffereds[WRITE_LIFE_NOT_SET], off, len, SYNC_FILE_RANGE_WRITE|SYNC_FILE_RANGE_WAIT_AFTER|SYNC_FILE_RANGE_WAIT_BEFORE);
-    if (r < 0) {
-      r = -errno;
-      derr << __func__ << " sync_file_range error: " << cpp_strerror(r) << dendl;
-      return r;
-    }
-  }
-#endif
-
-  io_since_flush.store(true);
-
-  return 0;
-}
-
-int HMSMRDevice::write(
+int HMSMRDevice::_do_write(
   uint64_t off,
-  bufferlist &bl,
+  ceph::buffer::list& bl,
   bool buffered,
   int write_hint)
 {
   uint64_t len = bl.length();
-  dout(20) << __func__ << " 0x" << std::hex << off << "~" << len << std::dec
-	   << (buffered ? " (buffered)" : " (direct)")
-	   << dendl;
   ceph_assert(is_valid_io(off, len));
   if (cct->_conf->objectstore_blackhole) {
     lderr(cct) << __func__ << " objectstore_blackhole=true, throwing out IO"
@@ -895,7 +853,84 @@ int HMSMRDevice::write(
   bl.hexdump(*_dout);
   *_dout << dendl;
 
-  return _sync_write(off, bl, buffered, write_hint);
+  dout(25) << __func__ << " 0x" << std::hex << off << "~" << len
+	  << std::dec << (buffered ? " (buffered)" : " (direct)") << dendl;
+  if (cct->_conf->bdev_inject_crash &&
+      rand() % cct->_conf->bdev_inject_crash == 0) {
+    derr << __func__ << " bdev_inject_crash: dropping io 0x" << std::hex
+	 << off << "~" << len << std::dec << dendl;
+    ++injecting_crash;
+    return 0;
+  }
+  vector<iovec> iov;
+  bl.prepare_iov(&iov);
+
+  auto left = len;
+  auto o = off;
+  size_t idx = 0;
+  do {
+    auto r = ::pwritev(choose_fd(buffered, write_hint),
+      &iov[idx], iov.size() - idx, o);
+
+    if (r < 0) {
+      r = -errno;
+      derr << __func__ << " pwritev error: " << cpp_strerror(r) << dendl;
+      return r;
+    }
+    o += r;
+    left -= r;
+    if (left) {
+      // skip fully processed IOVs
+      while (idx < iov.size() && (size_t)r >= iov[idx].iov_len) {
+        r -= iov[idx++].iov_len;
+      }
+      // update partially processed one if any
+      if (r) {
+        ceph_assert(idx < iov.size());
+        ceph_assert((size_t)r < iov[idx].iov_len);
+        iov[idx].iov_base = static_cast<char*>(iov[idx].iov_base) + r;
+        iov[idx].iov_len -= r;
+        r = 0;
+      }
+      ceph_assert(r == 0);
+    }
+  } while (left);
+
+  return 0;
+}
+
+int HMSMRDevice::sync_range(
+  uint64_t off,
+  uint64_t len)
+{
+#ifdef HAVE_SYNC_FILE_RANGE
+  // initiate IO and wait till it completes
+  auto r = ::sync_file_range(fd_buffereds[WRITE_LIFE_NOT_SET], off, len, SYNC_FILE_RANGE_WRITE|SYNC_FILE_RANGE_WAIT_AFTER|SYNC_FILE_RANGE_WAIT_BEFORE);
+  if (r < 0) {
+    r = -errno;
+    derr << __func__ << " sync_file_range error: " << cpp_strerror(r) << dendl;
+    return r;
+  }
+  return 0;
+#else
+  return -ENOTSUP;
+#endif
+}
+
+int HMSMRDevice::write(
+  uint64_t off,
+  bufferlist &bl,
+  bool buffered,
+  int write_hint)
+{
+  uint64_t len = bl.length();
+  dout(20) << __func__ << " 0x" << std::hex << off << "~" << len << std::dec
+	   << (buffered ? " (buffered)" : " (direct)")
+	   << dendl;
+  int result = _do_write(off, bl, buffered, write_hint);
+  // write that is not synced to disk
+  io_since_flush.store(true);
+  return result;
 }
 
 int HMSMRDevice::aio_write(
@@ -983,7 +1018,10 @@ int HMSMRDevice::aio_write(
   } else
 #endif
   {
-    int r = _sync_write(off, bl, buffered, write_hint);
+    int r = _do_write(off, bl, buffered, write_hint);
+    if (r >= 0) {
+      sync_range(off, len);
+    }
     _aio_log_finish(ioc, off, len);
     if (r < 0)
       return r;

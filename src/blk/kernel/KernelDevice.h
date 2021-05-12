@@ -92,7 +92,7 @@ class KernelDevice : public BlockDevice {
   void _aio_log_finish(IOContext *ioc, uint64_t offset, uint64_t length);
 
   int _sync_write(uint64_t off, ceph::buffer::list& bl, bool buffered, int write_hint);
-
+  int _do_write(uint64_t off, ceph::buffer::list& bl, bool buffered, int write_hint);
   int _lock();
 
   int direct_read_unaligned(uint64_t off, uint64_t len, char *buf);
@@ -134,6 +134,7 @@ public:
   int read_random(uint64_t off, uint64_t len, char *buf, bool buffered) override;
 
   int write(uint64_t off, ceph::buffer::list& bl, bool buffered, int write_hint = WRITE_LIFE_NOT_SET) override;
+  int sync_range(uint64_t off, uint64_t len) override;
   int aio_write(uint64_t off, ceph::buffer::list& bl,
 		IOContext *ioc,
 		bool buffered,

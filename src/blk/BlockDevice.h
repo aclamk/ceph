@@ -246,6 +246,9 @@ public:
     ceph::buffer::list& bl,
     bool buffered,
     int write_hint = WRITE_LIFE_NOT_SET) = 0;
+  virtual int sync_range(
+    uint64_t off,
+    uint64_t len) = 0;
 
   virtual int aio_read(
     uint64_t off,

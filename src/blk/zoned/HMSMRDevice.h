@@ -94,6 +94,7 @@ class HMSMRDevice final : public BlockDevice {
   void _aio_log_start(IOContext *ioc, uint64_t offset, uint64_t length);
   void _aio_log_finish(IOContext *ioc, uint64_t offset, uint64_t length);
 
+  int _do_write(uint64_t off, ceph::buffer::list& bl, bool buffered, int write_hint);
   int _sync_write(uint64_t off, bufferlist& bl, bool buffered, int write_hint);
 
   int _lock();
@@ -147,6 +148,7 @@ public:
 
   int write(uint64_t off, bufferlist& bl, bool buffered,
             int write_hint = WRITE_LIFE_NOT_SET) final;
+  int sync_range(uint64_t off, uint64_t len) final;
   int aio_write(uint64_t off, bufferlist& bl,
 		IOContext *ioc,
 		bool buffered,

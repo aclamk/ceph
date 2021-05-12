@@ -226,6 +226,12 @@ int PMEMDevice::write(uint64_t off, bufferlist& bl, bool buffered, int write_hin
   return 0;
 }
 
+int PMEMDevice::sync_range(uint64_t off, uint64_t len)
+{
+  // all writes are synced
+  return 0;
+}
+
 int PMEMDevice::aio_write(
   uint64_t off,
   bufferlist &bl,

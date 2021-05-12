@@ -825,10 +825,30 @@ void KernelDevice::aio_submit(IOContext *ioc)
   }
 }
 
-int KernelDevice::_sync_write(uint64_t off, bufferlist &bl, bool buffered, int write_hint)
+
+int KernelDevice::_do_write(
+  uint64_t off,
+  ceph::buffer::list& bl,
+  bool buffered,
+  int write_hint)
 {
   uint64_t len = bl.length();
-  dout(5) << __func__ << " 0x" << std::hex << off << "~" << len
+  ceph_assert(is_valid_io(off, len));
+  if (cct->_conf->objectstore_blackhole) {
+    lderr(cct) << __func__ << " objectstore_blackhole=true, throwing out IO"
+	       << dendl;
+    return 0;
+  }
+
+  if ((!buffered || bl.get_num_buffers() >= IOV_MAX) &&
+      bl.rebuild_aligned_size_and_memory(block_size, block_size, IOV_MAX)) {
+    dout(20) << __func__ << " rebuilding buffer to be aligned" << dendl;
+  }
+  dout(40) << "data: ";
+  bl.hexdump(*_dout);
+  *_dout << dendl;
+
+  dout(25) << __func__ << " 0x" << std::hex << off << "~" << len
 	  << std::dec << (buffered ? " (buffered)" : " (direct)") << dendl;
   if (cct->_conf->bdev_inject_crash &&
       rand() % cct->_conf->bdev_inject_crash == 0) {
@@ -871,21 +891,25 @@ int KernelDevice::_sync_write(uint64_t off, bufferlist &bl, bool buffered, int w
     }
   } while (left);
 
-#ifdef HAVE_SYNC_FILE_RANGE
-  if (buffered) {
-    // initiate IO and wait till it completes
-    auto r = ::sync_file_range(fd_buffereds[WRITE_LIFE_NOT_SET], off, len, SYNC_FILE_RANGE_WRITE|SYNC_FILE_RANGE_WAIT_AFTER|SYNC_FILE_RANGE_WAIT_BEFORE);
-    if (r < 0) {
-      r = -errno;
-      derr << __func__ << " sync_file_range error: " << cpp_strerror(r) << dendl;
-      return r;
-    }
-  }
-#endif
-
-  io_since_flush.store(true);
-
   return 0;
+}
+
+int KernelDevice::sync_range(
+  uint64_t off,
+  uint64_t len)
+{
+#ifdef HAVE_SYNC_FILE_RANGE
+  // initiate IO and wait till it completes
+  auto r = ::sync_file_range(fd_buffereds[WRITE_LIFE_NOT_SET], off, len, SYNC_FILE_RANGE_WRITE|SYNC_FILE_RANGE_WAIT_AFTER|SYNC_FILE_RANGE_WAIT_BEFORE);
+  if (r < 0) {
+    r = -errno;
+    derr << __func__ << " sync_file_range error: " << cpp_strerror(r) << dendl;
+    return r;
+  }
+  return 0;
+#else
+  return -ENOTSUP;
+#endif
 }
 
 int KernelDevice::write(
@@ -898,22 +922,10 @@ int KernelDevice::write(
   dout(20) << __func__ << " 0x" << std::hex << off << "~" << len << std::dec
 	   << (buffered ? " (buffered)" : " (direct)")
 	   << dendl;
-  ceph_assert(is_valid_io(off, len));
-  if (cct->_conf->objectstore_blackhole) {
-    lderr(cct) << __func__ << " objectstore_blackhole=true, throwing out IO"
-	       << dendl;
-    return 0;
-  }
-
-  if ((!buffered || bl.get_num_buffers() >= IOV_MAX) &&
-      bl.rebuild_aligned_size_and_memory(block_size, block_size, IOV_MAX)) {
-    dout(20) << __func__ << " rebuilding buffer to be aligned" << dendl;
-  }
-  dout(40) << "data: ";
-  bl.hexdump(*_dout);
-  *_dout << dendl;
-
-  return _sync_write(off, bl, buffered, write_hint);
+  int result = _do_write(off, bl, buffered, write_hint);
+  // write that is not synced to disk
+  io_since_flush.store(true);
+  return result;
 }
 
 int KernelDevice::aio_write(
@@ -1001,7 +1013,10 @@ int KernelDevice::aio_write(
   } else
 #endif
   {
-    int r = _sync_write(off, bl, buffered, write_hint);
+    int r = _do_write(off, bl, buffered, write_hint);
+    if (r >= 0) {
+      sync_range(off, len);
+    }
     _aio_log_finish(ioc, off, len);
     if (r < 0)
       return r;
