@@ -186,6 +186,8 @@ public:
     ceph::mutex lock = ceph::make_mutex("BlueFS::FileWriter::lock");
     std::array<IOContext*,MAX_BDEV> iocv; ///< for each bdev
     std::array<bool, MAX_BDEV> dirty_devs;
+    typedef std::vector<std::pair<uint64_t, uint64_t>> to_sync_list;
+    std::array<to_sync_list, MAX_BDEV> to_sync;
 
     FileWriter(FileRef f)
       : file(std::move(f)),

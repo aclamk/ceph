@@ -2813,8 +2813,14 @@ int BlueFS::_flush_range(FileWriter *h, uint64_t offset, uint64_t length)
     t.substr_of(bl, bloff, x_len);
     if (cct->_conf->bluefs_sync_write) {
       bdev[p->bdev]->write(p->offset + x_off, t, buffered, h->write_hint);
+      bdev[p->bdev]->sync_range(p->offset + x_off, t.length());
     } else {
-      bdev[p->bdev]->aio_write(p->offset + x_off, t, h->iocv[p->bdev], h->write_hint);
+      if (buffered) {
+	bdev[p->bdev]->write(p->offset + x_off, t, buffered, h->write_hint);
+	h->to_sync[p->bdev].emplace_back(p->offset + x_off, t.length());
+      } else {
+	bdev[p->bdev]->aio_write(p->offset + x_off, t, h->iocv[p->bdev], h->write_hint);
+      }
     }
     h->dirty_devs[p->bdev] = true;
     if (p->bdev == BDEV_SLOW) {
@@ -2867,6 +2873,12 @@ void BlueFS::wait_for_aio(FileWriter *h)
     if (p) {
       p->aio_wait();
     }
+  }
+  for (size_t d = 0 ; d < MAX_BDEV; d++) {
+    for (auto& r : h->to_sync[d]) {
+      bdev[d]->sync_range(r.first, r.second);
+    }
+    h->to_sync[d].clear();
   }
   dout(10) << __func__ << " " << h << " done in " << (ceph_clock_now() - start) << dendl;
 }
