@@ -7922,6 +7922,7 @@ int BlueStore::restore_allocator_ak(Allocator* allocator, uint64_t *num, uint64_
       decode(crc, p);
       ceph_assert(crc == crc_calc); // have to handle gently!
       extents_start = p;
+      extents_cnt = 0;
       if (p.get_remaining() < extents_per_crc_block * 16 + 1024) {
 	
 	bufferlist temp_bl;
