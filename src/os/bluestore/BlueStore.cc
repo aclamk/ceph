@@ -7339,7 +7339,17 @@ struct allocator_image_header {
       return -1;
     }
   }
+
+  DENC(allocator_image_header, v, p) {
+    denc(v.timestamp.tv.tv_sec, p);
+    denc(v.timestamp.tv.tv_nsec, p);
+    denc(v.valid_signature, p);
+    denc(v.format_version, p);
+    denc(v.serial, p);    
+  }
+  
 };
+WRITE_CLASS_DENC(allocator_image_header)
 
 struct extent_t {
   uint64_t offset;
@@ -7400,7 +7410,18 @@ struct allocator_image_trailer {
     this->serial               = CEPHTOH_32(this->serial);
     this->entries_count        = CEPHTOH_32(this->entries_count);
   }
+
+  DENC(allocator_image_trailer, v, p) {
+    denc(v.timestamp.tv.tv_sec, p);
+    denc(v.timestamp.tv.tv_nsec, p);
+    denc(v.valid_signature, p);
+    denc(v.format_version, p);
+    denc(v.serial, p);
+    denc(v.entries_count, p);
+  }
 };
+WRITE_CLASS_DENC(allocator_image_trailer)
+
 
 //-------------------------------------------------------------------------------------
 // invalidate old allocation file if exists so will go directly to recovery after failure
@@ -7551,11 +7572,12 @@ int BlueStore::store_allocator(Allocator* src_allocator)
 {
   extent_t buffer[MAX_EXTENTS_IN_BUFFER + trailer_count_in_extents]; // 192KB
   uint64_t file_offset = 0;
-  static_assert(sizeof(allocator_image_header) == sizeof(allocator_image_trailer));
-  static_assert(sizeof(allocator_image_header) %  sizeof(extent_t) == 0);
+  //static_assert(sizeof(allocator_image_header) == sizeof(allocator_image_trailer));
+  //static_assert(sizeof(allocator_image_header) %  sizeof(extent_t) == 0);
   uint64_t stored_alloc_size = 0;
   utime_t  start_time = ceph_clock_now();
   BlueFS::FileWriter *p_handle = nullptr;
+  BlueFS::FileWriter *allocations_file = nullptr;
   int ret = 0;
 
   // create dir if doesn't exist already
@@ -7577,6 +7599,11 @@ int BlueStore::store_allocator(Allocator* src_allocator)
     return -1;
   }
 
+  ret = bluefs->stat(allocator_dir, "AK", nullptr, nullptr);
+  overwrite_file = (ret == 0);
+  ret = bluefs->open_for_write(allocator_dir, "AK", &allocations_file, overwrite_file);
+  
+  
   uint64_t file_size = p_handle->file->fnode.size;
   uint64_t allocated = p_handle->file->fnode.get_allocated();
   dout(1) << __func__ << "::NCB(2)::file_size=" << file_size << ", allocated=" << allocated << ",p_handle->pos="<< p_handle->pos<< dendl;
@@ -7593,6 +7620,14 @@ int BlueStore::store_allocator(Allocator* src_allocator)
   utime_t         timestamp     = ceph_clock_now();
   allocator_image_header  header(timestamp, s_format_version, s_serial);
   //memcpy((byte*)p_curr, (byte*)&header, sizeof(header));
+
+  uint32_t crc = -1;
+  bufferlist header_bl;
+  encode(header, header_bl);
+  crc = header_bl.crc32c(crc);
+  encode(crc, header_bl);
+  allocations_file->append(header_bl);  
+  
   header.encode((char*)p_curr);
   p_curr += header_count_in_extents;
   auto iterated_allocation = [&](uint64_t extent_offset, uint64_t extent_length) {
@@ -7615,6 +7650,30 @@ int BlueStore::store_allocator(Allocator* src_allocator)
   };
   allocator->dump(iterated_allocation);
 
+  size_t extents_per_crc_block = 1000;
+  size_t extents_cnt = 0;
+  bufferlist extents_bl;
+  auto p = extents_bl.get_contiguous_appender(extents_per_crc_block * 16); //max 16 bytes per extent
+  
+  auto allocations_to_bl = [&](uint64_t extent_offset, uint64_t extent_length) {
+    encode(extent_offset, extents_bl);
+    encode(extent_length, extents_bl);
+    extents_cnt++;
+    if (extents_cnt == extents_per_crc_block) {
+      crc = extents_bl.crc32c(crc);
+      encode(crc, extents_bl);
+      allocations_file->append(extents_bl);
+      extents_cnt = 0;
+      extents_bl.clear();
+    }
+  };
+  allocator->dump(allocations_to_bl);
+  encode(uint64_t(0), extents_bl);
+  encode(uint64_t(0), extents_bl);
+  crc = extents_bl.crc32c(crc);
+  encode(crc, extents_bl);
+  allocations_file->append(extents_bl);
+  
   allocator_image_trailer trailer(timestamp, s_format_version, s_serial, extent_count);
   //memcpy((byte*)p_curr, (byte*)&trailer, sizeof(trailer));
   trailer.encode((char*)p_curr);
@@ -7627,6 +7686,12 @@ int BlueStore::store_allocator(Allocator* src_allocator)
   //std::cout << __func__ << "::file_offset="<<file_offset<<" p_handle->pos="<<p_handle->pos<< std::endl;
   bluefs->truncate(p_handle, file_offset);  
 
+  bufferlist trailer_bl;
+  encode(trailer, trailer_bl);
+  crc = trailer_bl.crc32c(crc);
+  encode(crc, trailer_bl);
+  allocations_file->append(trailer_bl);
+  
   delete allocator;
   allocator = nullptr;
   
@@ -7635,6 +7700,9 @@ int BlueStore::store_allocator(Allocator* src_allocator)
   //dout(1) << __func__ << "::NCB(3)::file_size=" << file_size << ", allocated=" << allocated << ",p_handle->pos="<< p_handle->pos<< dendl;
   bluefs->close_writer(p_handle);
 
+  bluefs->fsync(allocations_file);
+  bluefs->close_writer(allocations_file);
+  
   utime_t duration = ceph_clock_now() - start_time;
   dout(1) << __func__<<"::NCB::WRITE-extent_count=" << extent_count << ", stored_alloc_size=" << stored_alloc_size << ", file_size=" << file_offset << dendl;
   dout(1) << __func__<<"::NCB::WRITE-duration=" << duration << " seconds" << dendl;
@@ -7814,10 +7882,78 @@ int BlueStore::allocator_add_restored_entries(Allocator          *allocator,
   return 0;
 }
 
+int BlueStore::restore_allocator_ak(Allocator* allocator, uint64_t *num, uint64_t *bytes)
+{
+  size_t extents_per_crc_block = 1000;
+  BlueFS::FileReader *allocations_file = nullptr;
+  int ret = bluefs->open_for_read(allocator_dir, "AK", &allocations_file, false);
+
+  bufferlist bl,temp_bl;
+  size_t offset = 0;
+  int read_bytes = bluefs->read(allocations_file, offset,
+				1024 + extents_per_crc_block * 16, &temp_bl, nullptr);
+  offset += read_bytes;
+  bl.claim_append(temp_bl);
+
+  uint32_t crc_calc = -1;
+  uint32_t crc;
+  allocator_image_header header;
+  auto p = bl.cbegin();
+  decode(header, p);
+  crc_calc = bl.cbegin().crc32c(p.get_off(), crc_calc); //crc from begin to current pos
+  decode(crc, p);
+  ceph_assert(crc == crc_calc); // have to handle gently!
+
+  auto extents_start = p;
+  size_t extents_cnt = 0;
+
+  while (true) {
+    uint64_t extent_offset;
+    uint64_t extent_length;
+  
+    decode(extent_offset, p);
+    decode(extent_length, p);
+    if (extent_offset == 0 && extent_length == 0) {
+      break;
+    }
+    extents_cnt++;
+    if (extents_cnt == extents_per_crc_block) {
+      crc_calc = extents_start.crc32c(p.get_off() - extents_start.get_off(), crc_calc);
+      decode(crc, p);
+      ceph_assert(crc == crc_calc); // have to handle gently!
+      extents_start = p;
+      if (p.get_remaining() < extents_per_crc_block * 16 + 1024) {
+	
+	bufferlist temp_bl;
+	read_bytes = bluefs->read(allocations_file, offset,
+				extents_per_crc_block * 16 + 1024, &temp_bl, nullptr);
+	offset += read_bytes;
+	bl.claim_append(temp_bl);
+      }
+    }
+    allocator->init_add_free(extent_offset, extent_length);
+  }
+  crc_calc = extents_start.crc32c(p.get_off() - extents_start.get_off(), crc_calc);
+  decode(crc, p);
+  ceph_assert(crc == crc_calc); // have to handle gently!
+  
+  allocator_image_trailer trailer;
+  auto trailer_start = p;
+  decode(trailer, p);
+  crc_calc = trailer_start.crc32c(p.get_off() - trailer_start.get_off(), crc_calc);
+  decode(crc, p);
+  ceph_assert(crc == crc_calc); // have to handle gently!
+  ceph_assert(p.get_remaining() == 0);
+  
+  delete allocations_file;
+  return 0;
+}
+
+
 //-----------------------------------------------------------------------------------
 int BlueStore::restore_allocator(Allocator* allocator, uint64_t *num, uint64_t *bytes) {
+  return restore_allocator_ak(allocator, num, bytes);
   extent_t buffer[MAX_EXTENTS_IN_BUFFER]; // 192KB
-  
   utime_t start_time = ceph_clock_now();
   BlueFS::FileReader *p_handle = nullptr;
   int ret = bluefs->open_for_read(allocator_dir, allocator_file, &p_handle, false);
