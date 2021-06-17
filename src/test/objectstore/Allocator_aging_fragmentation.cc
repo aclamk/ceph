@@ -16,7 +16,7 @@
 #include "include/stringify.h"
 #include "include/Context.h"
 #include "os/bluestore/Allocator.h"
-
+#include "perfglue/heap_profiler.h"
 #include <boost/random/uniform_int.hpp>
 
 typedef boost::mt11213b gen_type;
@@ -110,6 +110,8 @@ struct test_result {
   double fragments_count = 0;
   double time = 0;
   double frag_score = 0;
+  size_t mempool = 0;
+  size_t tcmalloc = 0;
 };
 
 std::map<std::string, test_result> results_per_allocator;
@@ -125,6 +127,9 @@ class AllocTracker
   uint64_t size = 0;
 
 public:
+  uint64_t get_used_capacity() {
+    return allocations.capacity() * sizeof(bluestore_pextent_t);
+  }
   bool push(uint64_t offs, uint32_t len)
   {
     assert(len != 0);
@@ -234,6 +239,9 @@ void AllocTest::doAgingTest(
     uint64_t capacity, uint32_t alloc_unit,
     uint64_t high_mark, uint64_t low_mark, uint32_t iterations, double leak_factor)
 {
+  size_t tcmalloc_mem_0 = 0;
+  ceph_heap_get_numeric_property("generic.current_allocated_bytes", &tcmalloc_mem_0);
+
   assert(isp2(alloc_unit));
   cct->_conf->bdev_block_size = alloc_unit;
   PExtentVector allocated, tmp;
@@ -275,6 +283,12 @@ void AllocTest::doAgingTest(
         " #frags=" << ( fragmented != 0 ? double(fragments) / fragmented : 0 ) <<
         " time=" << (ceph_clock_now() - start) * 1000 << "ms" << std::endl;
   }
+
+  size_t tcmalloc_mem = 0;
+  ceph_heap_get_numeric_property("generic.current_allocated_bytes", &tcmalloc_mem);
+  size_t tcmalloc_actual = tcmalloc_mem - tcmalloc_mem_0 - at->get_used_capacity();
+  size_t in_mempool = mempool::bluestore_alloc::allocated_bytes();
+
   double frag_score = alloc->get_fragmentation_score();
   do_free(0);
   double free_frag_score = alloc->get_fragmentation_score();
@@ -283,7 +297,8 @@ void AllocTest::doAgingTest(
   std::cout << "    fragmented allocs=" << 100.0 * fragmented / allocs << "%" <<
         " #frags=" << ( fragmented != 0 ? double(fragments) / fragmented : 0 ) <<
         " time=" << (ceph_clock_now() - start) * 1000 << "ms" <<
-        " frag.score=" << frag_score << " after free frag.score=" << free_frag_score << std::endl;
+        " frag.score=" << frag_score << " after free frag.score=" << free_frag_score <<
+        " bluestore_alloc=" << in_mempool << " tcmalloc_mem=" << tcmalloc_actual << std::endl;
 
   uint64_t sum = 0;
   uint64_t cnt = 0;
@@ -292,6 +307,7 @@ void AllocTest::doAgingTest(
     sum+=len;
   };
   alloc->dump(list_free);
+  init_close();
   ASSERT_EQ(sum, capacity);
   if (verbose)
     std::cout << "free chunks sum=" << sum << " free chunks count=" << cnt << std::endl;
@@ -303,6 +319,8 @@ void AllocTest::doAgingTest(
   r.fragments_count += ( fragmented != 0 ? double(fragments) / fragmented : 2 );
   r.time += ceph_clock_now() - start;
   r.frag_score += frag_score;
+  r.mempool += in_mempool;
+  r.tcmalloc += tcmalloc_actual;
 }
 
 void AllocTest::SetUpTestSuite()
@@ -331,7 +349,9 @@ void AllocTest::TearDownTestSuite()
         "    fragmented allocs=" << r.second.fragmented_percent / r.second.tests_cnt << "%" <<
         " #frags=" << r.second.fragments_count / r.second.tests_cnt <<
         " free_score=" << r.second.frag_score / r.second.tests_cnt <<
-        " time=" << r.second.time * 1000 << "ms" << std::endl;
+        " time=" << r.second.time * 1000 << "ms" <<
+        " mempool=" << r.second.mempool / r.second.tests_cnt <<
+        " tcmalloc=" << r.second.tcmalloc / r.second.tests_cnt << std::endl;
   }
 }
 

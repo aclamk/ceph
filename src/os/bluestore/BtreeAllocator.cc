@@ -222,7 +222,7 @@ int64_t BtreeAllocator::_allocate(
     uint64_t offset, length;
     int r = _allocate(std::min(max_alloc_size, want - allocated),
                       unit, &offset, &length);
-    std::cout << "alloc(" << offset << ", " << length << std::endl;
+    //std::cout << "alloc(" << offset << ", " << length << std::endl;
     if (r < 0) {
       // Allocation failed.
       break;
@@ -316,7 +316,7 @@ void BtreeAllocator::_release(const interval_set<uint64_t>& release_set)
       << " length 0x" << length
       << std::dec << dendl;
     _add_to_tree(offset, length);
-    std::cout << "release(" << offset << ", " << length << std::endl;
+    //std::cout << "release(" << offset << ", " << length << std::endl;
   }
 }
 
