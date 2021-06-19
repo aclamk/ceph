@@ -2159,7 +2159,6 @@ bool BlueFS::should_start_compact_log()
 void BlueFS::compact_log_dump_metadata(bluefs_transaction_t *t,
 					int flags)
 {
-  //  ceph_assert(ceph_mutex_is_locked(coll_lock));
   std::lock_guard dirl(dirs_lock);
 
   t->seq = 1;
@@ -2315,6 +2314,24 @@ void BlueFS::rewrite_log_and_layout_sync(bool allocate_with_fallback,
   }
 }
 
+
+/**
+ * Allocate new extent and insert jump to it
+ */
+void _insert_jump(PExtentVector& extents)
+{
+  // 0. under log_lock, so no new log_t elements can be added
+  // 1. new_pos = end of allocated space
+  // 2. allocate extents
+  // 3. add extents to log
+  // 4. insert log update op to log
+  // 5. insert jump op(new_pos) to log
+  // 6. sync log to disc - just data
+  // 7. set write_pos to new_pos
+}
+
+
+
 /*
  * 1. Allocate a new extent to continue the log, and then log an event
  * that jumps the log write position to the new extent.  At this point, the
@@ -2338,44 +2355,25 @@ void BlueFS::rewrite_log_and_layout_sync(bool allocate_with_fallback,
  * 8. Release the old log space.  Clean up.
  */
 
-
-/**
- * Allocate new extent and insert jump to it
- */
-void _insert_jump(PExtentVector& extents)
-{
-  // 0. under log_lock, so no new log_t elements can be added
-  // 1. new_pos = end of allocated space
-  // 2. allocate extents
-  // 3. add extents to log
-  // 4. insert log update op to log
-  // 5. insert jump op(new_pos) to log
-  // 6. sync log to disc - just data
-  // 7. set write_pos to new_pos
-}
-
-
-
-
 void BlueFS::compact_log_async()
 {
+  dout(10) << __func__ << dendl;
   // only one compaction allowed at one time
   bool old_is_comp = std::atomic_exchange(&log_is_compacting, true);
   if (old_is_comp) {
+    dout(10) << __func__ << " ongoing" <<dendl;
     return;
   }
   
   log_lock.lock();
-  
-  dout(10) << __func__ << dendl;
   File *log_file = log_writer->file.get();
-  ceph_assert(!new_log);
-  ceph_assert(!new_log_writer);
+  FileWriter *new_log_writer = nullptr;
+  FileRef new_log = nullptr;
+  uint64_t new_log_jump_to = 0;
+  uint64_t old_log_jump_to = 0;
 
-  // create a new log [writer] so that we know compaction is in progress
-  // (see _should_compact_log)
   new_log = ceph::make_ref<File>();
-  new_log->fnode.ino = 0;   // so that _flush_range won't try to log the fnode
+  new_log->fnode.ino = 0;   // we use _flush_special to avoid log of the fnode
 
   // 0. wait for any racing flushes to complete.  (We do not want to block
   // in _flush_sync_log with jump_to set or else a racing thread might flush
@@ -2385,10 +2383,6 @@ void BlueFS::compact_log_async()
   //  log_cond.wait(l);
   // }
 
-  // we synchronize writing to log, by lock to log_writer :D
-  // TODO - error - changing log_writer steals lock
-  // std::unique_lock<ceph::mutex> ll(log_writer->lock);
-
   // Part 1.
   // Prepare current log for jumping into it.
   // 1. Allocate extent
@@ -2397,17 +2391,13 @@ void BlueFS::compact_log_async()
   // During that, no one else can write to log, otherwise we risk jumping backwards.
   // We need to sync log, because we are injecting discontinuity, and writer is not prepared for that.
 
-  //{
-  //std::unique_lock<ceph::mutex> switch_log_new_extent(log_writer->lock);
-
-  //in _maybe_append_runway we set and then unset log_forbidden_to_expand under log_writer
-  //and we are prohibited to enter async compaction twice
+  //signal _maybe_extend_log that expansion of log is temporary inacceptable
   bool old_forbidden = atomic_exchange(&log_forbidden_to_expand, true);
   ceph_assert(old_forbidden == false);
 
   vselector->sub_usage(log_file->vselector_hint, log_file->fnode);
 
-  // 1. allocate new log space and jump to it.
+  // 1.1 allocate new log space and jump to it.
   old_log_jump_to = log_file->fnode.get_allocated();
   uint64_t runway = log_file->fnode.get_allocated() - log_writer->get_effective_write_pos();
   dout(10) << __func__ << " old_log_jump_to 0x" << std::hex << old_log_jump_to
@@ -2422,8 +2412,8 @@ void BlueFS::compact_log_async()
 
   // update the log file change and log a jump to the offset where we want to
   // write the new entries
-  log_t.op_file_update(log_file->fnode);
-  log_t.op_jump(log_seq, old_log_jump_to);
+  log_t.op_file_update(log_file->fnode); // 1.2
+  log_t.op_jump(log_seq, old_log_jump_to); // 1.3
 
   // we need to flush all bdev because we will be streaming all dirty files to log
   // TODO - think - if _flush_and_sync_log_jump will not add dirty files nor release pending allocations
@@ -2537,6 +2527,8 @@ void BlueFS::compact_log_async()
 
   old_forbidden = atomic_exchange(&log_forbidden_to_expand, false);
   ceph_assert(old_forbidden == true);
+  //to wake up if someone was in need of expanding log
+  log_cond.notify_all();
 
   // 7. release old space
   dout(10) << __func__ << " release old log extents " << old_extents << dendl;
@@ -2550,14 +2542,14 @@ void BlueFS::compact_log_async()
   // delete the new log, remove from the dirty files list
   _close_writer(new_log_writer);
   // flush_special does not dirty files
-  #if AKAK
+  /*
   if (new_log->dirty_seq) {
     std::lock_guard dl(dirty_lock);
     ceph_assert(dirty_files.count(new_log->dirty_seq));
     auto it = dirty_files[new_log->dirty_seq].iterator_to(*new_log);
     dirty_files[new_log->dirty_seq].erase(it);
   }
-  #endif
+  */
   new_log_writer = nullptr;
   new_log = nullptr;
   log_cond.notify_all();
@@ -2651,14 +2643,11 @@ int64_t BlueFS::_maybe_extend_log()
      * - re-run compaction with more runway for old log
      * - add OP_FILE_ADDEXT that adds extent; will be compatible with both logs
      */
-    {
-      //TODO - maybe atomic-exchange?
-      bool exp_forbidden = false;
-      if (!atomic_compare_exchange_strong(&log_forbidden_to_expand, &exp_forbidden, true)) {
-	return -EWOULDBLOCK;
-      }
+
+    if (log_forbidden_to_expand.load() == true) {
+      return -EWOULDBLOCK;
     }
-    //ceph_assert(ceph_mutex_is_locked(log_writer->file->lock));
+
     vselector->sub_usage(log_writer->file->vselector_hint, log_writer->file->fnode);
     int r = _allocate(
       vselector->select_prefer_bdev(log_writer->file->vselector_hint),
@@ -2667,13 +2656,6 @@ int64_t BlueFS::_maybe_extend_log()
     ceph_assert(r == 0);
     vselector->add_usage(log_writer->file->vselector_hint, log_writer->file->fnode);
     log_t.op_file_update(log_writer->file->fnode);
-
-    {
-      std::lock_guard ll(cond_lock);
-      bool exp_forbidden = true;
-      ceph_assert(atomic_compare_exchange_strong(&log_forbidden_to_expand, &exp_forbidden, false));
-      log_cond.notify_all();
-    }
   }
   return runway;
 }
@@ -2795,8 +2777,8 @@ int BlueFS::flush_and_sync_log(uint64_t want_seq)
     if (available_runway == -EWOULDBLOCK) {
       // we are in need of adding runway, but we are during log-switch from compaction
       dirty_lock.unlock();
-      log_lock.unlock();
-      std::unique_lock<ceph::mutex> ll(cond_lock);
+      //instead log_lock_unlock() do move ownership
+      std::unique_lock<ceph::mutex> ll(log_lock, std::adopt_lock);
       while (log_forbidden_to_expand.load()) {
 	log_cond.wait(ll);
       }

@@ -336,16 +336,12 @@ private:
   FileWriter *log_writer = 0;  ///< writer for the log
   bluefs_transaction_t log_t;  ///< pending, unwritten log transaction
   bool log_flushing = false;   ///< true while flushing the log
-  ceph::condition_variable log_cond;
-  ceph::mutex cond_lock = ceph::make_mutex("BlueFS::File::log_lock"); //protects 
-  std::atomic<bool> log_is_compacting{false};
-  std::atomic<bool> log_forbidden_to_expand{false};
 
-  uint64_t new_log_jump_to = 0;
-  uint64_t old_log_jump_to = 0;
-  FileRef new_log = nullptr;
-  FileWriter *new_log_writer = nullptr;
-
+  ceph::condition_variable log_cond;                             ///< used for state control between log flush / log compaction
+  ceph::mutex cond_lock = ceph::make_mutex("BlueFS::cond_lock"); ///< ....
+  std::atomic<bool> log_is_compacting{false};                    ///< signals that bluefs log is already ongoing compaction
+  std::atomic<bool> log_forbidden_to_expand{false};              ///< used to signal that async compaction is in state
+                                                                 ///  that prohibits expansion of bluefs log
   /*
    * There are up to 3 block devices:
    *
