@@ -408,10 +408,10 @@ private:
 				 PExtentVector* extents);
 
   /* signal replay log to include h->file in nearest log flush */
-  int _signal_dirty_to_log(FileWriter *h);
-  int _flush_range(FileWriter *h, uint64_t offset, uint64_t length);
+  int _signal_dirty_to_log_D(FileWriter *h);
+  int _flush_range_F(FileWriter *h, uint64_t offset, uint64_t length);
   int _flush_data(FileWriter *h, uint64_t offset, uint64_t length, bool buffered);
-  int _flush(FileWriter *h, bool force, bool *flushed = nullptr);
+  int _flush_F(FileWriter *h, bool force, bool *flushed = nullptr);
   int _flush_special(FileWriter *h);
   int _fsync(FileWriter *h);
 
@@ -424,17 +424,17 @@ private:
   void _extend_log();
   uint64_t _log_advance_seq();
   void _consume_dirty(uint64_t seq);
-  void clear_dirty_set_stable(uint64_t seq_stable);
+  void clear_dirty_set_stable_D(uint64_t seq_stable);
   void release_pending_allocations(vector<interval_set<uint64_t>>& to_release);
 
 
   void _flush_and_sync_log_core(int64_t available_runway);
-  int _flush_and_sync_log_jump(uint64_t jump_to,
+  int _flush_and_sync_log_jump_D(uint64_t jump_to,
 			       int64_t available_runway);
-  int flush_and_sync_log(uint64_t want_seq = 0);
+  int _flush_and_sync_log_LD(uint64_t want_seq = 0);
 
-  uint64_t estimate_log_size();
-  bool should_start_compact_log();
+  uint64_t estimate_log_size_N();
+  bool should_start_compact_log_L_N();
 
   enum {
     REMOVE_DB = 1,
@@ -442,12 +442,12 @@ private:
     RENAME_SLOW2DB = 4,
     RENAME_DB2SLOW = 8,
   };
-  void compact_log_dump_metadata(bluefs_transaction_t *t,
+  void compact_log_dump_metadata_N(bluefs_transaction_t *t,
 				 int flags);
-  void compact_log_sync();
-  void compact_log_async();
+  void _compact_log_sync_LN_LD();
+  void _compact_log_async_LD_N_D();
 
-  void rewrite_log_and_layout_sync(bool allocate_with_fallback,
+  void _rewrite_log_and_layout_sync_LN_LD(bool allocate_with_fallback,
 				    int super_dev,
 				    int log_dev,
 				    int new_log_dev,
@@ -577,7 +577,7 @@ public:
   /// sync any uncommitted state to disk
   void sync_metadata(bool avoid_compact);
   /// test and compact log, if necessary
-  void maybe_compact_log();
+  void _maybe_compact_log_LN_N_LD_D();
 
   void set_volume_selector(BlueFSVolumeSelector* s) {
     vselector.reset(s);
@@ -621,11 +621,11 @@ public:
   void invalidate_cache(FileRef f, uint64_t offset, uint64_t len);
   int preallocate(FileRef f, uint64_t offset, uint64_t len);
   int truncate(FileWriter *h, uint64_t offset);
-  int do_replay_recovery_read(FileReader *log,
-			      size_t log_pos,
-			      size_t read_offset,
-			      size_t read_len,
-			      bufferlist* bl);
+  int _do_replay_recovery_read(FileReader *log,
+			       size_t log_pos,
+			       size_t read_offset,
+			       size_t read_len,
+			       bufferlist* bl);
 
   size_t probe_alloc_avail(int dev, uint64_t alloc_size);
 
@@ -692,7 +692,18 @@ public:
   void get_paths(const std::string& base, paths& res) const override;
 };
 /**
- * Locks
+ * log < dirty < nodes
+ * FileWriter.lock < dirty
+ * FileWriter.lock <
+ *
+ *     <        |  log  | dirty | nodes | File  | FileWriter
+ * -------------|-------|-------|-------|-------|-------
+ * log          |           <       <                      
+ * dirty        |                                        
+ * nodes        |                                        
+ * File         |                                        
+ * FileWriter   |                                        
+ * 
  * FileWriter -> File -> Dirty (_flush_range)
  * ino1 (File) -> Dirty (flush_and_sync_log)
  
