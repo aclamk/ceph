@@ -4021,7 +4021,7 @@ options:
   long_desc: When this option is enabled, bluefs will use bluefs_buffered_io setting
     only for reads, and all writes will be serviced by direct asynchronous io.
     Requires AIO and posix_fadvise.
-  default: false
+  default: true
   with_legacy: false
   flags:
   - startup
