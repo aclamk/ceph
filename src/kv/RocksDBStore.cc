@@ -19,7 +19,10 @@
 #include "rocksdb/filter_policy.h"
 #include "rocksdb/utilities/convenience.h"
 #include "rocksdb/merge_operator.h"
-
+#include "port/port_posix.h"
+#include "db/internal_stats.h"
+#include "db/column_family.h"
+#include "db/db_impl/db_impl.h"
 #include "common/perf_counters.h"
 #include "common/PriorityCache.h"
 #include "include/common_fwd.h"
@@ -769,7 +772,9 @@ int RocksDBStore::create_shards(const rocksdb::Options& opt,
   for (auto& p : sharding_def) {
     // copy default CF settings, block cache, merge operators as
     // the base for new CF
-    rocksdb::ColumnFamilyOptions cf_opt(opt);
+    auto opt1(opt);
+    rocksdb::ColumnFamilyOptions cf_opt(opt1);
+    opt1.statistics = rocksdb::CreateDBStatistics();
     rocksdb::Status status;
     // apply options to column family
     int r = update_column_family_options(p.name, p.options, &cf_opt);
@@ -1215,10 +1220,141 @@ int RocksDBStore::do_open(ostream &out,
   logger = plb.create_perf_counters();
   cct->get_perfcounters_collection()->add(logger);
 
-  if (compact_on_mount) {
+  if (compact_on_mount || true) {
     derr << "Compacting rocksdb store..." << dendl;
     compact();
     derr << "Finished compacting rocksdb store" << dendl;
+  }
+
+  rocksdb::ColumnFamilyHandleImpl* cfi = dynamic_cast<rocksdb::ColumnFamilyHandleImpl*>(default_cf);
+  ceph_assert(cfi);
+  rocksdb::ColumnFamilyData* cfd = cfi->cfd();
+  rocksdb::InternalStats* stats = cfd->internal_stats();
+  const std::vector<rocksdb::InternalStats::CompactionStats>& cs = stats->TEST_GetCompactionStats();
+  //  derr << "cs[0].micros=" << cs[0].micros << dendl;
+  rocksdb::DBImpl* dbi = dynamic_cast<rocksdb::DBImpl*>(db);
+
+
+  derr << "LISTING rocksdb::InternalStats::ppt_name_to_info" << dendl;
+  for (auto& x : stats->ppt_name_to_info) {
+    auto cf = default_cf;
+    std::string value;
+    std::map<std::string, std::string> valuemap;
+    bool mapok = dbi->GetMapProperty(cf, rocksdb::Slice(x.first), &valuemap);
+    bool valok = dbi->GetProperty(cf, rocksdb::Slice(x.first), &value);
+    if (mapok && valok) {
+      derr << "CF " << x.first << " MAP&VAL" << dendl;
+      derr << "CF val=" << value << dendl;
+      for (auto& i: valuemap) {
+	derr << "CF map_row=" << i.first << "=" << i.second << dendl;
+      }
+    } else if (mapok) {
+      derr << "CF " << x.first << " MAP" << dendl;
+      for (auto& i: valuemap) {
+	derr << "CF map_row=" << i.first << "=" << i.second << dendl;
+      }
+    } else if (valok) {
+      derr << "CF " << x.first << " VAL" << dendl;
+      derr << "CF val=" << value << dendl;      
+    } else {
+      derr << "CF " << x.first << " OTHER!" << dendl;
+      bool mapok = dbi->GetMapProperty(cf, rocksdb::Slice(x.first+"1"), &valuemap);
+      bool valok = dbi->GetProperty(cf, rocksdb::Slice(x.first+"1"), &value);
+      if (mapok && valok) {
+	derr << "CF --> " << x.first+"1" << " MAP&VAL" << dendl;
+	derr << "CF -->" << "val=" << value << dendl;
+	for (auto& i: valuemap) {
+	  derr << "CF -->" << "map_row=" << i.first << "=" << i.second << dendl;
+	}
+      } else if (mapok) {
+	derr << "CF -->" << x.first+"1" << " MAP" << dendl;
+	for (auto& i: valuemap) {
+	  derr << "CF -->" << "map_row=" << i.first << "=" << i.second << dendl;
+	}
+      } else if (valok) {
+	derr << "CF -->" << x.first+"1" << " VAL" << dendl;
+	derr << "CF -->" << "val=" << value << dendl;      
+      } else {
+	derr << "CF -->" << x.first+"1" << " OTHER!" << dendl;
+      }
+    }
+  }
+
+#if 0
+  for (auto& x : stats->ppt_name_to_info) {
+    for (auto& p : cf_handles) {
+      auto cf = p.second.handles[0];
+      derr << p.first << "name = " << x.first << dendl;
+      std::string value;
+      dbi->GetProperty(cf, rocksdb::Slice(x.first), &value);
+      derr << p.first << "value = " << value << dendl;
+      derr << p.first << "nameMAP = " << x.first << dendl;
+      std::map<std::string, std::string> valuemap;
+      dbi->GetMapProperty(cf, rocksdb::Slice(x.first), &valuemap);
+      for (auto& i: valuemap) {
+	derr << p.first << "key=" << i.first << " value = " << i.second << dendl;
+      }
+      //      dout(-1) << "val = " <<
+      break; //just one please
+    }
+  }
+#endif
+  
+#if 0  
+  std::map<std::string, uint64_t> stats_map;
+  dbstats->getTickerMap(&stats_map);
+  for (auto& i : stats_map) {
+    derr << "stats key=" << i.first << " val=" << i.second << dendl;
+  }
+  if (dbstats_cf) {
+    std::map<std::string, uint64_t> stats_map1;
+    dbstats_cf->getTickerMap(&stats_map1);
+    for (auto& i : stats_map1) {
+      derr << "cf_stats key=" << i.first << " val=" << i.second << dendl;
+    }
+  }
+#endif
+  //bool StatisticsImpl::getTickerMap(
+  //  std::map<std::string, uint64_t>* stats_map)
+#if 0
+  struct HistogramData {
+  double median;
+  double percentile95;
+  double percentile99;
+  double average;
+  double standard_deviation;
+  // zero-initialize new members since old Statistics::histogramData()
+  // implementations won't write them.
+  double max = 0.0;
+  uint64_t count = 0;
+  uint64_t sum = 0;
+  double min = 0.0;
+};
+#endif
+  for (int i=0; i < rocksdb::TickersNameMap.size(); i++) {
+    rocksdb::HistogramData data;
+    uint64_t val = dbstats->getTickerCount(rocksdb::TickersNameMap[i].first);
+    derr << "DB tick " << rocksdb::TickersNameMap[i].second << "=" << val << dendl;
+  }
+
+
+
+  for (int i=0; i < rocksdb::HistogramsNameMap.size(); i++) {
+    rocksdb::HistogramData data;
+    dbstats->histogramData(rocksdb::HistogramsNameMap[i].first, &data);
+    derr << "DB hist " << rocksdb::HistogramsNameMap[i].second << dendl;
+    derr << "DB raw: "
+	 << " p50=" << data.median
+	 << " p95=" << data.percentile95
+	 << " p99=" << data.percentile99
+	 << " avg=" << data.average
+	 << " std=" << data.standard_deviation
+	 << " max=" << data.max
+	 << " count=" << data.count
+	 << " sum=" << data.sum
+	 << " min=" << data.min
+	 << dendl;
+    derr << "DB txt: " << dbstats->getHistogramString(rocksdb::HistogramsNameMap[i].first) << dendl;
   }
   return 0;
 }

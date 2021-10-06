@@ -13,6 +13,8 @@ endif (WITH_LEVELDB)
 add_library(kv STATIC ${kv_srcs}
   $<TARGET_OBJECTS:common_prioritycache_obj>)
 
+target_include_directories(kv PRIVATE "${CMAKE_SOURCE_DIR}/src/rocksdb")
+
 target_link_libraries(kv ${LEVELDB_LIBRARIES}
   RocksDB::RocksDB
   heap_profiler)
