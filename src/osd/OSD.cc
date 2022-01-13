@@ -4245,6 +4245,7 @@ PerfCounters* OSD::create_recoverystate_perf()
 
 int OSD::shutdown()
 {
+  cct->_conf->osd_fast_shutdown = true;
   if (cct->_conf->osd_fast_shutdown) {
     derr << "*** Immediate shutdown (osd_fast_shutdown=true) ***" << dendl;
     if (cct->_conf->osd_fast_shutdown_notify_mon)
