@@ -17,6 +17,11 @@
 
 static struct extent_t null_extent = {0, 0};
 
+std::ostream& operator<<(std::ostream& out, const extent_t& e) {
+  out << "{" << e.offset << ", " << e.length << "}";
+  return out;
+}
+
 //----------------------------------------------------------------------------
 std::ostream& operator<<(std::ostream& out, const SimpleBitmap& bmap)
 {

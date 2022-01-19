@@ -1125,4 +1125,39 @@ struct bluestore_compression_header_t {
 WRITE_CLASS_DENC(bluestore_compression_header_t)
 
 
+#if 1
+struct simple_bitmap_t {
+  struct range_t {
+    uint64_t offset = 0;
+    uint64_t length = 0;
+    bool operator==(const range_t& other) const {
+      return offset == other.offset && length == other.length;
+    };
+    operator bool() const {
+      return offset != 0 || length != 0;
+    }
+  };
+
+  simple_bitmap_t(CephContext *_cct, uint64_t num_bits);
+  ~simple_bitmap_t();
+  void set(uint64_t offset, uint64_t length);
+  uint64_t find_0(uint64_t offset);
+  uint64_t find_1(uint64_t offset);
+  range_t next_unset(const range_t& r);
+  friend void swap(simple_bitmap_t& lhs, simple_bitmap_t& rhs) {
+    uint64_t* a = lhs.m_bits;
+    lhs.m_bits = rhs.m_bits;
+    rhs.m_bits = a;
+    std::swap(lhs.m_capacity, rhs.m_capacity);
+  }
+private:
+  uint64_t m_capacity;
+  uint64_t* m_bits = nullptr;
+  friend std::ostream& operator<<(std::ostream& out, const simple_bitmap_t& b);
+};
+std::ostream& operator<<(std::ostream& out, const simple_bitmap_t::range_t& r);
+std::ostream& operator<<(std::ostream& out, const simple_bitmap_t& b);
+#endif
+
+
 #endif

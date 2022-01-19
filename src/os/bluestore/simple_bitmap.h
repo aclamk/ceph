@@ -27,7 +27,11 @@
 struct extent_t {
   uint64_t offset;
   uint64_t length;
+  bool operator==(const extent_t& other) const {
+    return offset == other.offset && length == other.length;
+  }
 };
+std::ostream& operator<<(std::ostream& out, const extent_t& e);
 
 class SimpleBitmap {
 public:

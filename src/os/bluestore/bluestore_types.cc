@@ -1181,3 +1181,123 @@ void bluestore_compression_header_t::generate_test_instances(
   o.push_back(new bluestore_compression_header_t(1));
   o.back()->length = 1234;
 }
+
+constexpr size_t BITS_IN_WORD = 64;
+constexpr uint64_t FULL_MASK = ~uint64_t(0);
+simple_bitmap_t::simple_bitmap_t(CephContext *_cct, uint64_t num_bits)
+{
+  m_capacity = num_bits;
+  m_bits = new uint64_t[(num_bits + 63) / 64];
+  memset(m_bits, 0, (num_bits + 63) / 64 * 8);
+}
+
+simple_bitmap_t::~simple_bitmap_t()
+{
+  delete[] m_bits;
+}
+
+void simple_bitmap_t::set(uint64_t offset, uint64_t length)
+{
+  uint32_t first_index = offset / BITS_IN_WORD;
+  uint32_t first_bit = offset % BITS_IN_WORD;
+  uint32_t last_index = (offset + length) / BITS_IN_WORD;
+  uint32_t last_bit = (offset + length) % BITS_IN_WORD;
+
+  if (first_index == last_index) {
+    // 0000011111111110000000
+    //     ^last     ^first
+    uint64_t set_mask = FULL_MASK >> (BITS_IN_WORD - (last_bit - first_bit)) << first_bit;
+    m_bits[first_index] |= set_mask;
+  } else {
+    // 1111111111111110000000
+    //               ^first
+    uint64_t set_mask = FULL_MASK << first_bit;
+    m_bits[first_index] |= set_mask;
+    first_index++;
+
+    while (first_index < last_index) {
+      m_bits[first_index] = FULL_MASK;
+      first_index++;
+    }
+    
+    if (last_bit != 0) {
+      // need to check to avoid out-of-array access
+      // 000000000000111111
+      //            ^last
+      uint64_t set_mask = FULL_MASK >> (BITS_IN_WORD - last_bit);
+      m_bits[first_index] |= set_mask;
+    }
+  }
+}
+
+uint64_t simple_bitmap_t::find_1(uint64_t offset)
+{
+  uint32_t first_index = offset / BITS_IN_WORD;
+  uint32_t first_bit = offset % BITS_IN_WORD;
+
+  while (offset < m_capacity) {
+    uint64_t val = m_bits[first_index];
+    uint32_t ffs = __builtin_ffsll(val >> first_bit);
+    if (ffs != 0) {
+      offset += ffs - 1;
+      if (offset > m_capacity) offset = m_capacity;
+      return offset;
+    }
+    offset += BITS_IN_WORD - first_bit;
+    first_bit = 0;
+    first_index++;
+  }
+  return m_capacity;
+}
+
+uint64_t simple_bitmap_t::find_0(uint64_t offset)
+{
+  uint32_t first_index = offset / BITS_IN_WORD;
+  uint32_t first_bit = offset % BITS_IN_WORD;
+
+  while (offset < m_capacity) {
+    uint64_t val = m_bits[first_index];
+    uint32_t ffs = __builtin_ffsll((~val) >> first_bit);
+    if (ffs != 0) {
+      offset += ffs - 1;
+      if (offset > m_capacity) offset = m_capacity;
+      return offset;
+    }
+    offset += BITS_IN_WORD - first_bit;
+    first_bit = 0;
+    first_index++;
+  }
+  return m_capacity;
+}
+
+simple_bitmap_t::range_t simple_bitmap_t::next_unset(const range_t& r)
+{
+  if (r.offset + r.length >= m_capacity) {
+    return range_t();
+  }
+  uint64_t index_0 = find_0(r.offset + r.length);
+  if (index_0 == m_capacity) {
+    return range_t();
+  }
+  uint64_t index_1 = find_1(index_0);
+  return range_t{index_0, index_1 - index_0};
+}
+
+std::ostream& operator<<(std::ostream& out, const simple_bitmap_t::range_t& r)
+{
+  out << "{" << r.offset << ", " << r.length << "}";
+  return out;  
+}
+
+std::ostream& operator<<(std::ostream& out, const simple_bitmap_t& b)
+{
+  out << std::hex;
+  out << b.m_capacity << "(" << (void*)b.m_bits << ")";
+  for (size_t i = 0; i < (b.m_capacity + 63) / 64; i++) {
+    out << ":" << b.m_bits[i];
+  }
+  out << std::dec;
+  //out << "{" << r.offset << ", " << r.length << "}";
+  return out;  
+}
+
