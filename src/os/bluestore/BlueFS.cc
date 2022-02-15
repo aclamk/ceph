@@ -3773,6 +3773,7 @@ size_t BlueFS::probe_alloc_avail(int dev, uint64_t alloc_size)
   }
   return total;
 }
+
 // ===============================================
 // OriginalVolumeSelector
 

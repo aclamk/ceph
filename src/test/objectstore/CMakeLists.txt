@@ -147,6 +147,14 @@ if(WITH_BLUESTORE)
   add_ceph_unittest(unittest_bdev)
   target_link_libraries(unittest_bdev os global)
 
+  # unittest_sst_surveyor
+  add_executable(unittest_sstcheck
+    test_sstcheck_data.cc
+    test_sstcheck.cc
+    )
+  add_ceph_unittest(unittest_sstcheck)
+  target_link_libraries(unittest_sstcheck os global)
+
 endif(WITH_BLUESTORE)
 
 # unittest_transaction

@@ -35,6 +35,7 @@ if(WITH_BLUESTORE)
     bluestore/AvlAllocator.cc
     bluestore/BtreeAllocator.cc
     bluestore/HybridAllocator.cc
+    bluestore/SstCheck.cc
   )
 endif(WITH_BLUESTORE)
 

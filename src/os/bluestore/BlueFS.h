@@ -653,6 +653,10 @@ public:
   uint64_t debug_get_dirty_seq(FileWriter *h);
   bool debug_get_is_dev_dirty(FileWriter *h, uint8_t dev);
 
+  // Examine SST file for possible corruption
+  // 
+  void SstSurvey(const std::string& sst);
+
 private:
   // Wrappers for BlockDevice::read(...) and BlockDevice::read_random(...)
   // They are used for checking if read values are all 0, and reread if so.
