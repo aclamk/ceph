@@ -593,6 +593,65 @@ public:
 			      size_t read_len,
 			      bufferlist* bl);
 
+  struct compare_extents {
+    bool operator()(const bluefs_extent_t& a, const bluefs_extent_t& b) const {
+      if (a.bdev < b.bdev) return true;
+      if (a.offset < b.offset) return true;
+      return a.length < b.length;
+    }
+  };
+
+  typedef std::set<bluefs_extent_t, compare_extents> ordered_extents;
+
+  struct compare_fnode {
+    bool operator()(const bluefs_fnode_t& a, const bluefs_fnode_t& b) const {
+      if (a.ino < b.ino) return true;
+      if (a.ino > b.ino) return false;
+      if (a.extents.size() < b.extents.size()) return true;
+      if (a.extents.size() > b.extents.size()) return false;
+      for (size_t i = 0; i < a.extents.size(); i++) {
+	if (a.extents[i].offset < b.extents[i].offset) return true;
+	if (a.extents[i].offset > b.extents[i].offset) return false;
+	if (a.extents[i].length < b.extents[i].length) return true;
+	if (a.extents[i].length > b.extents[i].length) return false;
+      }
+      return false;
+    }
+  };
+
+  typedef std::set<bluefs_fnode_t, compare_fnode> fnodes_list;
+
+  int parse_isolated_transaction(bufferlist transaction_data,
+				 bool recover,
+				 bool dry_run,
+				 interval_set<uint64_t>* corrupted_regions,
+				 fnodes_list* fnodes
+				 //bluefs_fnode_t* ino_1_fnode
+				 );
+
+  int decode_log(const bluefs_fnode_t& initial_ino_1_fnode,
+		 std::map<uint64_t, std::string>& name_map,
+		 std::map<uint64_t, bluefs_fnode_t>& fnode_map);
+
+
+  int64_t estimate_quality(std::map<uint64_t, std::string>& name_map,
+			   std::map<uint64_t, bluefs_fnode_t>& fnode_map,
+			   interval_set<uint64_t>& corrupted_regions);
+
+  int scan_device(unsigned id,
+		  uuid_d recover_uuid,
+		  fnodes_list& fnode_candidates,
+		  interval_set<uint64_t>& corrupted_regions);
+
+  int repair_lost_super(const uuid_d& log_recover_uuid,
+			const uuid_d& osd_uuid);
+
+  int write_superblock(const uuid_d& log_uuid,
+		       const uuid_d& osd_uuid,
+		       const bluefs_fnode_t& ino_1_fnode);
+
+  int print_super();
+
   /// test purpose methods
   const PerfCounters* get_perf_counters() const {
     return logger;

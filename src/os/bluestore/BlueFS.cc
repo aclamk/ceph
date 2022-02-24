@@ -3420,6 +3420,573 @@ int BlueFS::do_replay_recovery_read(FileReader *log_reader,
   return 0;
 }
 
+
+/**
+   try to decode a chunk of bluefs log
+   there are 2 uses of this function:
+   1) When we operate on fsid that we want to rescue,
+      we try to extract some consistent shape of bluefs log
+   2) When we operate on fsid that we want to eradicte,
+      we mark extents that have been used by it (corrupted).
+
+   Arguments:
+   transaction_data - input bluefs transaction
+   recover - true if transaction is from variant we want to preserve
+             false if transaction is from variant we want to eradicate
+   dry-run - true if just check entire transaction
+           - false to apply changes
+   corrupted_regions - updated when rescue = false, contains extens used
+   ino_1_fnode - set update to ino 1 was in transaction
+
+   Returns:
+   -1 when failed to parse
+   0 when parsed successfully
+   1 when parsed successfully and ino 1 updated
+*/
+int BlueFS::parse_isolated_transaction(bufferlist transaction_data,
+				       bool recover,
+				       bool dry_run,
+				       interval_set<uint64_t>* corrupted_regions,
+				       //ordered_extents* corrupted_regions,
+				       fnodes_list* fnodes
+				       //bluefs_fnode_t* ino_1_fnode
+				       )
+{
+  int result = 0;
+  bluefs_transaction_t t;
+  try {
+    auto p = transaction_data.cbegin();
+    decode(t, p);
+  }
+  catch (buffer::error& e) {
+    // data garbled, including crc error
+    return -1;
+  }
+
+  // t.uuid must check out
+  // t.seq must check out
+  try {
+    auto p = t.op_bl.cbegin();
+    while (!p.end()) {
+      // must consume entire input for success
+      __u8 op;
+      decode(op, p);
+      switch(op) {
+      case bluefs_transaction_t::OP_INIT:
+	// non coding op
+	break;
+      case bluefs_transaction_t::OP_JUMP:
+	{
+	  uint64_t next_seq;
+	  uint64_t offset;
+	  decode(next_seq, p);
+	  decode(offset, p);
+	  break;
+	}
+      case bluefs_transaction_t::OP_ALLOC_ADD:
+	{
+	  __u8 id;
+	  uint64_t offset, length;
+	  decode(id, p);
+	  decode(offset, p);
+	  decode(length, p);
+	  break;
+	}
+      case bluefs_transaction_t::OP_ALLOC_RM:
+	{
+	  __u8 id;
+	  uint64_t offset, length;
+	  decode(id, p);
+	  decode(offset, p);
+	  decode(length, p);
+	  break;
+	}
+      case bluefs_transaction_t::OP_DIR_LINK:
+	{
+	  string dirname, filename;
+	  uint64_t ino;
+	  decode(dirname, p);
+	  decode(filename, p);
+	  decode(ino, p);
+	  dout(15) << "ino " << ino << ":" << dirname << "/" << filename << dendl;
+	  break;
+	}
+      case bluefs_transaction_t::OP_DIR_UNLINK:
+	{
+	  string dirname, filename;
+	  decode(dirname, p);
+	  decode(filename, p);
+	  break;
+	}
+      case bluefs_transaction_t::OP_DIR_CREATE:
+	{
+	  string dirname;
+	  decode(dirname, p);
+	  break;
+	}
+      case bluefs_transaction_t::OP_DIR_REMOVE:
+	{
+	  string dirname;
+	  decode(dirname, p);
+	  break;
+	}
+      case bluefs_transaction_t::OP_FILE_UPDATE:
+	{
+	  bluefs_fnode_t fnode;
+	  decode(fnode, p);
+	  dout(16) << fnode << dendl;
+	  if (recover) {
+	    if (fnode.ino == 1) {
+	      dout(15) << "ino 1: " << fnode << dendl;
+	      result = 1;
+	      if (!dry_run) {
+		//*ino_1_fnode = fnode;
+	      }
+	    }
+	    if (!dry_run) {
+	      auto it = fnodes->find(fnode);
+	      if (it == fnodes->end()) {
+		dout(15) << "unseen: " << fnode << dendl;
+		fnodes->emplace(fnode);
+	      } else {
+		dout(15) << "already had: " << *it << dendl;
+		dout(15) << "candidate: " << fnode << dendl;
+		if ((*it).mtime <= fnode.mtime) {
+		  if ((*it).size > fnode.size) {
+		    dout(15) << "newer file is shorter" << dendl;
+		  }
+		  dout(15) << "replacing with newer " << fnode << dendl;
+		  fnodes->erase(it);
+		  fnodes->emplace(fnode);
+		} else {
+		  dout(15) << "keeping (is newer)" << dendl;
+		  if ((*it).size < fnode.size) {
+		    dout(15) << "kept version is shorter" << dendl;
+		  }
+		}
+	      }
+	    }
+	  } else {
+	    if (!(dry_run)) {
+	      for (auto& e: fnode.extents) {
+		dout(15) << "INSERTING : " << std::hex << e.offset << "~" << e.length << std::dec << dendl;
+		interval_set<uint64_t> tmp;
+		tmp.insert(e.offset, e.length);
+		corrupted_regions->union_of(tmp);
+		//		if (!corrupted_regions->contains(e.offset, e.length)) {
+		//  corrupted_regions->insert(e.offset, e.length);
+		//}
+	      }
+	    }
+	  }
+	  break;
+	}
+      case bluefs_transaction_t::OP_FILE_REMOVE:
+	{
+	  uint64_t ino;
+	  decode(ino, p);
+	  break;
+	}
+      default:
+	// garbled data, it seems
+	// we do not accept it here
+	return -2;
+      }
+    }
+  }
+  catch (buffer::error& e) {
+    return -3;
+  }
+  return result;
+}
+
+/**
+   Reads through block device and tries to find parts of bluefs log.
+   It is interested in uuids coming from 2 different OSDs.
+   One we want to preserve, other we want to delete: recover-uuid and eradicate-uuid.
+   Parts of bluefs log from recover-uuid are searched for complete definition of 
+   bluefs log. Such definiton will be tested by decoding. The most recent decodable
+   version wins
+   *bonus* It is possible to go even finer grain. We could attempt to recover
+   individual .sst files and extract keys (objects) from them. *difficult*
+   The extents belonging to eradicate-uuid are considered as corrupted and
+   unusable by recover-uuid.
+ */
+int BlueFS::scan_device(unsigned id,
+			uuid_d recover_uuid,
+			fnodes_list& fnode_candidates,
+			interval_set<uint64_t>& corrupted_regions)
+{
+  uint64_t dev_size = bdev[id]->get_size();
+  uint32_t block_size = bdev[id]->get_block_size();
+  const uint32_t blocks = 1024;
+  const uint32_t max_transaction_len = 64 * 1024; // arbitrary limit
+  uint64_t pos = 0;
+  while (pos + max_transaction_len < dev_size/* && pos < 16LL * 1024LL * 1024LL * 1024LL*/) {
+    bufferlist data;
+    uint64_t data_size = std::min<uint64_t>(dev_size - pos,
+					    block_size * blocks);
+    int r = bdev[id]->read(pos, data_size, &data, ioc[id], true);
+
+    if (r != 0) {
+      derr << "read [0x" << std::hex << pos << "~"
+	   << data_size << "]=" << r << std::dec << dendl;
+      return -1;
+    }
+    dout(20) << "read [0x" << std::hex << pos << "~"
+	     << data_size << "]" << std::dec << dendl;
+    auto p = data.cbegin();
+    for (uint64_t s = 0;
+	 s < data_size - max_transaction_len;
+	 s += block_size, pos += block_size) {
+      __u8 a, b;
+      uint32_t len;
+      auto hold = p;
+      decode(a, p);
+      decode(b, p);
+      decode(len, p);
+      if (a == 1 && b == 1 && 6 + len < max_transaction_len) {
+	// version 1 bluefs transaction
+	// len limited to 64K
+	ceph_assert(s + 6 + len < data_size);
+	uuid_d uuid;
+	decode(uuid, p);
+	bufferlist transaction;
+	data.copy(s, 6 + len + 4900, transaction);
+	dout(30); transaction.hexdump(*_dout); *_dout << dendl;
+	int t = parse_isolated_transaction(transaction, uuid == recover_uuid, true,
+					   nullptr, nullptr);
+	if (t >= 0) {
+	  dout(10) << "Valid bluefs transaction at [0x"
+		   << std::hex << pos << "~" << 6 + len << "]" << std::dec
+		   << " uuid=" << uuid << dendl;
+	  if (uuid == recover_uuid) {
+	    dout(15) << "uuid matches" << dendl;
+	    t = parse_isolated_transaction(transaction, true, false,
+					   nullptr, &fnode_candidates);
+	    ceph_assert(t >= 0);
+	  } else {
+	    dout(15) << "uuid other, mark regions as corrupted" << dendl;
+	    t = parse_isolated_transaction(transaction, false, false,
+					   &corrupted_regions, nullptr);
+	    ceph_assert(t >= 0);
+	  }
+	}
+      }
+      p = hold;
+      // always go 1 block ahead
+      // we can parse inside transaction, but it is unlikely
+      p.advance(block_size);
+    }
+  }
+
+  return 0;
+}
+
+int BlueFS::repair_lost_super(const uuid_d& log_recover_uuid,
+			      const uuid_d& osd_uuid)
+{
+  fnodes_list fnode_candidates;
+  interval_set<uint64_t> corrupted_regions;
+
+  int r = scan_device(BDEV_DB, log_recover_uuid,
+		      fnode_candidates, corrupted_regions);
+  dout(5) << "fnode candidates: " << fnode_candidates << dendl;
+  dout(5) << "Corrupted regions: " << corrupted_regions << dendl;
+
+
+  bluefs_fnode_t fnode_best;
+  int64_t quality = std::numeric_limits<int64_t>::min();
+  for (const auto& c : fnode_candidates) {
+    if (c.ino == 1) {
+      std::map<uint64_t, std::string> name_map;
+      std::map<uint64_t, bluefs_fnode_t> fnode_map;
+      dout(5) << "Candidate for log: " << c << dendl;
+      decode_log(c, name_map, fnode_map);
+      int64_t q = estimate_quality(name_map, fnode_map, corrupted_regions);
+      dout(5) << "Candidate quality=" << q << dendl;
+      if (q > quality) {
+	fnode_best = c;
+	quality = q;
+      }
+    }
+  }
+  if (quality > 0) {
+    write_superblock(log_recover_uuid, osd_uuid, fnode_best);
+  }
+  return 0;
+}
+
+
+
+int BlueFS::write_superblock(const uuid_d& log_uuid,
+			     const uuid_d& osd_uuid,
+			     const bluefs_fnode_t& ino_1_fnode)
+{
+  dout(5) << __func__ << " log_fnode=" << ino_1_fnode << dendl;
+  super.uuid = log_uuid;
+  super.osd_uuid = osd_uuid;
+  super.version = 1;
+  super.block_size = bdev[BDEV_DB]->get_block_size();
+  super.log_fnode = ino_1_fnode;
+
+  dout(0) << "super.uuid=" << super.uuid << dendl;
+  dout(0) << "super.osd_uuid=" << super.osd_uuid << dendl;
+  dout(0) << "super.version=" << super.version << dendl;
+  dout(0) << "super.block_size=" << super.block_size << dendl;
+  dout(0) << "super.log_fnode=" << super.log_fnode << dendl;
+
+  _write_super(BDEV_DB);
+  flush_bdev();
+  return 0;
+}
+
+/*
+   Carefully decode log and produce list of files.
+   Starts from some known shape of bluefs log, that is obtained in some other way.
+
+   Processes entires exactly as _replay would, updating files.
+   Updates to ino 1 make this function try to read more then initially provided.
+   Does not process directories and allocator operations, just consumes them.
+
+   Returns:
+   0 - when log read successfully, including extra extents defined, if any
+   <0 - when content is garbled
+ */
+int BlueFS::decode_log(const bluefs_fnode_t& initial_ino_1_fnode,
+			std::map<uint64_t, std::string>& name_map,
+			std::map<uint64_t, bluefs_fnode_t>& fnode_map)
+{
+  dout(10) << "replaying log: " << initial_ino_1_fnode << dendl;
+  uint64_t pos = 0;
+  uint64_t last_allocated = 0;
+  bufferlist log_data;
+  for (const auto& e: initial_ino_1_fnode.extents) {
+    bufferlist bl;
+    ceph_assert(e.bdev == 1);
+    int r = bdev[e.bdev]->read(e.offset, e.length, &bl, ioc[e.bdev], true);
+    ceph_assert(r == 0);
+    dout(20) << "read [0x" << std::hex << e.offset << "~"
+	     << e.length << "]" << std::dec << dendl;
+    log_data.append(bl);
+    last_allocated = e.length;
+  }
+  // we expect to consume at least
+  // (allocated - last_allocated - 1MBrunway) bytes
+  // since we will allocate 1MB before end of free extent
+  uint64_t allocated = log_data.length();
+  const uint64_t MB = 1024 * 1024;
+  // iterate over entire bluefs log
+  bool error_recovery = true;
+  // we will never write to runway under normal circumstances
+  // last 1MB should be empty
+  uint64_t seq = 1;
+  while (pos < allocated) {
+    bluefs_transaction_t t;
+    auto pt = log_data.cbegin();
+    pt.advance(pos);
+    try {
+      dout(25) << "decoding transaction at pos " << std::hex << pos << std::dec << dendl;
+      decode(t, pt);
+    }
+    catch (buffer::error& e) {
+      dout(10) << "unreadable log at pos " << std::hex << pos << std::dec << dendl;
+      pos += 4096; // assuming 4K block size here !
+      continue;
+    }
+    // jump to pos after parse
+    pos = round_up_to(pt.get_off(), 4096);
+
+    dout(15) << "decoded log at pos=" << std::hex << pos << std::dec
+	     << " uuid=" << t.uuid << " seq=" << t.seq
+	     << " payload=" << t.op_bl.length() << dendl;
+    if (t.seq < seq) {
+      dout(15) << "out or order seq, skipping" << dendl;
+      continue;
+    }
+    uint64_t next_seq = seq + 1;
+    auto p = t.op_bl.cbegin();
+    bool continue_parse = true;
+    while (!p.end() && continue_parse) {
+      __u8 op;
+      decode(op, p);
+      switch (op) {
+
+      case bluefs_transaction_t::OP_INIT:
+	//ceph_assert(t.seq == 1);
+	break;
+
+      case bluefs_transaction_t::OP_JUMP:
+        {
+	  //uint64_t next_seq;
+	  uint64_t offset;
+	  decode(next_seq, p);
+	  decode(offset, p);
+	  //ceph_assert(next_seq >= log_seq);
+	  //seq = next_seq - 1;
+	  pos = offset;
+	  dout(20) << "jump to seq=" << seq << " pos=" << std::hex << pos << std::dec << dendl;
+	}
+	break;
+
+      case bluefs_transaction_t::OP_JUMP_SEQ:
+        {
+	  //uint64_t next_seq;
+	  decode(next_seq, p);
+	  //seq = next_seq - 1;
+	  dout(20) << "jump to seq=" << seq << dendl;
+	}
+	break;
+
+      case bluefs_transaction_t::OP_ALLOC_ADD:
+        {
+	  __u8 id;
+	  uint64_t offset, length;
+	  decode(id, p);
+	  decode(offset, p);
+	  decode(length, p);
+	}
+	break;
+
+      case bluefs_transaction_t::OP_ALLOC_RM:
+        {
+	  __u8 id;
+	  uint64_t offset, length;
+	  decode(id, p);
+	  decode(offset, p);
+	  decode(length, p);
+	}
+	break;
+
+      case bluefs_transaction_t::OP_DIR_LINK:
+        {
+	  string dirname, filename;
+	  uint64_t ino;
+	  decode(dirname, p);
+	  decode(filename, p);
+	  decode(ino, p);
+	  name_map[ino] = dirname + "/" + filename;
+	  dout(20) << "link ino=" << ino << " name=" << name_map[ino] << dendl;
+	}
+	break;
+
+      case bluefs_transaction_t::OP_DIR_UNLINK:
+        {
+	  string dirname, filename;
+	  decode(dirname, p);
+	  decode(filename, p);
+	  dout(20) << "unlink name=" << (dirname + "/" + filename) << dendl;
+	  for (auto n : name_map) {
+	    if (n.second == dirname + "/" + filename) {
+	      name_map.erase(n.first);
+	      break;
+	    }
+	  }
+	}
+	break;
+
+      case bluefs_transaction_t::OP_DIR_CREATE:
+        {
+	  string dirname;
+	  decode(dirname, p);
+	}
+	break;
+
+      case bluefs_transaction_t::OP_DIR_REMOVE:
+        {
+	  string dirname;
+	  decode(dirname, p);
+	}
+	break;
+
+      case bluefs_transaction_t::OP_FILE_UPDATE:
+        {
+	  bluefs_fnode_t fnode;
+	  decode(fnode, p);
+	  fnode_map[fnode.ino] = fnode;
+	  dout(20) << "update " << fnode << dendl;
+	}
+	break;
+
+      case bluefs_transaction_t::OP_FILE_REMOVE:
+        {
+	  uint64_t ino;
+	  decode(ino, p);
+	  dout(20) << "delete ino=" << ino << dendl;
+	  auto p = fnode_map.find(ino);
+	  if (p != fnode_map.end()) {
+	    fnode_map.erase(p);
+	  }
+        }
+	break;
+
+      default:
+	continue_parse = false;
+	break;
+      }
+    }
+    seq = next_seq;
+  }
+
+
+  dout(10) << "name_map=" << name_map << dendl;
+  dout(10) << "fnode_map=" << fnode_map << dendl;
+
+  return 0;
+}
+
+int64_t BlueFS::estimate_quality(std::map<uint64_t, std::string>& name_map,
+				 std::map<uint64_t, bluefs_fnode_t>& fnode_map,
+				 interval_set<uint64_t>& corrupted_regions)
+{
+  int total_collision = 0;
+  uint64_t maybe_good_data = 0;
+  uint64_t surely_bad_data = 0;
+  for (auto& f: fnode_map) {
+    uint64_t ino = f.first;
+    std::string name;
+    auto it = name_map.find(ino);
+    if (it != name_map.end()) {
+      name = it->second;
+    }
+    dout(10) << "checking ino=" << ino << " name=" << name << " extents=" << f.second.extents << dendl;
+    int collision_cnt = 0;
+    for (const auto& e: f.second.extents) {
+      bool intersects = false;
+      for (auto it = corrupted_regions.begin(); it != corrupted_regions.end(); it++) {
+	if ((e.offset <= it.get_start() && it.get_start() < e.offset + e.length) ||
+	    (e.offset <= it.get_end() && it.get_end() < e.offset + e.length)) {
+	  dout(10) << "collision! corrupted_region=[" << std::hex << it.get_start() << "~" << it.get_len() << "] "
+		   << "extent=[" << e.offset << "~" << e.length << std::dec << "]" << dendl;
+	  intersects = true;
+	  collision_cnt++;
+	  total_collision++;
+	}
+      }
+      if (!intersects) {
+	maybe_good_data += e.length;
+      } else {
+	surely_bad_data += e.length;
+      }
+    }
+    dout(10) << "collisions=" << collision_cnt << dendl;
+  }
+  return maybe_good_data - 10 * surely_bad_data;
+}
+
+
+int BlueFS::print_super()
+{
+  _open_super();
+  dout(0) << "super.uuid=" << super.uuid << dendl;
+  dout(0) << "super.osd_uuid=" << super.osd_uuid << dendl;
+  dout(0) << "super.version=" << super.version << dendl;
+  dout(0) << "super.block_size=" << super.block_size << dendl;
+  dout(0) << "super.log_fnode=" << super.log_fnode << dendl;
+  return 0;
+}
+
+
 // ===============================================
 // OriginalVolumeSelector
 

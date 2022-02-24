@@ -203,6 +203,40 @@ void log_dump(
   delete fs;
 }
 
+void bluefs_print_super(
+  CephContext *cct,
+  const string& path,
+  const vector<string>& devs)
+{
+  BlueFS *fs = new BlueFS(cct);
+  add_devices(fs, cct, devs);
+  fs->print_super();
+}
+
+void magic_recover(
+  CephContext *cct,
+  const string& path,
+  const vector<string>& devs,
+  const std::string& osd_uuid_txt,
+  const std::string& bluefs_log_uuid_txt)
+{
+  uuid_d osd_uuid;
+  uuid_d bluefs_log_uuid;
+  bool b = osd_uuid.parse(osd_uuid_txt.c_str());
+  if (!b) {
+    cerr << "Failed to parse uuid=" << osd_uuid_txt << std::endl;
+    exit(1);
+  }
+  b = bluefs_log_uuid.parse(bluefs_log_uuid_txt.c_str());
+  if (!b) {
+    cerr << "Failed to parse uuid=" << bluefs_log_uuid_txt << std::endl;
+    exit(1);
+  }
+  BlueFS *fs = new BlueFS(cct);
+  add_devices(fs, cct, devs);
+  fs->repair_lost_super(bluefs_log_uuid, osd_uuid);
+}
+
 void inferring_bluefs_devices(vector<string>& devs, std::string& path)
 {
   cout << "inferring bluefs devices from bluestore path" << std::endl;
@@ -225,6 +259,8 @@ int main(int argc, char **argv)
   string action;
   string log_file;
   string key, value;
+  string osd_uuid = "00000000-0000-0000-0000-000000000000";
+  string bluefs_log_uuid = "00000000-0000-0000-0000-000000000000";
   vector<string> allocs_name;
   int log_level = 30;
   bool fsck_deep = false;
@@ -242,6 +278,8 @@ int main(int argc, char **argv)
     ("key,k", po::value<string>(&key), "label metadata key name")
     ("value,v", po::value<string>(&value), "label metadata value")
     ("allocator", po::value<vector<string>>(&allocs_name), "allocator to inspect: 'block'/'bluefs-wal'/'bluefs-db'/'bluefs-slow'")
+    ("osd-uuid", po::value<string>(&osd_uuid), "osd uuid")
+    ("bluefs-log-uuid", po::value<string>(&bluefs_log_uuid), "internal uuid used by bluefs log")
     ;
   po::options_description po_positional("Positional options");
   po_positional.add_options()
@@ -261,7 +299,9 @@ int main(int argc, char **argv)
         "prime-osd-dir, "
         "bluefs-log-dump, "
         "free-dump, "
-        "free-score")
+        "free-score"
+        ", bluefs-print-super"
+        ", magic-recover")
     ;
   po::options_description po_all("All options");
   po_all.add(po_options).add(po_positional);
@@ -855,6 +895,10 @@ int main(int argc, char **argv)
     }
 
     bluestore.cold_close();
+  } else if (action == "bluefs-print-super") {
+    bluefs_print_super(cct.get(), path, devs);
+  } else if (action == "magic-recover") {
+    magic_recover(cct.get(), path, devs, osd_uuid, bluefs_log_uuid);
   } else {
     cerr << "unrecognized action " << action << std::endl;
     return 1;

@@ -3084,10 +3084,14 @@ void BlueStore::ExtentMap::fault_range(
 	    derr << __func__ << " missing shard 0x" << std::hex
 		 << p->shard_info->offset << std::dec << " for " << onode->oid
 		 << dendl;
-	    ceph_assert(r >= 0);
+	    //ceph_assert(r >= 0);
           }
         }
       );
+      if (v.length() == 0) {
+	start++;
+	continue;
+      }
       p->extents = decode_some(v);
       p->loaded = true;
       dout(20) << __func__ << " open shard 0x" << std::hex
