@@ -19134,6 +19134,129 @@ int BlueStore::read_allocation_from_onodes(SimpleBitmap *sbmap, read_alloc_stats
   return 0;
 }
 
+//-------------------------------------------------------------------------
+int BlueStore::read_allocation_from_onodes_rocksdb_only(SimpleBitmap *sbmap, read_alloc_stats_t& stats)
+{
+  // finally add all space take by user data
+  auto it = db->get_iterator(PREFIX_OBJ, KeyValueDB::ITERATOR_NOCACHE);
+  if (!it) {
+    // TBD - find a better error code
+    derr << "failed db->get_iterator(PREFIX_OBJ)" << dendl;
+    return -1;
+  }
+
+  CollectionRef       collection_ref;
+  spg_t               pgid;
+  BlueStore::OnodeRef onode_ref;
+  bool                has_open_onode = false;
+  uint32_t            shard_id       = 0;
+  uint64_t            kv_count       = 0;
+  uint64_t            count_interval = 1'000'000;
+  // iterate over all ONodes stored in RocksDB
+
+
+  auto process_onode = [&](std::string onode_key, std::vector<ceph::bufferlist> onode_values)
+    {
+      // The main Obj is always first in RocksDB so we can start with shard_id set to zero
+      shard_id = 0;
+      stats.onode_count++;
+      ghobject_t oid;
+      int ret = get_key_object(onode_key, &oid);
+      if (ret < 0) {
+	derr << "bad object key " << pretty_binary_string(onode_key) << dendl;
+	ceph_assert(ret == 0);
+	//continue;
+      }
+
+      // fill collection_ref if doesn't exist yet
+      // We process all the obejcts in a given collection and then move to the next collection
+      // This means we only search once for every given collection
+      if (!collection_ref                                     ||
+	  oid.shard_id                != pgid.shard           ||
+	  oid.hobj.get_logical_pool() != (int64_t)pgid.pool() ||
+	  !collection_ref->contains(oid)) {
+	stats.collection_search++;
+	collection_ref = nullptr;
+
+	for (auto& p : coll_map) {
+	  if (p.second->contains(oid)) {
+	    collection_ref = p.second;
+	    break;
+	  }
+	}
+
+	if (!collection_ref) {
+	  derr << "stray object " << oid << " not owned by any collection" << dendl;
+	  ceph_assert(collection_ref);
+	}
+
+	collection_ref->cid.is_pg(&pgid);
+      }
+      //CollectionRef xxxx;
+      //onode_ref.reset(BlueStore::Onode::decode(xxxx/*collection_ref*/, oid, it->key(), it->value()));
+      onode_ref.reset(BlueStore::Onode::decode(collection_ref, oid, onode_key, onode_values[0]));
+
+      size_t shard_cnt = onode_values.size() - 1;
+      if (shard_cnt == onode_ref->extent_map.shards.size()) {
+	// We completed an Onode Object -> pass it to be processed
+	// feed shards to decode
+	for (size_t i = 0; i < shard_cnt; i++) {
+	  onode_ref->extent_map.provide_shard_info_to_onode(onode_values[i + 1], i);
+	  stats.shard_count++;
+	}
+	read_allocation_from_single_onode(sbmap, onode_ref, stats);
+      } else {
+	derr << "Missing shards! onode corrupted" << dendl;
+	ceph_assert(false);
+      }
+    };
+
+  std::string onode_key;
+  std::vector<ceph::bufferlist> onode_values;
+
+  for (it->lower_bound(string()); it->valid(); it->next(), kv_count++) {
+    // trace an even after every million processed objects (typically every 5-10 seconds)
+    if (kv_count && (kv_count % count_interval == 0) ) {
+      dout(5) << "processed objects count = " << kv_count << dendl;
+    }
+    std::string key = it->key();
+    if (onode_key.length() > 0) {
+      // already started collecting object
+      if (is_extent_shard_key(key)) {
+	if (key.find(onode_key) == 0) {
+	  // shard for current onode
+	  onode_values.push_back(std::move(it->value()));
+
+	} else {
+	  // some stray shard!
+	  ceph_assert(false);
+	}
+      } else {
+	process_onode(onode_key, onode_values);
+	onode_key.clear();
+	onode_values.clear();
+
+	// and we start new onode
+	onode_key.swap(key);
+	onode_values.push_back(std::move(it->value()));
+      }
+    } else {
+      // memorize onode_key
+      onode_key.swap(key);
+      onode_values.push_back(std::move(it->value()));
+    }
+  }
+  if (onode_key.length() > 0) {
+    process_onode(onode_key, onode_values);
+    onode_key.clear();
+    onode_values.clear();
+  }
+
+  dout(5) << "onode_count=" << stats.onode_count << " ,shard_count=" << stats.shard_count << dendl;
+
+  return 0;
+}
+
 //---------------------------------------------------------
 int BlueStore::reconstruct_allocations(SimpleBitmap *sbmap, read_alloc_stats_t &stats)
 {
@@ -19148,7 +19271,27 @@ int BlueStore::reconstruct_allocations(SimpleBitmap *sbmap, read_alloc_stats_t &
     derr << "failed read_allocation_from_onodes()" << dendl;
     return ret;
   }
+  {
+    SimpleBitmap sbmap_r(cct, div_round_up(bdev->get_size(), min_alloc_size));
+    auto super_length = std::max<uint64_t>(min_alloc_size, SUPER_RESERVED);
+    set_allocation_in_simple_bmap(&sbmap_r, 0, super_length);
+    read_alloc_stats_t stats_r;
+    int ret_r = read_allocation_from_onodes_rocksdb_only(&sbmap_r, stats_r);
+    ceph_assert(ret_r == 0);
 
+    // check if sbmap and sbmap_r are the same
+    uint64_t offset = 0;
+    extent_t ext    = sbmap->get_next_clr_extent(offset);
+    extent_t ext_r = sbmap_r.get_next_clr_extent(offset);
+    while (ext.length != 0) {
+      ceph_assert(ext_r.offset == ext.offset);
+      ceph_assert(ext_r.length == ext.length);
+      offset = ext.offset + ext.length;
+      ext = sbmap->get_next_clr_extent(offset);
+      ext_r = sbmap_r.get_next_clr_extent(offset);
+    }
+    ceph_assert(ext_r.length == 0);
+  }
   return 0;
 }
 
