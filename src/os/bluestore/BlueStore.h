@@ -753,6 +753,12 @@ public:
       uint64_t struct_v,
       uint64_t* sbid,
       bool include_ref_map);
+    static void decode_for_allocations(
+      CephContext *cct,
+      ceph::buffer::ptr::const_iterator& p,
+      uint64_t struct_v,
+      bool include_ref_map,
+      std::function<void(uint64_t, uint32_t)> mark_allocated);
 #endif
   };
   typedef boost::intrusive_ptr<Blob> BlobRef;
@@ -910,11 +916,17 @@ public:
     bool encode_some(uint32_t offset, uint32_t length, ceph::buffer::list& bl,
 		     unsigned *pn);
     unsigned decode_some(ceph::buffer::list& bl);
-
+    static unsigned decode_some_for_allocations(
+      CephContext* cct,
+      const ceph::buffer::list& bl,
+      std::function<void(uint64_t, uint32_t)> mark_allocated);
     void bound_encode_spanning_blobs(size_t& p);
     void encode_spanning_blobs(ceph::buffer::list::contiguous_appender& p);
     void decode_spanning_blobs(ceph::buffer::ptr::const_iterator& p);
-
+    static void decode_spanning_blobs_for_allocations(
+      CephContext *cct,
+      ceph::buffer::ptr::const_iterator& p,
+      std::function<void(uint64_t, uint32_t)> mark_allocated);
     BlobRef get_spanning_blob(int id) {
       auto p = spanning_blob_map.find(id);
       ceph_assert(p != spanning_blob_map.end());
@@ -1195,6 +1207,13 @@ public:
       const ghobject_t& oid,
       const std::string& key,
       const ceph::buffer::list& v);
+
+    static void decode_for_allocations(
+      CephContext *cct,
+      const ghobject_t& oid,
+      const std::string& key,
+      const ceph::buffer::list& v,
+      std::function<void(uint64_t, uint32_t)> mark_allocated);
 
     void dump(ceph::Formatter* f) const;
 

@@ -2416,6 +2416,39 @@ void BlueStore::Blob::decode(
 }
 #endif
 
+void BlueStore::Blob::decode_for_allocations(
+  CephContext* cct,
+  bufferptr::const_iterator& p,
+  uint64_t struct_v,
+  bool include_ref_map,
+  std::function<void(uint64_t, uint32_t)> mark_allocation)
+{
+  bluestore_blob_t blob;
+  uint64_t sbid;
+  bluestore_blob_use_tracker_t used_in_blob;
+  denc(blob, p, struct_v);
+  if (blob.is_shared()) {
+    denc(sbid, p);
+  }
+  if (include_ref_map) {
+    if (struct_v > 1) {
+      used_in_blob.decode(p);
+    } else {
+      // we do not need that, but need to decode
+      bluestore_extent_ref_map_t legacy_ref_map;
+      // todo: is it possible to just skip?
+      legacy_ref_map.decode(p);
+    }
+  }
+  for (auto& e : blob.get_extents()) {
+    auto offset = e.offset;
+    auto length = e.length;
+    if (offset != (uint64_t)-1) {
+      mark_allocation(offset, length);
+    }
+  }
+}
+
 // Extent
 
 void BlueStore::Extent::dump(Formatter* f) const
@@ -3202,6 +3235,64 @@ unsigned BlueStore::ExtentMap::decode_some(bufferlist& bl)
   return num;
 }
 
+#undef dout_prefix
+#define dout_prefix *_dout << "bluestore.extentmap() "
+#undef dout_context
+#define dout_context cct
+
+unsigned BlueStore::ExtentMap::decode_some_for_allocations(
+  CephContext* cct,
+  const bufferlist& bl,
+  std::function<void(uint64_t, uint32_t)> mark_allocation)
+{
+  ceph_assert(bl.get_num_buffers() <= 1);
+  auto p = bl.front().begin_deep();
+  __u8 struct_v;
+  denc(struct_v, p);
+  // Version 2 differs from v1 in blob's ref_map
+  // serialization only. Hence there is no specific
+  // handling at ExtentMap level below.
+  ceph_assert(struct_v == 1 || struct_v == 2);
+
+  uint32_t num;
+  denc_varint(num, p);
+  vector<BlobRef> blobs(num);
+  uint64_t prev_len = 0;
+  unsigned n = 0;
+
+  while (!p.end()) {
+    uint64_t blobid;
+    denc_varint(blobid, p);
+    if ((blobid & BLOBID_FLAG_CONTIGUOUS) == 0) {
+      uint64_t gap;
+      denc_varint_lowz(gap, p);
+    }
+    if ((blobid & BLOBID_FLAG_ZEROOFFSET) == 0) {
+      uint32_t blob_offset;
+      denc_varint_lowz(blob_offset, p);
+    }
+    if ((blobid & BLOBID_FLAG_SAMELENGTH) == 0) {
+      denc_varint_lowz(prev_len, p);
+    }
+    if (blobid & BLOBID_FLAG_SPANNING) {
+    } else {
+      blobid >>= BLOBID_SHIFT_BITS;
+      if (blobid) {
+      } else {
+	Blob::decode_for_allocations(cct, p, struct_v, false, mark_allocation);
+      }
+    }
+    ++n;
+  }
+  ceph_assert(n == num);
+  return num;
+}
+
+#undef dout_prefix
+#define dout_prefix *_dout << "bluestore.extentmap(" << this << ") "
+#undef dout_context
+#define dout_context onode->c->store->cct
+
 void BlueStore::ExtentMap::bound_encode_spanning_blobs(size_t& p)
 {
   // Version 2 differs from v1 in blob's ref_map
@@ -3254,6 +3345,27 @@ void BlueStore::ExtentMap::decode_spanning_blobs(
     uint64_t sbid = 0;
     b->decode(onode->c, p, struct_v, &sbid, true);
     onode->c->open_shared_blob(sbid, b);
+  }
+}
+
+void BlueStore::ExtentMap::decode_spanning_blobs_for_allocations(
+  CephContext *cct,
+  bufferptr::const_iterator& p,
+  std::function<void(uint64_t, uint32_t)> mark_allocation)
+{
+  __u8 struct_v;
+  denc(struct_v, p);
+  // Version 2 differs from v1 in blob's ref_map
+  // serialization only. Hence there is no specific
+  // handling at ExtentMap level.
+  ceph_assert(struct_v == 1 || struct_v == 2);
+
+  unsigned n;
+  denc_varint(n, p);
+  while (n--) {
+    int16_t blob_id;
+    denc_varint(blob_id, p);
+    Blob::decode_for_allocations(cct, p, struct_v, true, mark_allocation);
   }
 }
 
@@ -3734,6 +3846,26 @@ BlueStore::Onode* BlueStore::Onode::decode(
     on->extent_map.init_shards(false, false);
   }
   return on;
+}
+
+void BlueStore::Onode::decode_for_allocations(
+  CephContext *cct,
+  const ghobject_t& oid,
+  const string& key,
+  const bufferlist& v,
+  std::function<void(uint64_t, uint32_t)> mark_allocation)
+{
+  bluestore_onode_t onode;
+  auto p = v.front().begin_deep();
+  onode.decode(p);
+  ExtentMap::decode_spanning_blobs_for_allocations(cct, p, mark_allocation);
+
+  if (onode.extent_map_shards.empty()) {
+    bufferlist inline_bl;
+    denc(inline_bl, p);
+    ExtentMap::decode_some_for_allocations(cct, inline_bl, mark_allocation);
+  }
+  return;
 }
 
 void BlueStore::Onode::flush()
@@ -19158,23 +19290,15 @@ int BlueStore::read_allocation_from_onodes_rocksdb_only(SimpleBitmap *sbmap, rea
   uint64_t            count_interval = 1'000'000;
   // iterate over all ONodes stored in RocksDB
 
-  interval_set<uint64_t> reference_allocs;
-  interval_set<uint64_t> new_allocs;
 
-  auto mark_allocated = [&](uint64_t offset, uint32_t length)
-    {
-      set_allocation_in_simple_bmap(sbmap, offset, length);
-      dout(0) << "REF: 0x" << std::hex << offset << "~" << length << std::dec << dendl;
-      reference_allocs.union_insert(offset, length);
-    };
-  auto capture_allocation = [&](uint64_t offset, uint32_t length)
+  auto capture_allocation = [sbmap](uint64_t offset, uint32_t length)
   {
-    dout(0) << "NEW: 0x" << std::hex << offset << "~" << length << std::dec << dendl;
-    new_allocs.union_insert(offset, length);
+    set_allocation_in_simple_bmap(sbmap, offset, length);
   };
 
 
-  auto process_onode = [&](std::string onode_key, std::vector<ceph::bufferlist> onode_values)
+  auto process_onode = [&](const std::string& onode_key,
+			   const std::vector<ceph::bufferlist>& onode_values)
     {
       // The main Obj is always first in RocksDB so we can start with shard_id set to zero
       shard_id = 0;
@@ -19186,53 +19310,20 @@ int BlueStore::read_allocation_from_onodes_rocksdb_only(SimpleBitmap *sbmap, rea
 	ceph_assert(ret == 0);
 	//continue;
       }
-
-      // fill collection_ref if doesn't exist yet
-      // We process all the obejcts in a given collection and then move to the next collection
-      // This means we only search once for every given collection
-      if (!collection_ref                                     ||
-	  oid.shard_id                != pgid.shard           ||
-	  oid.hobj.get_logical_pool() != (int64_t)pgid.pool() ||
-	  !collection_ref->contains(oid)) {
-	stats.collection_search++;
-	collection_ref = nullptr;
-
-	for (auto& p : coll_map) {
-	  if (p.second->contains(oid)) {
-	    collection_ref = p.second;
-	    break;
-	  }
-	}
-
-	if (!collection_ref) {
-	  derr << "stray object " << oid << " not owned by any collection" << dendl;
-	  ceph_assert(collection_ref);
-	}
-
-	collection_ref->cid.is_pg(&pgid);
-      }
-      //CollectionRef xxxx;
-      //onode_ref.reset(BlueStore::Onode::decode(xxxx/*collection_ref*/, oid, it->key(), it->value()));
-      onode_ref.reset(BlueStore::Onode::decode(collection_ref, oid, onode_key, onode_values[0]));
-
+      //todo oid not used
+      Onode::decode_for_allocations(cct, oid, onode_key, onode_values[0], capture_allocation);
+      // we do not care if shards could be missing, we decode what is given
       size_t shard_cnt = onode_values.size() - 1;
-      if (shard_cnt == onode_ref->extent_map.shards.size()) {
-	// We completed an Onode Object -> pass it to be processed
-	// feed shards to decode
-	for (size_t i = 0; i < shard_cnt; i++) {
-	  onode_ref->extent_map.provide_shard_info_to_onode(onode_values[i + 1], i);
-	  stats.shard_count++;
-	}
-	read_allocation_from_single_onode(mark_allocated, onode_ref, stats);
-      } else {
-	derr << "Missing shards! onode corrupted" << dendl;
-	ceph_assert(false);
+      for (size_t i = 0; i < shard_cnt; i++) {
+	ExtentMap::decode_some_for_allocations(
+          cct, onode_values[i + 1], capture_allocation);
       }
     };
 
   std::string onode_key;
   std::vector<ceph::bufferlist> onode_values;
 
+  // split stream of keys to per-onode segments and sends them to processing
   for (it->lower_bound(string()); it->valid(); it->next(), kv_count++) {
     // trace an even after every million processed objects (typically every 5-10 seconds)
     if (kv_count && (kv_count % count_interval == 0) ) {
