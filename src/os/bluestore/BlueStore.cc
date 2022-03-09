@@ -19145,6 +19145,9 @@ void BlueStore::read_allocation_from_single_onode(
 //-------------------------------------------------------------------------
 int BlueStore::read_allocation_from_onodes(SimpleBitmap *sbmap, read_alloc_stats_t& stats)
 {
+  dout(0) << dendl;
+  utime_t            start = ceph_clock_now();
+
   // finally add all space take by user data
   auto it = db->get_iterator(PREFIX_OBJ, KeyValueDB::ITERATOR_NOCACHE);
   if (!it) {
@@ -19266,7 +19269,8 @@ int BlueStore::read_allocation_from_onodes(SimpleBitmap *sbmap, read_alloc_stats
       ceph_assert(shard_id == onode_ref->extent_map.shards.size());
     }
   }
-  dout(5) << "onode_count=" << stats.onode_count << " ,shard_count=" << stats.shard_count << dendl;
+  utime_t duration = ceph_clock_now() - start;
+  dout(0) << "onode_count=" << stats.onode_count << " ,shard_count=" << stats.shard_count << " duration=" << duration << dendl;
 
   return 0;
 }
@@ -19274,6 +19278,9 @@ int BlueStore::read_allocation_from_onodes(SimpleBitmap *sbmap, read_alloc_stats
 //-------------------------------------------------------------------------
 int BlueStore::read_allocation_from_onodes_rocksdb_only(SimpleBitmap *sbmap, read_alloc_stats_t& stats)
 {
+  dout(0) << dendl;
+  utime_t            start = ceph_clock_now();
+
   // finally add all space take by user data
   auto it = db->get_iterator(PREFIX_OBJ, KeyValueDB::ITERATOR_NOCACHE);
   if (!it) {
@@ -19291,7 +19298,7 @@ int BlueStore::read_allocation_from_onodes_rocksdb_only(SimpleBitmap *sbmap, rea
   // iterate over all ONodes stored in RocksDB
 
 
-  auto capture_allocation = [sbmap](uint64_t offset, uint32_t length)
+  auto capture_allocation = [this, sbmap](uint64_t offset, uint32_t length)
   {
     set_allocation_in_simple_bmap(sbmap, offset, length);
   };
@@ -19362,8 +19369,8 @@ int BlueStore::read_allocation_from_onodes_rocksdb_only(SimpleBitmap *sbmap, rea
     onode_values.clear();
   }
 
-  dout(5) << "onode_count=" << stats.onode_count << " ,shard_count=" << stats.shard_count << dendl;
-
+  utime_t duration = ceph_clock_now() - start;
+  dout(0) << "onode_count=" << stats.onode_count << " ,shard_count=" << stats.shard_count << " duration=" << duration << dendl;
   return 0;
 }
 
