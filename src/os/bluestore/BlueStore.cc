@@ -18941,7 +18941,7 @@ void BlueStore::set_allocation_in_simple_bmap(SimpleBitmap* sbmap, uint64_t offs
 //---------------------------------------------------------
 // Process all physical extents from a given Onode (including all its shards)
 void BlueStore::read_allocation_from_single_onode(
-  SimpleBitmap*        sbmap,
+  std::function<void(uint64_t, uint32_t)> mark_allocated,
   BlueStore::OnodeRef& onode_ref,
   read_alloc_stats_t&  stats)
 {
@@ -18989,12 +18989,12 @@ void BlueStore::read_allocation_from_single_onode(
 	  stats.skipped_repeated_extent++;
 	} else {
 	  lcl_extnt_map[offset] = length;
-	  set_allocation_in_simple_bmap(sbmap, offset, length);
+	  mark_allocated(offset, length);
 	  stats.extent_count++;
 	}
       } else {
 	// extents using shared blobs might have differnt length
-	set_allocation_in_simple_bmap(sbmap, offset, length);
+	mark_allocated(offset, length);
 	stats.extent_count++;
       }
 
@@ -19029,6 +19029,11 @@ int BlueStore::read_allocation_from_onodes(SimpleBitmap *sbmap, read_alloc_stats
   uint64_t            kv_count       = 0;
   uint64_t            count_interval = 1'000'000;
   // iterate over all ONodes stored in RocksDB
+
+  auto mark_allocated = [this, sbmap](uint64_t offset, uint32_t length)
+    {
+      set_allocation_in_simple_bmap(sbmap, offset, length);
+    };
   for (it->lower_bound(string()); it->valid(); it->next(), kv_count++) {
     // trace an even after every million processed objects (typically every 5-10 seconds)
     if (kv_count && (kv_count % count_interval == 0) ) {
@@ -19068,7 +19073,7 @@ int BlueStore::read_allocation_from_onodes(SimpleBitmap *sbmap, read_alloc_stats
 	// make sure we got all shards of this object
 	if (shard_id == onode_ref->extent_map.shards.size()) {
 	  // We completed an Onode Object -> pass it to be processed
-	  read_allocation_from_single_onode(sbmap, onode_ref, stats);
+	  read_allocation_from_single_onode(mark_allocated, onode_ref, stats);
 	} else {
 	  derr << "Missing shards! shard_id=" << shard_id << ", shards.size()=" << onode_ref->extent_map.shards.size() << dendl;
 	  ceph_assert(shard_id == onode_ref->extent_map.shards.size());
@@ -19123,7 +19128,7 @@ int BlueStore::read_allocation_from_onodes(SimpleBitmap *sbmap, read_alloc_stats
     // make sure we got all shards of this object
     if (shard_id == onode_ref->extent_map.shards.size()) {
       // We completed an Onode Object -> pass it to be processed
-      read_allocation_from_single_onode(sbmap, onode_ref, stats);
+      read_allocation_from_single_onode(mark_allocated, onode_ref, stats);
     } else {
       derr << "Last Object is missing shards! shard_id=" << shard_id << ", shards.size()=" << onode_ref->extent_map.shards.size() << dendl;
       ceph_assert(shard_id == onode_ref->extent_map.shards.size());
@@ -19148,11 +19153,25 @@ int BlueStore::read_allocation_from_onodes_rocksdb_only(SimpleBitmap *sbmap, rea
   CollectionRef       collection_ref;
   spg_t               pgid;
   BlueStore::OnodeRef onode_ref;
-  bool                has_open_onode = false;
   uint32_t            shard_id       = 0;
   uint64_t            kv_count       = 0;
   uint64_t            count_interval = 1'000'000;
   // iterate over all ONodes stored in RocksDB
+
+  interval_set<uint64_t> reference_allocs;
+  interval_set<uint64_t> new_allocs;
+
+  auto mark_allocated = [&](uint64_t offset, uint32_t length)
+    {
+      set_allocation_in_simple_bmap(sbmap, offset, length);
+      dout(0) << "REF: 0x" << std::hex << offset << "~" << length << std::dec << dendl;
+      reference_allocs.union_insert(offset, length);
+    };
+  auto capture_allocation = [&](uint64_t offset, uint32_t length)
+  {
+    dout(0) << "NEW: 0x" << std::hex << offset << "~" << length << std::dec << dendl;
+    new_allocs.union_insert(offset, length);
+  };
 
 
   auto process_onode = [&](std::string onode_key, std::vector<ceph::bufferlist> onode_values)
@@ -19204,7 +19223,7 @@ int BlueStore::read_allocation_from_onodes_rocksdb_only(SimpleBitmap *sbmap, rea
 	  onode_ref->extent_map.provide_shard_info_to_onode(onode_values[i + 1], i);
 	  stats.shard_count++;
 	}
-	read_allocation_from_single_onode(sbmap, onode_ref, stats);
+	read_allocation_from_single_onode(mark_allocated, onode_ref, stats);
       } else {
 	derr << "Missing shards! onode corrupted" << dendl;
 	ceph_assert(false);

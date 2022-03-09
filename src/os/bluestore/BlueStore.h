@@ -3737,7 +3737,10 @@ private:
   int  reconstruct_allocations(SimpleBitmap *smbmp, read_alloc_stats_t &stats);
   int  read_allocation_from_onodes(SimpleBitmap *smbmp, read_alloc_stats_t& stats);
   int  read_allocation_from_onodes_rocksdb_only(SimpleBitmap *smbmp, read_alloc_stats_t& stats);
-  void read_allocation_from_single_onode(SimpleBitmap *smbmp, BlueStore::OnodeRef& onode_ref, read_alloc_stats_t&  stats);
+  void read_allocation_from_single_onode(
+    std::function<void(uint64_t, uint32_t)> mark_allocated,
+    BlueStore::OnodeRef& onode_ref,
+    read_alloc_stats_t&  stats);
   void set_allocation_in_simple_bmap(SimpleBitmap* sbmap, uint64_t offset, uint64_t length);
   int  commit_to_null_manager();
   int  commit_to_real_manager();
