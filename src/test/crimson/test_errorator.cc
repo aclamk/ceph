@@ -10,6 +10,7 @@
 #include "crimson/common/errorator-loop.h"
 #include "crimson/common/log.h"
 #include "seastar/core/sleep.hh"
+#include "include/buffer.h"
 
 struct errorator_test_t : public seastar_test_suite_t {
   using ertr = crimson::errorator<crimson::ct_error::invarg>;
@@ -95,5 +96,61 @@ TEST_F(errorator_test_t, test_futurization)
 {
   run_async([this] {
     test_futurization().unsafe_get0();
+  });
+}
+
+using read_errorator = crimson::errorator<crimson::ct_error::enoent,
+                                          crimson::ct_error::input_output_error>;
+
+auto read_simulator = []() -> read_errorator::future<ceph::bufferlist> {
+  std::cout << "rzucam EIO" << std::endl;
+  return crimson::ct_error::input_output_error::make();
+};
+
+TEST_F(errorator_test_t, read_errorator_OK)
+{
+  run_async([=] {
+    auto read_res = read_simulator();
+    auto xxx = read_res.safe_then([] (ceph::buffer::list&& b) -> seastar::future<int> {
+        ceph_assert(false);
+        return seastar::make_ready_future<int>(42);
+      });
+    auto zzz = xxx.
+      handle_error(
+        crimson::ct_error::input_output_error::handle([] {
+          std::cout << "in -EIO handler" << std::endl;
+          return seastar::make_ready_future<int>(42);
+        }),
+        crimson::ct_error::enoent::handle([] {
+          return seastar::make_ready_future<int>(42);
+        })
+      );
+    std::cout << "out of handling read" << std::endl;
+    zzz.wait();
+    std::cout << "waited out" << std::endl;
+    zzz.get();
+  });
+}
+
+TEST_F(errorator_test_t, read_errorator_FAIL)
+{
+  run_async([=] {
+    auto read_res = read_simulator();
+    auto xxx = read_res.safe_then([] (ceph::buffer::list&& b) {
+      ceph_assert(false);
+      return;
+    });
+    auto zzz = xxx.
+      handle_error(
+        crimson::ct_error::input_output_error::handle([] {
+          std::cout << "in -EIO handler" << std::endl;
+        }),
+        crimson::ct_error::enoent::handle([] {
+        })
+      );
+    std::cout << "out of handling read" << std::endl;
+    zzz.wait();
+    std::cout << "waited out" << std::endl;
+    zzz.get();
   });
 }
