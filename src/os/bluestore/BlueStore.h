@@ -2140,6 +2140,7 @@ private:
   bluefs_layout_t bluefs_layout;
   utime_t next_dump_on_bluefs_alloc_failure;
 
+  ceph::mutex db_change = ceph::make_mutex("BlueStore::db");
   KeyValueDB *db = nullptr;
   BlockDevice *bdev = nullptr;
   std::string freelist_type;

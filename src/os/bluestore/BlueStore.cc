@@ -6480,6 +6480,7 @@ int BlueStore::_prepare_db_environment(bool create, bool read_only,
 				       std::string* _fn, std::string* _kv_backend)
 {
   int r;
+  std::lock_guard l(db_change);
   ceph_assert(!db);
   std::string& fn=*_fn;
   std::string& kv_backend=*_kv_backend;
@@ -6685,6 +6686,7 @@ int BlueStore::_open_db(bool create, bool to_repair_db, bool read_only)
 
 void BlueStore::_close_db_leave_bluefs()
 {
+  std::lock_guard l(db_change);
   ceph_assert(db);
   delete db;
   db = nullptr;
@@ -10475,11 +10477,14 @@ int BlueStore::pool_statfs(uint64_t pool_id, struct store_statfs_t *buf,
   _key_encode_u64(pool_id, &key_prefix);
   *out_per_pool_omap = per_pool_omap != OMAP_BULK;
   // stop calls after db was closed
-  if (*out_per_pool_omap && db) {
-    auto prefix = per_pool_omap == OMAP_PER_POOL ?
-      PREFIX_PERPOOL_OMAP :
-      PREFIX_PERPG_OMAP;
-    buf->omap_allocated = db->estimate_prefix_size(prefix, key_prefix);
+  {
+    std::unique_lock l(db_change);
+    if (*out_per_pool_omap && db) {
+      auto prefix = per_pool_omap == OMAP_PER_POOL ?
+	PREFIX_PERPOOL_OMAP :
+	PREFIX_PERPG_OMAP;
+      buf->omap_allocated = db->estimate_prefix_size(prefix, key_prefix);
+    }
   }
 
   dout(10) << __func__ << *buf << dendl;
