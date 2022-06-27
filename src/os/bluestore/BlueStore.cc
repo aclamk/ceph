@@ -10460,13 +10460,25 @@ int BlueStore::pool_statfs(uint64_t pool_id, struct store_statfs_t *buf,
   _key_encode_u64(pool_id, &key_prefix);
   *out_per_pool_omap = per_pool_omap != OMAP_BULK;
   // stop calls after db was closed
-  if (*out_per_pool_omap && db) {
-    auto prefix = per_pool_omap == OMAP_PER_POOL ?
-      PREFIX_PERPOOL_OMAP :
-      PREFIX_PERPG_OMAP;
-    buf->omap_allocated = db->estimate_prefix_size(prefix, key_prefix);
-  }
+  {
+    //std::unique_lock l(db_change);
+    if (*out_per_pool_omap && db) {
+      dout(1) << __func__ << " sleeping " << dendl;
+      //sleep(3);
+      //l.unlock();
+      dout(1) << __func__ << " unlocked " << dendl;
+      auto prefix = per_pool_omap == OMAP_PER_POOL ?
+	PREFIX_PERPOOL_OMAP :
+	PREFIX_PERPG_OMAP;
 
+      for (int i = 0; i < 30; i++) {
+	dout(1) << __func__ << " estimate i=" << i << dendl;
+
+	buf->omap_allocated = db->estimate_prefix_size(prefix, key_prefix);
+	usleep(100*1000);
+      }
+    }
+  }
   dout(10) << __func__ << *buf << dendl;
   return 0;
 }
