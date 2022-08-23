@@ -2220,6 +2220,25 @@ private:
   int fsid_fd = -1;  ///< open handle (locked) to $path/fsid
   bool mounted = false;
 
+  // Set of variables to track initialization state.
+  // Used to managed init / deinit sequences.
+  struct
+  {
+    enum rwstate
+    {
+      off = 0,
+      ro = 1,
+      rw = 2
+    };
+    bool base = false;
+    bool bluefs_env = false;
+    rwstate bluefs = off;
+    bool db_env = false;
+    rwstate fm_alloc = off;
+    rwstate db = off;
+    rwstate mount = off;
+  } state;
+
   // store open_db options:
   bool db_was_opened_read_only = true;
   bool need_to_destage_allocation_file = false;
