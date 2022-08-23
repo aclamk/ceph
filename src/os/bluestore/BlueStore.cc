@@ -6451,6 +6451,60 @@ int BlueStore::_is_bluefs(bool create, bool* ret)
   return 0;
 }
 
+int BlueStore::_open_base()
+{
+  dout(10) << __func__ << dendl;
+  if (state.base == true) {
+    // was already opened
+    dout(10) << __func__ << " already opened" << dendl;
+    return 0;
+  }
+  int r = _open_path();
+  if (r < 0)
+    return r;
+
+  r = _open_fsid(false);
+  if (r < 0)
+    goto out_path;
+
+  r = _read_fsid(&fsid);
+  if (r < 0)
+    goto out_fsid;
+
+  r = _lock_fsid();
+  if (r < 0)
+    goto out_fsid;
+
+  r = _open_bdev(false);
+  if (r < 0)
+    goto out_fsid;
+
+  // TODO here read superblock.meta
+  state.base = true;
+  dout(10) << __func__ << " done" << dendl;
+  return 0;
+ out_fsid:
+  _close_fsid();
+ out_path:
+  _close_path();
+  dout(10) << __func__ << " fail r=" << cpp_strerror(r) << dendl;
+  return r;
+}
+
+int BlueStore::_close_base()
+{
+  if (state.base == false) {
+    // already closed
+    return 0;
+  }
+  // there is no closing of superblock.meta
+  _close_bdev();
+  _close_fsid();
+  _close_path();
+  state.base = false;
+  return 0;
+}
+
 /*
 * opens both DB and dependant super_meta, FreelistManager and allocator
 * in the proper order
@@ -6477,24 +6531,9 @@ int BlueStore::_open_db_and_around(bool read_only, bool to_repair)
   // the db is read-write. we'll stash pending changes here.
   std::map<uint64_t, uint64_t> zone_adjustments;
 
-  int r = _open_path();
+  int r = _open_base();
   if (r < 0)
     return r;
-  r = _open_fsid(false);
-  if (r < 0)
-    goto out_path;
-
-  r = _read_fsid(&fsid);
-  if (r < 0)
-    goto out_fsid;
-
-  r = _lock_fsid();
-  if (r < 0)
-    goto out_fsid;
-
-  r = _open_bdev(false);
-  if (r < 0)
-    goto out_fsid;
 
   // GBH: can probably skip open_db step in REad-Only mode when operating in NULL-FM mode
   // (might need to open if failed to restore from file)
@@ -6503,7 +6542,7 @@ int BlueStore::_open_db_and_around(bool read_only, bool to_repair)
   // as they might be needed for some BlueFS procedures
   r = _open_db(false, false, true);
   if (r < 0)
-    goto out_bdev;
+    goto out_base;
 
   r = _open_super_meta();
   if (r < 0) {
@@ -6568,12 +6607,8 @@ out_fm:
   _close_fm();
  out_db:
   _close_db();
- out_bdev:
-  _close_bdev();
- out_fsid:
-  _close_fsid();
- out_path:
-  _close_path();
+ out_base:
+  _close_base();
   return r;
 }
 
@@ -6592,9 +6627,7 @@ void BlueStore::_close_around_db()
   }
   _close_fm();
   _close_alloc();
-  _close_bdev();
-  _close_fsid();
-  _close_path();
+  _close_base();
 }
 
 /* gets access to bluefs supporting RocksDB */
