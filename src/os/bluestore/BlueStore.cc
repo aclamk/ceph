@@ -6566,7 +6566,7 @@ int BlueStore::_open_db_and_around(bool read_only, bool to_repair)
 
   // open in read-only first to read FM list and init allocator
   // as they might be needed for some BlueFS procedures
-  r = _open_db(false, false, true);
+  r = _open_db(true);
   if (r < 0)
     goto out_base;
 
@@ -6590,7 +6590,11 @@ int BlueStore::_open_db_and_around(bool read_only, bool to_repair)
   // And now it's time to do that
   //
   _close_db();
-  r = _open_db(false, to_repair, read_only);
+  if (to_repair) {
+    r = _repair_db();
+  } else {
+    r = _open_db(read_only);
+  }
   if (r < 0) {
     goto out_alloc;
   }
@@ -6738,7 +6742,10 @@ int BlueStore::_open_rocksdb_env()
   db_env = env;
   return 0;
 }
-
+/**
+ * Sets up options for rocksdb and creates db object.
+ * db prepared this way is suitable for: create, open-r, open-rw, repair
+ */
 int BlueStore::_prepare_db_environment(bool create, bool read_only,
 				       std::string* _fn, std::string* _kv_backend)
 {
@@ -6748,12 +6755,8 @@ int BlueStore::_prepare_db_environment(bool create, bool read_only,
   // simplify the dir names, too, as "seen" by rocksdb
   fn = "db";
   kv_backend = "rocksdb";
-  if (create) {
-    // create also opens
-    _create_rocksdb_fs();
-  } else {
-    _open_rocksdb_fs(read_only);
-  }
+  rocksdb::Env *env = static_cast<rocksdb::Env*>(db_env);
+  ceph_assert(env);
 
   map<string,string> kv_options;
   BlueFSVolumeSelector::paths paths;
@@ -6777,7 +6780,6 @@ int BlueStore::_prepare_db_environment(bool create, bool read_only,
     paths.emplace_back(fn, 0);
   }
 
-  rocksdb::Env *env = static_cast<rocksdb::Env*>(db_env);
   std::vector<std::string> res;
   // check for dir presence
   auto rr = env->GetChildren(fn+".wal", &res);
@@ -6822,52 +6824,104 @@ int BlueStore::_prepare_db_environment(bool create, bool read_only,
     }
   }
   db->init(options);
-
+  dout(1) << __func__ << " options=" << options << dendl;
   return 0;
 }
 
-int BlueStore::_open_db(bool create, bool to_repair_db, bool read_only)
+/**
+ * Create BlueFS and RocksDB. Only used on OSD creation.
+ */
+int BlueStore::_create_db()
 {
-  dout(10) << __func__ << " create=" << create
-	   << " to_repair_db=" << to_repair_db
-	   << " read_only=" << read_only << dendl;
   int r;
-  ceph_assert(!(create && read_only));
-  string options;
-  string options_annex;
-  stringstream err;
-  string kv_dir_fn;
-  string kv_backend;
   std::string sharding_def;
-  r = _prepare_db_environment(create, read_only, &kv_dir_fn, &kv_backend);
+  dout(10) << __func__ << dendl;
+  // create also opens
+  r = _create_rocksdb_fs();
   if (r < 0) {
-    derr << __func__ << " failed to prepare db environment: " << err.str() << dendl;
-    return -EIO;
+    derr << __func__ << " failed to create db fs: " << cpp_strerror(r) << dendl;
+    return r;
   }
-
-  if (to_repair_db)
-    return 0;
+  std::string kv_dir_fn, kv_backend;
+  r = _prepare_db_environment(true, true, &kv_dir_fn, &kv_backend);
+  if (r < 0) {
+    derr << __func__ << " failed to prepare db environment: " << cpp_strerror(r) << dendl;
+    return r;
+  }
   if (kv_backend == "rocksdb") {
     if (cct->_conf.get_val<bool>("bluestore_rocksdb_cf")) {
       sharding_def = cct->_conf.get_val<std::string>("bluestore_rocksdb_cfs");
     }
   }
-  if (create) {
-    r = db->create_and_open(err, sharding_def);
-  } else {
-    // we pass in cf list here, but it is only used if the db already has
-    // column families created.
-    r = read_only ?
-      db->open_read_only(err, sharding_def) :
-      db->open(err, sharding_def);
-  }
+  stringstream err;
+  r = db->create_and_open(err, sharding_def);
   if (r) {
-    derr << __func__ << " erroring opening db: " << err.str() << dendl;
+    derr << __func__ << " error from db: " << err.str() << dendl;
     _close_db();
     return -EIO;
   }
-  dout(1) << __func__ << " opened " << kv_backend
-	  << " path " << kv_dir_fn << " options " << options << dendl;
+  dout(1) << __func__ << " success" << dendl;
+  return 0;
+}
+
+int BlueStore::_open_db(bool read_only)
+{
+  dout(10) << __func__ << " read_only=" << read_only << dendl;
+  int r;
+  string kv_dir_fn;
+  string kv_backend;
+  std::string sharding_def;
+  r = _open_rocksdb_fs(read_only);
+  if (r < 0) {
+    derr << __func__ << " failed to open db fs: " << cpp_strerror(r) << dendl;
+    return r;
+  }
+  r = _prepare_db_environment(false, read_only, &kv_dir_fn, &kv_backend);
+  if (r < 0) {
+    derr << __func__ << " failed to prepare db environment: " << cpp_strerror(r) << dendl;
+    return -EIO;
+  }
+
+  if (kv_backend == "rocksdb") {
+    if (cct->_conf.get_val<bool>("bluestore_rocksdb_cf")) {
+      sharding_def = cct->_conf.get_val<std::string>("bluestore_rocksdb_cfs");
+    }
+  }
+  // we pass in cf list here, but it is only used if the db already has
+  // column families created.
+  stringstream err;
+  r = read_only ?
+    db->open_read_only(err, sharding_def) :
+    db->open(err, sharding_def);
+  if (r) {
+    derr << __func__ << " error opening db: " << err.str() << dendl;
+    _close_db();
+    return -EIO;
+  }
+  dout(1) << __func__ << " success" << dendl;
+  return 0;
+}
+
+/**
+ * Only prepare db environment, but do not actually call open.
+ */
+int BlueStore::_repair_db()
+{
+  dout(10) << __func__ << dendl;
+  int r;
+  string kv_dir_fn;
+  string kv_backend;
+  r = _open_rocksdb_fs(false);
+  if (r < 0) {
+    derr << __func__ << " failed to open db fs: " << cpp_strerror(r) << dendl;
+    return r;
+  }
+  r = _prepare_db_environment(false, false, &kv_dir_fn, &kv_backend);
+  if (r < 0) {
+    derr << __func__ << " failed to prepare db environment: " << cpp_strerror(r) << dendl;
+    return -EIO;
+  }
+  dout(1) << __func__ << " success" << dendl;
   return 0;
 }
 
@@ -6943,7 +6997,7 @@ void BlueStore::_close_db()
 int BlueStore::create_db()
 {
   dout(5) << __func__ << dendl;
-  int r = _open_db(true/*create*/, false/*to_repair*/, false/*read_only*/);
+  int r = _create_db();
   return r;
 }
 
@@ -7399,7 +7453,7 @@ int BlueStore::mkfs()
   }
 #endif
 
-  r = _open_db(true);
+  r = _create_db();
   if (r < 0)
     goto out_close_alloc;
 

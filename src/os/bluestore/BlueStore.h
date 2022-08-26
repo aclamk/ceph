@@ -2222,7 +2222,8 @@ private:
   bool init_to_mount = false;
   bool init_to_db = false;
   bool init_to_bluefs = false;
-
+  // Set of variables to track initialization state.
+  // Used to optimize init
   struct
   {
     enum rwstate
@@ -2680,9 +2681,9 @@ private:
    * @warning to_repair_db means that we open this db to repair it, will not
    * hold the rocksdb's file lock.
    */
-  int _open_db(bool create,
-	       bool to_repair_db=false,
-	       bool read_only = false);
+  int _create_db();
+  int _open_db(bool read_only);
+  int _repair_db();
   void _close_db();
   int _open_fm(KeyValueDB::Transaction t,
                bool read_only,
