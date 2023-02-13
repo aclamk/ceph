@@ -3219,6 +3219,11 @@ void BlueStore::ExtentMap::dup(BlueStore* b, TransContext* txc,
   oldo->extent_map.fault_range(c->store->db, 0, OBJECT_MAX_SIZE);//srcoff, length);
   newo->extent_map.fault_range(c->store->db, 0, OBJECT_MAX_SIZE);//dstoff, length);
 
+  dout(25) << __func__ << "start oldo=" << dendl;
+  _dump_onode<25>(onode->c->store->cct, *oldo);
+  dout(25) << __func__ << "start newo=" << dendl;
+  _dump_onode<25>(onode->c->store->cct, *newo);
+
   make_range_shared(b, txc, c, oldo, srcoff, length);
   vector<BlobRef> id_to_blob(oldo->extent_map.extent_map.size());
   for (auto& e : oldo->extent_map.extent_map) {
@@ -3332,6 +3337,10 @@ void BlueStore::ExtentMap::dup(BlueStore* b, TransContext* txc,
     newo->onode.size = dstoff + length;
   }
   newo->extent_map.dirty_range(dstoff, length);
+  dout(25) << __func__ << "end oldo=" << dendl;
+  _dump_onode<25>(onode->c->store->cct, *oldo);
+  dout(25) << __func__ << "end newo=" << dendl;
+  _dump_onode<25>(onode->c->store->cct, *newo);
   bcs->lock.unlock();
 }
 void BlueStore::ExtentMap::update(KeyValueDB::Transaction t,
@@ -3351,6 +3360,7 @@ void BlueStore::ExtentMap::update(KeyValueDB::Transaction t,
 	       << " extents" << dendl;
       if (!force && len > cct->_conf->bluestore_extent_map_shard_max_size) {
 	request_reshard(0, OBJECT_MAX_SIZE);
+	dout(20) << __func__ << " RR " << __LINE__ << dendl;
 	return;
       }
     }
@@ -3385,6 +3395,7 @@ void BlueStore::ExtentMap::update(KeyValueDB::Transaction t,
 	if (encode_some(p->shard_info->offset, endoff - p->shard_info->offset,
 			bl, &p->extents)) {
 	  if (force) {
+	    _dump_extent_map<-1>(cct, *this);
 	    derr << __func__ << "  encode_some needs reshard" << dendl;
 	    ceph_assert(!force);
 	  }
@@ -3400,6 +3411,7 @@ void BlueStore::ExtentMap::update(KeyValueDB::Transaction t,
 	  if (len > cct->_conf->bluestore_extent_map_shard_max_size) {
 	    // we are big; reshard ourselves
 	    request_reshard(p->shard_info->offset, endoff);
+	    dout(20) << __func__ << " RR " << __LINE__ << dendl;
 	  }
 	  // avoid resharding the trailing shard, even if it is small
 	  else if (n != shards.end() &&
@@ -3408,13 +3420,16 @@ void BlueStore::ExtentMap::update(KeyValueDB::Transaction t,
 	    if (p == shards.begin()) {
 	      // we are the first shard, combine with next shard
 	      request_reshard(p->shard_info->offset, endoff + 1);
+	      dout(20) << __func__ << " RR " << __LINE__ << dendl;
 	    } else {
 	      // combine either with the previous shard or the next,
 	      // whichever is smaller
 	      if (prev_p->shard_info->bytes > n->shard_info->bytes) {
 		request_reshard(p->shard_info->offset, endoff + 1);
+	      	dout(20) << __func__ << " RR " << __LINE__ << dendl;
 	      } else {
 		request_reshard(prev_p->shard_info->offset, endoff);
+	      	dout(20) << __func__ << " RR " << __LINE__ << dendl;
 	      }
 	    }
 	  }
@@ -3484,6 +3499,7 @@ void BlueStore::ExtentMap::reshard(
     dout(20) << __func__ << "   spanning blob " << p.first << " " << *p.second
 	     << dendl;
   }
+  _dump_onode<20>(cct, *onode);
   // determine shard index range
   unsigned si_begin = 0, si_end = 0;
   if (!shards.empty()) {
@@ -3556,7 +3572,7 @@ void BlueStore::ExtentMap::reshard(
     if (e->logical_offset >= needs_reshard_end) {
       break;
     }
-    dout(30) << " extent " << *e << dendl;
+    dout(20) << " extent " << *e << dendl;
 
     // disfavor shard boundaries that span a blob
     bool would_span = (e->logical_offset < max_blob_end) || e->blob_offset;
@@ -3639,7 +3655,7 @@ void BlueStore::ExtentMap::reshard(
     auto p = spanning_blob_map.begin();
     while (p != spanning_blob_map.end()) {
       p->second->id = -1;
-      dout(30) << __func__ << " un-spanning " << *p->second << dendl;
+      dout(20) << __func__ << " un-spanning " << *p->second << dendl;
       p = spanning_blob_map.erase(p);
     }
   } else {
@@ -3677,7 +3693,7 @@ void BlueStore::ExtentMap::reshard(
       if (e->logical_offset >= needs_reshard_end) {
 	break;
       }
-      dout(30) << " extent " << *e << dendl;
+      dout(20) << " extent " << *e << dendl;
       while (e->logical_offset >= shard_end) {
 	shard_start = shard_end;
 	ceph_assert(sp != esp);
@@ -3687,7 +3703,7 @@ void BlueStore::ExtentMap::reshard(
 	} else {
 	  shard_end = sp->offset;
 	}
-	dout(30) << __func__ << "  shard 0x" << std::hex << shard_start
+	dout(20) << __func__ << "  shard 0x" << std::hex << shard_start
 		 << " to 0x" << shard_end << std::dec << dendl;
       }
 
@@ -3752,7 +3768,7 @@ void BlueStore::ExtentMap::reshard(
 	if (e->blob->is_spanning()) {
 	  spanning_blob_map.erase(e->blob->id);
 	  e->blob->id = -1;
-	  dout(30) << __func__ << "    un-spanning " << *e->blob << dendl;
+	  dout(20) << __func__ << "    un-spanning " << *e->blob << dendl;
 	}
       }
     }
@@ -3774,6 +3790,8 @@ void BlueStore::ExtentMap::reshard(
       }
     }
   }
+  dout(20) << __func__ << " end" << dendl;
+  _dump_onode<20>(cct, *onode);
 
   clear_needs_reshard();
 }
@@ -3801,8 +3819,10 @@ bool BlueStore::ExtentMap::encode_some(
     ceph_assert(p->logical_offset >= offset);
     p->blob->last_encoded_id = -1;
     if (!p->blob->is_spanning() && p->blob_escapes_range(offset, length)) {
-      dout(30) << __func__ << " 0x" << std::hex << offset << "~" << length
+      dout(25) << __func__ << " 0x" << std::hex << offset << "~" << length
 	       << std::dec << " hit new spanning blob " << *p << dendl;
+      dout(25) << __func__ << " 0x" << std::hex << p->blob_start() << "-" << p->blob_end()
+	       << " o=0x" << offset << " o+l=0x" << offset + length << std::dec <<dendl; 
       request_reshard(p->blob_start(), p->blob_end());
       must_reshard = true;
     }
@@ -18418,8 +18438,12 @@ void BlueStore::_record_onode(OnodeRef& o, KeyValueDB::Transaction &txn)
 {
   // finalize extent_map shards
   o->extent_map.update(txn, false);
-  if (false && o->extent_map.needs_reshard()) {
+  dout(20) << __func__ << " just after update needs_reshard="
+	   << o->extent_map.needs_reshard() << dendl;
+  if (o->extent_map.needs_reshard()) {
     o->extent_map.reshard(db, txn);
+    dout(20) << __func__ << " just after reshard needs_reshard="
+	     << o->extent_map.needs_reshard() << dendl;
     o->extent_map.update(txn, true);
     if (o->extent_map.needs_reshard()) {
       dout(20) << __func__ << " warning: still wants reshard, check options?"
