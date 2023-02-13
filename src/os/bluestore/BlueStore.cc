@@ -3201,8 +3201,7 @@ void BlueStore::ExtentMap::make_range_shared(
   if (src_dirty) {
     oldo->extent_map.dirty_range(dirty_range_begin,
       dirty_range_end - dirty_range_begin);
-    oldo->extent_map.request_reshard(dirty_range_begin,
-      dirty_range_end - dirty_range_begin);
+    oldo->extent_map.request_reshard(dirty_range_begin, dirty_range_end);
     txc->write_onode(oldo);
   }
 }
