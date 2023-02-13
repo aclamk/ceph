@@ -852,7 +852,12 @@ public:
     // return true if any piece of the blob is out of
     // the given range [o, o + l].
     bool blob_escapes_range(uint32_t o, uint32_t l) const {
-      return blob_start() < o || blob_end() > o + l;
+      //auto& extents = blob->get_blob().get_extents();
+      //ceph_assert(extents.size() > 0); // do not accept broken blobs
+      uint32_t actual_start = blob_start();
+      //if (!extents.front().is_valid()) actual_start += extents.front().length;
+      uint32_t actual_end = blob_end();
+      return actual_start < o || actual_end > o + l;
     }
   };
   typedef boost::intrusive::set<Extent> extent_map_t;
