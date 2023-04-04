@@ -22,3 +22,4 @@ tasks:
     timeout: 1200
     chance_pgnum_grow: 2
     chance_pgpnum_fix: 1
+    chance_reuse_shared_blobs: 0.1

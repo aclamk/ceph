@@ -17,6 +17,7 @@ tasks:
     timeout: 1200
     chance_pgnum_grow: 3
     chance_pgpnum_fix: 1
+    chance_reuse_shared_blobs: 0.1
 openstack:
 - volumes:
     size: 50
