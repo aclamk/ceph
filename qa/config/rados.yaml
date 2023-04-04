@@ -8,6 +8,6 @@ overrides:
         osd debug verify cached snaps: true
         bluestore zero block detection: true
         osd mclock override recovery settings: true
-        bluestore reuse shared blobs: true
+        bluestore reuse shared blobs: false
       mon:
         mon scrub interval: 300
