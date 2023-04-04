@@ -1142,6 +1142,28 @@ class OSDThrasher(Thrasher):
         self.revive_osd()
         self.log('test_bluestore_reshard completed')
 
+    def test_turn_on_reuse_shared_blobs(self, osd):
+        """
+        1) selects live osd
+        2) checks if reuse blobs is OFF
+        3) sets it
+        """
+        # only consider switching reuse_shared_blobs OFF->ON if conf.bluestore_reuse_shared_blobs = false
+        from json import loads
+        osd_cand = random.choice(self.live_osds)
+        log.self('selected osd.%d' % osd_cand)
+        config_str = self.raw_cluster_cmd('tell', 'osd.%d' % osd_cand, 'config' 'get' 'bluestore_reuse_shared_blobs')
+        log.self('got config=%s' % config_str)
+        config_json = loads(config_rsb);
+        rsb = config_json['bluestore_reuse_shared_blobs'];
+        log.self('rsb=%s' % str(rsb))
+        if rsb:
+            actions.append((lambda: self.test_turn_on_reuse_shared_blobs(osd_cand),
+                            self.config.get('chance_reuse_shared_blobs', 0),))
+            self.log('osd.{o} setting bluestore_reuse_shared_blobs = true'.format(o=osd_cand, t=rsb))
+            self.raw_cluster_cmd('tell', 'osd.%d' % osd_cand, 'bluestore', 'enable', 'shared', 'blob', 'reuse')
+        else:
+            self.log('osd.{o} already has bluestore_reuse_shared_blobs == {t}'.format(o=osd_cand, t=rsb))
 
     def test_map_discontinuity(self):
         """
@@ -1252,6 +1274,11 @@ class OSDThrasher(Thrasher):
         if cluster.conf.get('osd', {}).get('osd objectstore', 'bluestore') == 'bluestore':
             actions.append((self.test_bluestore_reshard,
                             self.config.get('chance_bluestore_reshard', 0),))
+
+        # only consider switching if there are live osds
+        if len(self.live_osds) > 0:
+            actions.append((self.test_turn_on_reuse_shared_blobs,
+                            self.config.get('chance_reuse_shared_blobs', 0),))
 
         total = sum([y for (x, y) in actions])
         val = random.uniform(0, total)
