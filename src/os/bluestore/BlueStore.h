@@ -2912,16 +2912,17 @@ public:
   }
   int umount() override;
 
+  int create_db();
+  int open_db(bool read_only = false, bool to_repair = false);
+  int close_db();
+  KeyValueDB* get_db();
+
   int open_db_environment(KeyValueDB **pdb, bool to_repair);
   int close_db_environment();
   BlueFS* get_bluefs();
 
   int write_meta(const std::string& key, const std::string& value) override;
   int read_meta(const std::string& key, std::string *value) override;
-
-  // open in read-only and limited mode
-  int cold_open();
-  int cold_close();
 
   int fsck(bool deep) override {
     return _fsck(deep ? FSCK_DEEP : FSCK_REGULAR, false);

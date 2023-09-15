@@ -6765,6 +6765,33 @@ void BlueStore::_close_db()
   db = nullptr;
 }
 
+int BlueStore::create_db()
+{
+  dout(5) << __func__ << dendl;
+  int r = _open_db(true/*create*/, false/*to_repair*/, false/*read_only*/);
+  return r;
+}
+
+int BlueStore::open_db(bool read_only, bool to_repair)
+{
+  dout(5) << __func__ << " " << (read_only ? "RO" : "RW")
+	  << " mode:" << (to_repair ? "repair" : "normal") << dendl;
+  int r = _open_db_and_around(read_only, to_repair);
+  return r;
+}
+
+int BlueStore::close_db()
+{
+  dout(5) << __func__ << dendl;
+  _close_db_and_around();
+  return 0;
+}
+
+KeyValueDB* BlueStore::get_db()
+{
+  return db;
+}
+
 void BlueStore::_dump_alloc_on_failure()
 {
   auto dump_interval =
@@ -7788,17 +7815,6 @@ int BlueStore::umount()
       return -EIO;
     }
   }
-  return 0;
-}
-
-int BlueStore::cold_open()
-{
-  return _open_db_and_around(true);
-}
-
-int BlueStore::cold_close()
-{
-  _close_db_and_around();
   return 0;
 }
 
