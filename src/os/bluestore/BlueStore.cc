@@ -53,6 +53,8 @@
 #include "common/WorkQueue.h"
 #include "kv/KeyValueHistogram.h"
 
+#include "Compression.h"
+
 #ifdef HAVE_LIBZBD
 #include "ZonedAllocator.h"
 #include "ZonedFreelistManager.h"
@@ -4338,6 +4340,37 @@ BlueStore::extent_map_t::const_iterator BlueStore::ExtentMap::seek_lextent(
     }
   }
   return fp;
+}
+
+// If inside extent split it, and return right part.
+// If not inside extent return extent on right.
+BlueStore::extent_map_t::iterator BlueStore::ExtentMap::maybe_split_at(uint32_t offset)
+{
+  auto p = seek_lextent(offset);
+  if (p != extent_map.end()) {
+    if (p->logical_offset < offset && offset < p->logical_end()) {
+      // need to split
+      add(offset, p->blob_offset + (offset - p->logical_offset),
+          p->logical_end() - offset, p->blob);
+      p->length = offset - p->logical_offset;
+      ++p;
+      // check that we moved to proper extent
+      ceph_assert(p->logical_offset == offset);
+    } else {
+      // the extent is either outside offset or exactly at
+    }
+  }
+  return p;
+}
+
+// If there exist extent at `offset` return it,
+// otherwise return smallest that `offset < logical_offset`.
+BlueStore::extent_map_t::iterator BlueStore::ExtentMap::seek_nextent(
+  uint64_t offset)
+{
+  Extent dummy(offset);
+  auto p = extent_map.lower_bound(dummy);
+  return p;
 }
 
 bool BlueStore::ExtentMap::has_any_lextents(uint64_t offset, uint64_t length)
