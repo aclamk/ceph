@@ -17088,6 +17088,17 @@ void BlueStore::_do_write_data(
   WriteContext *wctx)
 {
   uint64_t end = offset + length;
+
+  const uint32_t scan_range = 0x20000; //128kB
+  uint32_t scan_left = offset < scan_range ? 0: offset - scan_range;
+  uint32_t scan_right = end + scan_range;
+  recompression_scanner scanner(this);
+  interval_set<uint32_t> extra_rewrites;
+  recompression_scanner::on_write*
+  ow = scanner.on_write_start(
+    &o->extent_map,
+    offset, length, scan_left, scan_right, extra_rewrites);
+  scanner.on_write_done(ow);
   bufferlist::iterator p = bl.begin();
 
   if (offset / min_alloc_size == (end - 1) / min_alloc_size &&
