@@ -3712,7 +3712,7 @@ int BlueFS::fsync(FileWriter *h)/*_WF_WD_WLD_WLNF_WNF*/
       }
     }
   }
-  if (old_dirty_seq) {
+  if (old_dirty_seq && h->writer_type != BlueFS::WRITER_WAL) {
     _flush_and_sync_log_LD(old_dirty_seq);
   }
   _maybe_compact_log_LNF_NF_LD_D();
