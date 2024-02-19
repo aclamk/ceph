@@ -5658,6 +5658,7 @@ BlueStore::BlueStore(CephContext *cct,
     throttle(cct),
     finisher(cct, "commit_finisher", "cfin"),
     kv_sync_thread(this),
+    kv_memtable_thread(this),
     kv_finalize_thread(this),
     min_alloc_size(_min_alloc_size),
     min_alloc_size_order(std::countr_zero(_min_alloc_size)),
@@ -6200,6 +6201,9 @@ void BlueStore::_init_logger()
   b.add_time_avg(l_bluestore_kv_final_lat, "kv_final_lat",
 		 "Average kv_finalize thread latency",
 		 "kfll", PerfCountersBuilder::PRIO_INTERESTING);
+  b.add_u64_avg(l_bluestore_kv_commited_avg, "kv_commited_avg",
+		 "Average kv_commited per loop",
+		 "kcpl", PerfCountersBuilder::PRIO_INTERESTING);
   //****************************************
 
   // write op stats
@@ -6395,6 +6399,38 @@ void BlueStore::_init_logger()
     "Average truncate latency",
     "tr_l", PerfCountersBuilder::PRIO_USEFUL);
   //****************************************
+
+
+
+// Resulting size axis configuration for op histograms, values are in bytes
+  PerfHistogramCommon::axis_config_d write_hist_x_axis_config{
+    "Given size (bytes)",
+    PerfHistogramCommon::SCALE_LINEAR, ///< Request size in logarithmic scale
+    0,                               ///< Start at 0
+    2,                            ///< Quantization unit
+    50,                               ///< 0us - 100us
+  };
+  // Req size axis configuration for op histograms, values are in bytes
+  PerfHistogramCommon::axis_config_d write_hist_y_axis_config{
+    "zero",
+    PerfHistogramCommon::SCALE_LINEAR, ///< Request size in logarithmic scale
+    0,                               ///< Start at 0
+    1,                            ///< Quantization unit
+    1,                               ///< Enough to cover 4+M requests
+  };
+  b.add_u64_counter_histogram(
+    l_bluestore_write_lat, "write_lat",
+    write_hist_y_axis_config, write_hist_x_axis_config,
+    "Histogram of do_write() call");
+
+
+
+//  b.add_time_avg(l_bluestore_write_lat, "write_lat",
+//    "Average write() latency",
+//    "writ", PerfCountersBuilder::PRIO_USEFUL);
+  b.add_time_avg(l_bluestore_record_onode_lat, "record_onode_lat",
+    "Average record onode latency",
+    "rdol", PerfCountersBuilder::PRIO_USEFUL);
 
   // slow op count
   //****************************************
@@ -13759,7 +13795,8 @@ void BlueStore::_txc_state_proc(TransContext *txc)
 	  dout(20) << __func__ << " DEBUG randomly forcing submit via kv thread"
 		   << dendl;
 	} else {
-	  _txc_apply_kv(txc, true);
+          ceph_assert(false);
+	  _txc_apply_kv(txc, true, false);
 	}
       }
       {
@@ -13955,9 +13992,11 @@ void BlueStore::_txc_finalize_kv(TransContext *txc, KeyValueDB::Transaction t)
   _txc_update_store_statfs(txc);
 }
 
-void BlueStore::_txc_apply_kv(TransContext *txc, bool sync_submit_transaction)
+void BlueStore::_txc_apply_kv(TransContext *txc, bool sync_submit_transaction, bool wal_part)
 {
-  ceph_assert(txc->get_state() == TransContext::STATE_KV_QUEUED);
+  if (wal_part) {
+    ceph_assert(txc->get_state() == TransContext::STATE_KV_QUEUED);
+  }
   {
 #if defined(WITH_LTTNG)
     auto start = mono_clock::now();
@@ -13969,9 +14008,11 @@ void BlueStore::_txc_apply_kv(TransContext *txc, bool sync_submit_transaction)
     }
 #endif
 
-    int r = cct->_conf->bluestore_debug_omit_kv_commit ? 0 : db->submit_transaction(txc->t);
+    int r = cct->_conf->bluestore_debug_omit_kv_commit ? 0 : db->submit_transaction(txc->t, wal_part);
     ceph_assert(r == 0);
-    txc->set_state(TransContext::STATE_KV_SUBMITTED);
+    if (wal_part) {
+      txc->set_state(TransContext::STATE_KV_SUBMITTED);
+    }
     if (txc->osr->kv_submitted_waiters) {
       std::lock_guard l(txc->osr->qlock);
       txc->osr->qcond.notify_all();
@@ -13989,14 +14030,15 @@ void BlueStore::_txc_apply_kv(TransContext *txc, bool sync_submit_transaction)
     }
 #endif
   }
-
-  for (auto ls : { &txc->onodes, &txc->modified_objects }) {
-    for (auto& o : *ls) {
-      dout(20) << __func__ << " onode " << o << " had " << o->flushing_count
-	       << dendl;
-      if (--o->flushing_count == 0 && o->waiting_count.load()) {
-        std::lock_guard l(o->flush_lock);
-	o->flush_cond.notify_all();
+  if (!wal_part) {
+    for (auto ls : { &txc->onodes, &txc->modified_objects }) {
+      for (auto& o : *ls) {
+        dout(20) << __func__ << " onode " << o << " had " << o->flushing_count
+	         << dendl;
+        if (--o->flushing_count == 0 && o->waiting_count.load()) {
+          std::lock_guard l(o->flush_lock);
+	  o->flush_cond.notify_all();
+        }
       }
     }
   }
@@ -14291,6 +14333,7 @@ void BlueStore::_kv_start()
 
   finisher.start();
   kv_sync_thread.create("bstore_kv_sync");
+  kv_memtable_thread.create("bstore_kv_mem");
   kv_finalize_thread.create("bstore_kv_final");
 }
 
@@ -14304,6 +14347,14 @@ void BlueStore::_kv_stop()
     }
     kv_stop = true;
     kv_cond.notify_all();
+  }
+  {
+    std::unique_lock l{kv_memtable_lock};
+    while (!kv_memtable_started) {
+      kv_memtable_cond.wait(l);
+    }
+    kv_memtable_stop = true;
+    kv_memtable_cond.notify_all();
   }
   {
     std::unique_lock l{kv_finalize_lock};
@@ -14467,7 +14518,7 @@ void BlueStore::_kv_sync_thread()
 	throttle.log_state_latency(*txc, logger, l_bluestore_state_kv_queued_lat);
 	if (txc->get_state() == TransContext::STATE_KV_QUEUED) {
 	  ++kv_submitted;
-	  _txc_apply_kv(txc, false);
+	  _txc_apply_kv(txc, false, true);
 	  --txc->osr->kv_committing_serially;
 	} else {
 	  ceph_assert(txc->get_state() == TransContext::STATE_KV_SUBMITTED);
@@ -14532,8 +14583,39 @@ void BlueStore::_kv_sync_thread()
       }
 #endif
 
+      for (auto txc : kv_committing) {
+	//throttle.log_state_latency(*txc, logger, l_bluestore_state_kv_queued_lat);
+	//if (txc->get_state() == TransContext::STATE_KV_QUEUED) {
+	//  ++kv_submitted;
+	//_txc_apply_kv(txc, false, false);
+	//  --txc->osr->kv_committing_serially;
+	//} else {
+	//  ceph_assert(txc->get_state() == TransContext::STATE_KV_SUBMITTED);
+	//}
+	//if (txc->had_ios) {
+	//  --txc->osr->txc_with_unstable_io;
+	//}
+      }
+
+      {
+        std::unique_lock m{kv_memtable_lock};
+        if (kv_committing_to_memtable.empty()) {
+          kv_committing_to_memtable.swap(kv_committing);
+        } else {
+          kv_committing_to_memtable.insert(
+              kv_committing_to_memtable.end(),
+              kv_committing.begin(),
+              kv_committing.end());
+          kv_committing.clear();
+        }
+        if (!kv_memtable_in_progress) {
+          kv_memtable_in_progress = true;
+          kv_memtable_cond.notify_one();
+        }
+      }
       {
 	std::unique_lock m{kv_finalize_lock};
+#if 0
 	if (kv_committing_to_finalize.empty()) {
 	  kv_committing_to_finalize.swap(kv_committing);
 	} else {
@@ -14543,6 +14625,7 @@ void BlueStore::_kv_sync_thread()
 	      kv_committing.end());
 	  kv_committing.clear();
 	}
+#endif
 	if (deferred_stable_to_finalize.empty()) {
 	  deferred_stable_to_finalize.swap(deferred_stable);
 	} else {
@@ -14601,6 +14684,54 @@ void BlueStore::_kv_sync_thread()
   kv_sync_started = false;
 }
 
+void BlueStore::_kv_memtable_thread()
+{
+  dout(10) << __func__ << " start" << dendl;
+  deque<TransContext*> kv_committed;
+  std::unique_lock l(kv_memtable_lock);
+  ceph_assert(!kv_memtable_started);
+  kv_memtable_started = true;
+  while (true) {
+    ceph_assert(kv_committed.empty());
+    if (kv_committing_to_memtable.empty()) {
+      if (kv_finalize_stop)
+	break;
+      dout(20) << __func__ << " sleep" << dendl;
+      kv_memtable_in_progress = false;
+      kv_memtable_cond.wait(l);
+      dout(20) << __func__ << " wake" << dendl;
+    } else {
+      kv_committed.swap(kv_committing_to_memtable);
+      l.unlock();
+
+      for (auto txc : kv_committed) {
+        _txc_apply_kv(txc, false, false);
+      }
+
+      {
+        std::unique_lock m{kv_finalize_lock};
+        if (kv_committing_to_finalize.empty()) {
+          kv_committing_to_finalize.swap(kv_committed);
+        } else {
+          kv_committing_to_finalize.insert(
+            kv_committing_to_finalize.end(),
+            kv_committed.begin(),
+            kv_committed.end());
+          kv_committed.clear();
+        }
+        if (!kv_finalize_in_progress) {
+          kv_finalize_in_progress = true;
+          kv_finalize_cond.notify_one();
+        }
+      }
+
+      l.lock();
+    }
+  }
+  dout(10) << __func__ << " finish" << dendl;
+  kv_memtable_started = false;
+}
+
 void BlueStore::_kv_finalize_thread()
 {
   deque<TransContext*> kv_committed;
@@ -14629,14 +14760,15 @@ void BlueStore::_kv_finalize_thread()
       dout(20) << __func__ << " deferred_stable " << deferred_stable << dendl;
 
       auto start = mono_clock::now();
-
+      uint32_t comm_count =0;
       while (!kv_committed.empty()) {
 	TransContext *txc = kv_committed.front();
 	ceph_assert(txc->get_state() == TransContext::STATE_KV_SUBMITTED);
+        comm_count++;
 	_txc_state_proc(txc);
 	kv_committed.pop_front();
       }
-
+      logger->inc(l_bluestore_kv_commited_avg, comm_count);
       for (auto b : deferred_stable) {
 	auto p = b->txcs.begin();
 	while (p != b->txcs.end()) {
@@ -16961,7 +17093,7 @@ int BlueStore::_do_write(
   if (length == 0) {
     return 0;
   }
-
+  auto start = mono_clock::now();
   uint64_t end = offset + length;
 
   GarbageCollector gc(c->store->cct);
@@ -17023,6 +17155,9 @@ int BlueStore::_do_write(
   o->extent_map.dirty_range(dirty_start, dirty_end - dirty_start);
 
   r = 0;
+  //logger->tinc(l_bluestore_write_lat, mono_clock::now() - start);
+  logger->hinc(l_bluestore_write_lat, 0,
+  (mono_clock::now() - start).count() / 1000);
 
  out:
   return r;
@@ -18431,6 +18566,7 @@ void BlueStore::_apply_padding(uint64_t head_pad,
 
 void BlueStore::_record_onode(OnodeRef& o, KeyValueDB::Transaction &txn)
 {
+  auto start = mono_clock::now();
   // finalize extent_map shards
   o->extent_map.update(txn, false);
   if (o->extent_map.needs_reshard()) {
@@ -18475,6 +18611,7 @@ void BlueStore::_record_onode(OnodeRef& o, KeyValueDB::Transaction &txn)
 
 
   txn->set(PREFIX_OBJ, o->key.c_str(), o->key.size(), bl);
+  logger->tinc(l_bluestore_record_onode_lat, mono_clock::now() - start);
 }
 
 void BlueStore::_log_alerts(osd_alert_list_t& alerts)

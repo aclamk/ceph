@@ -1596,6 +1596,33 @@ int RocksDBStore::submit_transaction(KeyValueDB::Transaction t)
   return result;
 }
 
+int RocksDBStore::submit_transaction(KeyValueDB::Transaction t, bool wal_part)
+{
+  rocksdb::WriteOptions woptions;
+  RocksDBTransactionImpl * _t =
+    static_cast<RocksDBTransactionImpl *>(t.get());
+
+  lgeneric_subdout(cct, rocksdb, 30) << __func__;
+  RocksWBHandler bat_txc(*this);
+  _t->bat.Iterate(&bat_txc);
+  *_dout << " Rocksdb transaction: " << bat_txc.seen.str() << dendl;
+  
+  rocksdb::Status s;
+  if (wal_part) {
+    woptions.hack_skip_memtable = true;
+  } else {
+    woptions.hack_just_memtable = true;  
+  }
+  s = db->WriteHack(woptions, &_t->bat);
+  if (!s.ok()) {
+    RocksWBHandler rocks_txc(*this);
+    _t->bat.Iterate(&rocks_txc);
+    derr << __func__ << " error: " << s.ToString() << " code = " << s.code()
+         << " Rocksdb transaction: " << rocks_txc.seen.str() << dendl;
+  }
+  return s.ok() ? 0 : -1;
+}
+
 int RocksDBStore::submit_transaction_sync(KeyValueDB::Transaction t)
 {
   utime_t start = ceph_clock_now();

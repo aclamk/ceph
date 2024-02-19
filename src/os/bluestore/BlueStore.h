@@ -120,6 +120,7 @@ enum {
   l_bluestore_kv_commit_lat,
   l_bluestore_kv_sync_lat,
   l_bluestore_kv_final_lat,
+  l_bluestore_kv_commited_avg,
   //****************************************
 
   // write op stats
@@ -208,7 +209,8 @@ enum {
   l_bluestore_remove_lat,
   l_bluestore_truncate_lat,
   //****************************************
-
+  l_bluestore_write_lat,
+  l_bluestore_record_onode_lat,
   // allocation stats
   //****************************************
   l_bluestore_allocate_hist,
@@ -2209,6 +2211,14 @@ private:
       return NULL;
     }
   };
+  struct KVMemtableThread : public Thread {
+    BlueStore *store;
+    explicit KVMemtableThread(BlueStore *s) : store(s) {}
+    void *entry() override {
+      store->_kv_memtable_thread();
+      return NULL;
+    }
+  };
   struct KVFinalizeThread : public Thread {
     BlueStore *store;
     explicit KVFinalizeThread(BlueStore *s) : store(s) {}
@@ -2299,6 +2309,8 @@ private:
   bool _kv_only = false;
   bool kv_sync_started = false;
   bool kv_stop = false;
+  bool kv_memtable_started = false;
+  bool kv_memtable_stop = false;
   bool kv_finalize_started = false;
   bool kv_finalize_stop = false;
   std::deque<TransContext*> kv_queue;             ///< ready, already submitted
@@ -2306,6 +2318,12 @@ private:
   std::deque<TransContext*> kv_committing;        ///< currently syncing
   std::deque<DeferredBatch*> deferred_done_queue;   ///< deferred ios done
   bool kv_sync_in_progress = false;
+
+  KVMemtableThread kv_memtable_thread;
+  std::deque<TransContext*> kv_committing_to_memtable;
+  ceph::mutex kv_memtable_lock = ceph::make_mutex("BlueStore::kv_memtable_lock");
+  ceph::condition_variable kv_memtable_cond;
+  bool kv_memtable_in_progress = false;
 
   KVFinalizeThread kv_finalize_thread;
   ceph::mutex kv_finalize_lock = ceph::make_mutex("BlueStore::kv_finalize_lock");
@@ -2780,7 +2798,7 @@ public:
 private:
   void _txc_finish_io(TransContext *txc);
   void _txc_finalize_kv(TransContext *txc, KeyValueDB::Transaction t);
-  void _txc_apply_kv(TransContext *txc, bool sync_submit_transaction);
+  void _txc_apply_kv(TransContext *txc, bool sync_submit_transaction, bool wal_part);
   void _txc_committed_kv(TransContext *txc);
   void _txc_finish(TransContext *txc);
   void _txc_release_alloc(TransContext *txc);
@@ -2794,6 +2812,7 @@ private:
   void _kv_start();
   void _kv_stop();
   void _kv_sync_thread();
+  void _kv_memtable_thread();
   void _kv_finalize_thread();
 
   bluestore_deferred_op_t *_get_deferred_op(TransContext *txc, uint64_t len);

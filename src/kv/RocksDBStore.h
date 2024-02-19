@@ -334,6 +334,7 @@ public:
   }
 
   int submit_transaction(KeyValueDB::Transaction t) override;
+  int submit_transaction(KeyValueDB::Transaction t, bool wal_part) override;
   int submit_transaction_sync(KeyValueDB::Transaction t) override;
   int get(
     const std::string &prefix,
