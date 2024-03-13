@@ -216,7 +216,7 @@ std::ostream& operator<<(std::ostream& out, const BlueStore::Blob::printer &p)
   out << ")";
   // here printing Buffers
   if (p.mode & (P::BUF | P::SBUF)) {
-    std::lock_guard l(p.blob.shared_blob->get_cache()->lock);
+    std::lock_guard l(p.blob.collection->cache->lock);
     if (p.mode & P::SBUF) {
       // summary buf mode, only print what is mapped what options are, one liner
       out << "bufs(";
