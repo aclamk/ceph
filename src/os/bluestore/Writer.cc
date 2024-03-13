@@ -16,6 +16,17 @@
 #include "include/intarith.h"
 #include "os/bluestore/bluestore_types.h"
 
+std::ostream& operator<<(std::ostream& out, const BlueStore::Writer::blob_data_printer& printer)
+{
+  out << std::hex;
+  uint32_t lof = printer.base_position;
+  for (auto q: printer.blobs) {
+    out << " " << lof << "~" << q.disk_data.length();
+    lof += q.disk_data.length();
+  }
+  out << std::dec;
+  return out;
+}
 
 /// Empties range [offset~length] of object o that is in collection c.
 /// Collects unused elements:
@@ -851,7 +862,7 @@ void BlueStore::Writer::_try_put_data_on_allocated(
   uint32_t& logical_offset,
   uint32_t& end_offset,
   uint32_t& ref_end_offset,
-  std::vector<blob_data_t>& bd,
+  blob_vec& bd,
   exmp_it after_punch_it)
 {
   const char* func_name = __func__;
@@ -916,8 +927,8 @@ void BlueStore::Writer::_try_put_data_on_allocated(
 void BlueStore::Writer::_do_put_new_blobs(
   uint32_t logical_offset,
   uint32_t ref_end_offset,
-  std::vector<blob_data_t>::iterator& bd_it,
-  std::vector<blob_data_t>::iterator bd_end)
+  blob_vec::iterator& bd_it,
+  blob_vec::iterator bd_end)
 {
   extent_map_t& emap = onode->extent_map.extent_map;
   uint32_t blob_size = wctx->target_blob_size;
@@ -950,55 +961,16 @@ void BlueStore::Writer::_do_put_new_blobs(
   }
 }
 
-
 void BlueStore::Writer::_do_put_blobs(
   uint32_t logical_offset,
   uint32_t data_end_offset,
   uint32_t ref_end_offset,
-  std::vector<blob_data_t>& bd,
+  blob_vec& bd,
   exmp_it after_punch_it)
 {
   Collection* coll = onode->c;
   extent_map_t& emap = onode->extent_map.extent_map;
   uint32_t au_size = bstore->min_alloc_size;
-  if (au_size != bstore->block_size) {
-    _try_put_data_on_allocated(logical_offset, data_end_offset, ref_end_offset,
-      bd, after_punch_it);
-    if (logical_offset == data_end_offset) {
-      // We just put everything.
-      ceph_assert(bd.size() == 0);
-      // Init so _collect_release_allocated can work.
-      do_deferred = false;
-      disk_allocs.it = allocated.begin();
-      disk_allocs.pos = 0;
-      return;
-    }
-  }
-
-  // make a deferred decision
-  uint32_t released_size = 0;
-  for (auto& r : released) {
-    released_size += r.length;
-  }
-  uint32_t need_size = p2roundup<uint32_t>(data_end_offset, au_size) -
-    p2align<uint32_t>(logical_offset, au_size);
-  do_deferred = need_size <= released_size && released_size < bstore->prefer_deferred_size;
-  dout(15) << __func__ << " released=0x" << std::hex << released_size
-    << " need=0x" << need_size << std::dec
-    << (do_deferred ? " deferred" : " direct") << dendl;
-
-  if (do_deferred) {
-    disk_allocs.it = released.begin();
-    statfs_delta.allocated() += need_size;
-    disk_allocs.pos = 0;
-  } else {
-    int64_t new_alloc_size = bstore->alloc->allocate(need_size, au_size, 0, 0, &allocated);
-    ceph_assert(need_size == new_alloc_size);
-    statfs_delta.allocated() += new_alloc_size;
-    disk_allocs.it = allocated.begin();
-    disk_allocs.pos = 0;
-  }
-
   uint32_t blob_size = wctx->target_blob_size;
   auto bd_it = bd.begin();
   exmp_it to_it;
@@ -1211,60 +1183,43 @@ std::pair<bool, uint32_t> BlueStore::Writer::_write_expand_r(
   return std::make_pair(new_data_pad, new_data_end);
 }
 
-
-// Writes uncompressed data.
-void BlueStore::Writer::do_write(
-  uint32_t location,
-  bufferlist& data)
+// This function is a centralized place to make a decision on
+// whether to use deferred or direct writes.
+// The assumption behind it is that having parts of write executed as
+// deferred and other parts as direct is suboptimal in any case.
+void BlueStore::Writer::_deferred_decision(uint32_t need_size)
 {
-  pp_mode = debug_level_to_pp_mode(bstore->cct);
-  dout(20) << __func__ << " 0x" << std::hex << location << "~" << data.length() << dendl;
-  dout(25) << "on: " << onode->print(pp_mode) << dendl;
+  // make a deferred decision
+  uint32_t released_size = 0;
+  for (auto& r : released) {
+    released_size += r.length;
+  }
   uint32_t au_size = bstore->min_alloc_size;
-  uint32_t ref_end = location + data.length();
-  bool left_do_pad;
-  bool right_do_pad;
-  uint32_t left_location;
-  uint32_t right_location;
-  if (p2phase(location, au_size) != 0) {
-    // try to make at least disk block aligned
-    std::tie(left_do_pad, left_location) = _write_expand_l(location);
-    if (left_location < location) {
-      bufferlist tmp;
-      if (left_do_pad) {
-        tmp.append_zero(location - left_location);
-      } else {
-        tmp = _read_self(left_location, location - left_location);
-      }
-      tmp.claim_append(data);
-      data.swap(tmp);
-      location = left_location;
-    }
+  do_deferred = need_size <= released_size && released_size < bstore->prefer_deferred_size;
+  dout(15) << __func__ << " released=0x" << std::hex << released_size
+    << " need=0x" << need_size << std::dec
+    << (do_deferred ? " deferred" : " direct") << dendl;
+
+  if (do_deferred) {
+    disk_allocs.it = released.begin();
+    statfs_delta.allocated() += need_size;
+    disk_allocs.pos = 0;
+  } else {
+    int64_t new_alloc_size = bstore->alloc->allocate(need_size, au_size, 0, 0, &allocated);
+    ceph_assert(need_size == new_alloc_size);
+    statfs_delta.allocated() += new_alloc_size;
+    disk_allocs.it = allocated.begin();
+    disk_allocs.pos = 0;
   }
-  if (p2phase(ref_end, au_size) != 0) {
-    // try to make at least disk block aligned
-    std::tie(right_do_pad, right_location) = _write_expand_r(ref_end);
-    if (ref_end < right_location) {
-      // TODO - when we right-expand because of some blob csum restriction, it is possible
-      // we will be left-blob-csum-unaligned. It is wasted space.
-      // Think if we want to fix it.
-      if (right_do_pad) {
-        data.append_zero(right_location - ref_end);
-      } else {
-        bufferlist tmp;
-        tmp = _read_self(ref_end, right_location - ref_end);
-        data.append(tmp);
-        if (onode->onode.size > ref_end)
-          ref_end = std::min<uint32_t>(right_location, onode->onode.size);
-      }
-    }
-  }
-  statfs_delta.stored() += ref_end - location;
-  exmp_it after_punch_it =
-    bstore->_punch_hole_2(onode->c, onode, location, data.length(),
-    released, pruned_blobs, shared_changed, statfs_delta);
-  dout(25) << "after punch_hole_2: " << std::endl << onode->print(pp_mode) << dendl;
-  std::vector<blob_data_t> bd;
+}
+
+// data (input) is split into chunks bd (output)
+// data is emptied as a result
+void BlueStore::Writer::_split_data(
+  uint32_t location,
+  bufferlist& data,
+  blob_vec& bd)
+{
   auto lof = location;
   uint32_t end_offset = location + data.length();
   while (lof < end_offset) {
@@ -1275,14 +1230,100 @@ void BlueStore::Writer::do_write(
     bd.emplace_back(p, 0, tmp, tmp);
     lof += p;
   }
-  dout(20) << "blobs to put:" << std::hex;
-  uint32_t lof = location;
-  for (auto q: bd) {
-    *_dout << " " << lof << "~" << q.disk_data.length();
-    lof += q.disk_data.length();
+}
+
+void BlueStore::Writer::_align_to_disk_block(
+  uint32_t& location,
+  uint32_t& data_end,
+  blob_vec& blobs)
+{
+  ceph_assert(!blobs.empty());
+  uint32_t au_size = bstore->min_alloc_size;
+  bool left_do_pad;
+  bool right_do_pad;
+  uint32_t left_location;
+  uint32_t right_location;
+  if (p2phase(location, au_size) != 0) {
+    blob_data_t& first_blob = blobs.front();
+    if (!first_blob.is_compressed()) {
+      // try to make at least disk block aligned
+      std::tie(left_do_pad, left_location) = _write_expand_l(location);
+      if (left_location < location) {
+        bufferlist tmp;
+        if (left_do_pad) {
+          tmp.append_zero(location - left_location);
+        } else {
+          tmp = _read_self(left_location, location - left_location);
+        }
+        tmp.claim_append(first_blob.disk_data);
+        first_blob.disk_data.swap(tmp);
+        first_blob.real_length += location - left_location;
+        location = left_location;
+      }
+    }
   }
-  *_dout << std::dec << dendl;
-  _do_put_blobs(location, end_offset, ref_end, bd, after_punch_it);
+  if (p2phase(data_end, au_size) != 0) {
+    blob_data_t& last_blob = blobs.back();
+    if (!last_blob.is_compressed()) {
+    // try to make at least disk block aligned
+      std::tie(right_do_pad, right_location) = _write_expand_r(data_end);
+      if (data_end < right_location) {
+        // TODO - when we right-expand because of some blob csum restriction, it is possible
+        // we will be left-blob-csum-unaligned. It is wasted space.
+        // Think if we want to fix it.
+        if (right_do_pad) {
+          last_blob.disk_data.append_zero(right_location - data_end);
+        } else {
+          bufferlist tmp;
+          tmp = _read_self(data_end, right_location - data_end);
+          last_blob.disk_data.append(tmp);
+        }
+        last_blob.real_length += right_location - data_end;
+      }
+      data_end = right_location;
+    }
+  }
+}
+
+// Writes uncompressed data.
+void BlueStore::Writer::do_write(
+  uint32_t location,
+  bufferlist& data)
+{
+  do_deferred = false;
+  disk_allocs.it = allocated.end();
+  disk_allocs.pos = 0;
+  pp_mode = debug_level_to_pp_mode(bstore->cct);
+  dout(20) << __func__ << " 0x" << std::hex << location << "~" << data.length() << dendl;
+  dout(25) << "on: " << onode->print(pp_mode) << dendl;
+  blob_vec bd;
+  uint32_t ref_end = location + data.length();
+  uint32_t data_end = location + data.length();
+  _split_data(location, data, bd);
+  _align_to_disk_block(location, data_end, bd);
+  if (ref_end < onode->onode.size) {
+    ref_end = std::min<uint32_t>(data_end, onode->onode.size);
+  }
+  dout(20) << "blobs to put:" << blob_data_printer(bd, location) << dendl;
+  statfs_delta.stored() += ref_end - location;
+  exmp_it after_punch_it =
+    bstore->_punch_hole_2(onode->c, onode, location, data_end - location,
+    released, pruned_blobs, shared_changed, statfs_delta);
+  dout(25) << "after punch_hole_2: " << std::endl << onode->print(pp_mode) << dendl;
+
+  uint32_t au_size = bstore->min_alloc_size;
+  if (au_size != bstore->block_size) {
+    _try_put_data_on_allocated(location, data_end, ref_end, bd, after_punch_it);
+  }
+  if (location != data_end) {
+    uint32_t need_size = p2roundup(data_end, au_size) - p2align(location, au_size);
+    // make a deferred decision
+    _deferred_decision(need_size);
+    _do_put_blobs(location, data_end, ref_end, bd, after_punch_it);
+  } else {
+    // Unlikely, but we just put everything.
+    ceph_assert(bd.size() == 0);
+  }
   if (onode->onode.size < ref_end)
     onode->onode.size = ref_end;
   _collect_released_allocated();

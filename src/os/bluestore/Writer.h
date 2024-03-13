@@ -32,6 +32,13 @@ public:
     bufferlist object_data;     // Object data. Needed to put into caches.
     bool is_compressed() {return compressed_length != 0;}
   };
+  using blob_vec = std::vector<blob_data_t>;
+  struct blob_data_printer {
+    const blob_vec& blobs;
+    uint32_t base_position;
+    blob_data_printer(const blob_vec& blobs, uint32_t base_position)
+    : blobs(blobs), base_position(base_position) {}
+  };
 
   struct write_divertor {
     virtual ~write_divertor() = default;
@@ -68,6 +75,8 @@ private:
   PExtentVector released;   //filled by punch_hole
   PExtentVector allocated;  //filled by alloc()
   bool do_deferred = false;
+  // note: disk_allocs.it is uninitialized.
+  //       it must be initialized in do_write
   struct {
     PExtentVector::iterator it;  //iterator
     uint32_t                pos; //in-iterator position
@@ -118,6 +127,17 @@ private:
     uint32_t in_blob_offset,
     bufferlist disk_data);
 
+  void _split_data(
+    uint32_t location,
+    bufferlist& data,
+    blob_vec& bd);
+
+  void _align_to_disk_block(
+    uint32_t& location,
+    uint32_t& ref_end,
+    blob_vec& blobs
+  );
+
   inline void _blob_put_data_subau(
     Blob* blob,
     uint32_t in_blob_offset,
@@ -156,20 +176,20 @@ private:
   uint32_t& logical_offset, 
   uint32_t& end_offset,
   uint32_t& ref_end_offset,
-  std::vector<blob_data_t>& bd,
+  blob_vec& bd,
   exmp_it after_punch_it);
 
   void _do_put_new_blobs(
     uint32_t logical_offset, 
     uint32_t ref_end_offset,
-    std::vector<blob_data_t>::iterator& bd_it,
-    std::vector<blob_data_t>::iterator bd_end);
+    blob_vec::iterator& bd_it,
+    blob_vec::iterator bd_end);
 
   void _do_put_blobs(
     uint32_t logical_offset, 
     uint32_t data_end_offset,
     uint32_t ref_end_offset,
-    std::vector<blob_data_t>& bd,
+    blob_vec& bd,
     exmp_it after_punch_it);
 
   std::pair<bool, uint32_t> _write_expand_l(
@@ -180,5 +200,9 @@ private:
 
   void _collect_released_allocated();
 
+  void _deferred_decision(uint32_t need_size);
 };
+
+std::ostream& operator<<(std::ostream& out, const BlueStore::Writer::blob_data_printer& printer);
+
 #endif // BLUESTORE_WRITER
