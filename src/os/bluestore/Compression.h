@@ -16,18 +16,63 @@
 
 #include "BlueStore.h"
 
-class recompression_scanner {
-public:
+class BlueStore::Estimator {
   BlueStore* bluestore;
-  recompression_scanner(BlueStore* bluestore)
+public:
+  Estimator(BlueStore* bluestore,
+            uint32_t min_alloc_size,
+            uint32_t max_blob_size)
+  :bluestore(bluestore)
+  ,min_alloc_size(min_alloc_size)
+  ,max_blob_size(max_blob_size) {}
+
+  // return estimated size if extent gets compressed / recompressed
+  uint32_t estimate(const BlueStore::Extent* recompress_candidate);
+  // return estimated size if data gets compressed
+  uint32_t estimate(uint32_t new_data);
+  // make a decision about including region to recompression
+  // gain = size on disk (after release or taken if no compression)
+  // cost = size estimated on disk after compression
+  bool is_worth(uint32_t gain, uint32_t cost);
+
+  double expected_compression_factor = 0.5;
+  uint32_t min_alloc_size;
+  uint32_t max_blob_size;
+
+  struct region_t {
+    uint32_t offset; // offset of region
+    uint32_t length; // size of region
+    std::vector<uint32_t> blob_sizes; //sizes of blobs to split into
+  };
+
+  void split(uint32_t size);
+  void split(uint32_t raw_size, uint32_t compr_size);
+  void mark_recompress(const BlueStore::Extent* e);
+  void get_regions(std::vector<region_t>& regions);
+
+  private:
+  struct is_less {
+    bool operator() (
+    const BlueStore::Extent* l,
+    const BlueStore::Extent* r) const {
+      return l->logical_offset < r->logical_offset;
+    }
+  };
+  std::set<const BlueStore::Extent *, is_less> extra_recompress;
+};
+
+class BlueStore::Scanner {
+  BlueStore* bluestore;
+public:
+  Scanner(BlueStore* bluestore)
   :bluestore(bluestore) {}
 
-  class on_write;
-  on_write* on_write_start(
-      BlueStore::ExtentMap* extent_map,
-      uint32_t offset, uint32_t length,
-      uint32_t left_limit, uint32_t right_limit,
-      interval_set<uint32_t>& extra_rewrites);
-  void on_write_done(on_write*);
+  void write_lookaround(
+    BlueStore::ExtentMap* extent_map,
+    uint32_t offset, uint32_t length,
+    uint32_t left_limit, uint32_t right_limit,
+    interval_set<uint32_t>& extra_rewrites,
+    Estimator* estimator);
+  class Scan;
 };
 #endif

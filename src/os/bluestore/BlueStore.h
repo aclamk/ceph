@@ -259,6 +259,8 @@ public:
 
   struct BufferSpace;
   struct Collection;
+  class Scanner;
+  class Estimator;
   typedef boost::intrusive_ptr<Collection> CollectionRef;
 
   struct AioContext {

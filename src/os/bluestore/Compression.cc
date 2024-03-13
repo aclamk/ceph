@@ -26,6 +26,9 @@ using ExtentMap = BlueStore::ExtentMap;
 using Blob = BlueStore::Blob;
 using exmp_cit = BlueStore::extent_map_t::const_iterator;
 using exmp_it = BlueStore::extent_map_t::iterator;
+using Estimator = BlueStore::Estimator;
+using Scanner = BlueStore::Scanner;
+using Scan = BlueStore::Scanner::Scan;
 
 struct scan_blob_element_t {
   uint32_t blob_use_size = 0;    // how many bytes in object logical mapping are covered by this blob
@@ -40,18 +43,84 @@ struct scan_blob_element_t {
 };
 using object_scan_info_t = std::map<const Blob*, scan_blob_element_t>;
 
-class recompression_scanner::on_write {
+inline uint32_t Estimator::estimate(const BlueStore::Extent* e)
+{
+  const Blob *h_Blob = &(*e->blob);
+  const bluestore_blob_t &h_bblob = h_Blob->get_blob();
+  uint32_t cost;
+  if (h_bblob.is_compressed()) {
+    cost = e->length * h_bblob.get_compressed_payload_length() / h_bblob.get_logical_length();
+  } else {
+    cost = e->length * expected_compression_factor;
+  }
+  return cost;
+}
+
+inline bool Estimator::is_worth(uint32_t gain, uint32_t cost)
+{
+  return gain > cost;
+}
+
+inline void Estimator::mark_recompress(const BlueStore::Extent* e)
+{
+  ceph_assert(!extra_recompress.contains(e));
+  dout(25) << "recompress: " << e->print(0) << dendl;
+  extra_recompress.insert(e);
+}
+
+void Estimator::get_regions(std::vector<region_t>& regions)
+{
+  constexpr uint32_t unset = std::numeric_limits<uint32_t>::max();
+  // walk extents to form continous regions
+  region_t* r;
+  uint32_t end = unset;
+  auto i = extra_recompress.begin();
+  while (i != extra_recompress.end()) {
+    if (end == unset) {
+      regions.emplace_back();
+      r = &regions.back();
+      r->offset = (*i)->logical_offset;
+      r->length = (*i)->length;
+      end = (*i)->logical_end();
+    } else {
+      if ((*i)->logical_offset != end) {
+        r->length += (*i)->length;
+        end = (*i)->logical_end();
+      }
+    }
+    ++i;
+    if (i == extra_recompress.end() || (*i)->logical_offset != end) {
+      // close existing region, propose blob split
+      uint32_t size = r->length;
+      uint32_t blobs = (size + max_blob_size - 1) / max_blob_size;
+      uint32_t blob_size = p2roundup(size / blobs, min_alloc_size);
+      r->blob_sizes.resize(blobs);
+      for (auto& i: r->blob_sizes) {
+        ceph_assert(size > 0);
+        i = std::min(size, blob_size);
+        size -= i;
+      }
+    }
+  }
+}
+
+class BlueStore::Scanner::Scan {
 public:
-  BlueStore *bluestore;
-  ExtentMap *extent_map;
-  on_write(BlueStore *bluestore, ExtentMap *extent_map)
-  : bluestore(bluestore), extent_map(extent_map) {}
+  BlueStore* bluestore;
+  ExtentMap* extent_map;
+  Estimator* estimator;
+  Scan(BlueStore* bluestore,
+          ExtentMap* extent_map,
+          Estimator* estimator)
+  : bluestore(bluestore)
+  , extent_map(extent_map)
+  , estimator(estimator) {}
   object_scan_info_t scanned_blobs;
   void on_write_start(uint32_t offset, uint32_t length, uint32_t left_limit,
                       uint32_t right_limit,
                       interval_set<uint32_t> &extra_rewrites);
   struct exmp_logical_offset {
-    const on_write &ow;
+    const Scan &ow;
     const exmp_cit &cit;
   };
   friend std::ostream &operator<<(std::ostream &out,
@@ -93,28 +162,21 @@ private:
   void add_compress_right(uint32_t left, exmp_cit right);
   void walk_left(exmp_cit &it);
   void walk_right(exmp_cit &it);
-  void mark_recompress(const Extent *e);
   void recompress_to_rewrites(interval_set<uint32_t> &extra_rewrites);
   exmp_logical_offset lo(const exmp_cit &it) {
     return exmp_logical_offset(*this, it);
   }
 };
 
-recompression_scanner::on_write* recompression_scanner::on_write_start(
-  ExtentMap* extent_map,
+void Scanner::write_lookaround(
+  BlueStore::ExtentMap* extent_map,
   uint32_t offset, uint32_t length,
   uint32_t left_limit, uint32_t right_limit,
-  interval_set<uint32_t>& extra_rewrites)
+  interval_set<uint32_t>& extra_rewrites,
+  Estimator* estimator)
 {
-  on_write *ow = new on_write(bluestore, extent_map);
-  ow->on_write_start(offset, length, left_limit, right_limit, extra_rewrites);
-  return ow;
-}
-
-void recompression_scanner::on_write_done(
-  recompression_scanner::on_write* ow)
-{
-  delete ow;
+  Scan on_write(bluestore, extent_map, estimator);
+  on_write.on_write_start(offset, length, left_limit, right_limit, extra_rewrites);
 }
 
 std::ostream& operator<<(
@@ -150,7 +212,7 @@ std::ostream& operator<<(
 
 std::ostream& operator<<(
   std::ostream& out,
-  const recompression_scanner::on_write::exmp_logical_offset& lo)
+  const Scan::exmp_logical_offset& lo)
 {
   if (lo.ow.is_end(lo.cit)) {
     out << "end";
@@ -165,7 +227,8 @@ std::ostream& operator<<(
 // those blob will no longer exist.
 // The visited size becomes consumed size, because relevant extents will be
 // overwritten with new data.
-void recompression_scanner::on_write::remove_consumed_blobs() {
+void Scan::remove_consumed_blobs()
+{
   for (auto i = scanned_blobs.begin(); i != scanned_blobs.end();) {
     if (i->second.visited_size == i->second.blob_use_size) {
       i = scanned_blobs.erase(i);
@@ -176,25 +239,19 @@ void recompression_scanner::on_write::remove_consumed_blobs() {
   }
 }
 
-void recompression_scanner::on_write::save_consumed() {
+void Scan::save_consumed()
+{
   for (auto i = scanned_blobs.begin(); i != scanned_blobs.end(); ++i) {
     i->second.consumed_saved_size = i->second.consumed_size;
   }
 };
 
-void recompression_scanner::on_write::restore_consumed() {
+void Scan::restore_consumed()
+{
   for (auto i = scanned_blobs.begin(); i != scanned_blobs.end(); ++i) {
     i->second.consumed_size = i->second.consumed_saved_size;
   }
 };
-
-// Mark a specific extent for recompression.
-// 
-void recompression_scanner::on_write::mark_recompress(const Extent* e)
-{
-  ceph_assert(!extra_recompress.contains(e));
-  extra_recompress.insert(e);
-}
 
 // Scan to take info on compressed blobs in specified range.
 // It can be used for initial cover for punch_hole() region,
@@ -202,7 +259,7 @@ void recompression_scanner::on_write::mark_recompress(const Extent* e)
 // we intend to become candidates for recompression.
 // start - first extent of region to scan
 // finish - the first extent outside scan region
-void recompression_scanner::on_write::scan_for_compressed_blobs(
+void Scan::scan_for_compressed_blobs(
   exmp_cit start, exmp_cit finish)
 {
   using P = BlueStore::printer;
@@ -257,7 +314,7 @@ void recompression_scanner::on_write::scan_for_compressed_blobs(
 
 // Takes a compressed extent `it` and expands scan range
 // so it would surely encompass all extents that refer to the same blob.
-bool recompression_scanner::on_write::maybe_expand_scan_range(
+bool Scan::maybe_expand_scan_range(
   const exmp_cit& it, uint32_t& left, uint32_t& right)
 {
   using P = BlueStore::printer;
@@ -284,7 +341,7 @@ bool recompression_scanner::on_write::maybe_expand_scan_range(
 }
     
 // Calculate gain and cost of recompressing an extent
-void recompression_scanner::on_write::if_recompressed_extent(
+void Scan::if_recompressed_extent(
   const Extent* e, gain_cost& gc)
 {
   using P = BlueStore::printer;
@@ -303,7 +360,7 @@ void recompression_scanner::on_write::if_recompressed_extent(
         // Seen all extents of the blob, can take gain.
         gain = h_bblob.get_ondisk_length();
       }
-      cost = e->length * h_bblob.get_compressed_payload_length() / h_bblob.get_logical_length();
+      cost = estimator->estimate(e);
       dout(20) << "ire extent=" << e->print(P::NICK) << " gain=" << gain << " cost=" << cost << dendl;
     } else {
       dout(10) << "ire blob not scanned before! " << h_Blob->print(P::NICK + P::SUSE) << dendl;
@@ -315,7 +372,7 @@ void recompression_scanner::on_write::if_recompressed_extent(
     // not compressed
     gain = e->length;
     // for regular blobs we extrapolate from past compression
-    cost = e->length * expected_compression_factor;
+    cost = estimator->estimate(e);
     dout(20) << "ire extent=" << e->print(P::NICK) << " gain=" << gain << " cost=" << cost << dendl;
   }
   gc.gain += gain;
@@ -326,8 +383,8 @@ void recompression_scanner::on_write::if_recompressed_extent(
 // left side variant of estimate
 // 'left' is extent that is the leftmost extent to be analyzed.
 // 'right' is the leftmost logical offset of area already marked for recompression
-void recompression_scanner::on_write::estimate_gain_left(
-    exmp_cit left, uint32_t right, gain_cost &gc)
+void Scan::estimate_gain_left(
+  exmp_cit left, uint32_t right, gain_cost &gc)
 {
   auto i = left;
   uint32_t last_offset = i->logical_offset;
@@ -350,8 +407,8 @@ void recompression_scanner::on_write::estimate_gain_left(
 // right side variant of estimate
 // 'left' is the first byte after rightmost logical offset that has already marked for recompression
 // 'right' is extent that is the last that should be analyzed.
-void recompression_scanner::on_write::estimate_gain_right(
-    uint32_t left, exmp_cit right, gain_cost &gc)
+void Scan::estimate_gain_right(
+  uint32_t left, exmp_cit right, gain_cost &gc)
 {
   uint32_t last_offset = left;
   for (auto i = extent_map->seek_lextent(left);;) {
@@ -371,14 +428,17 @@ void recompression_scanner::on_write::estimate_gain_right(
 // Add extents to recompress. Left side variant.
 // 'left' is extent that is the leftmost extent to add.
 // 'right' is the leftmost logical offset of area already marked for recompression
-void recompression_scanner::on_write::add_compress_left(
-    exmp_cit left, uint32_t right) {
+void Scan::add_compress_left(
+  exmp_cit left, uint32_t right)
+{
   ceph_assert(left != extent_map->extent_map.end());
+  dout(29) << "add_compress_left extents x" << std::hex << left->logical_offset
+           << "(include) .. x" << right << std::dec << dendl;
   ceph_assert(!left->blob->get_blob().is_shared());
   for (auto i = left; i != extent_map->extent_map.end() && i->logical_offset < right; ++i) {
     if (!i->blob->get_blob().is_shared()) {
       // we only process not shared blobs
-      mark_recompress(&(*i));
+      estimator->mark_recompress(&(*i));
     }
   }
 }
@@ -387,15 +447,17 @@ void recompression_scanner::on_write::add_compress_left(
 // 'left' is the first byte after rightmost logical offset 
 //        that has already been marked for recompression
 // 'right' is the rightmost extent that should be added
-void recompression_scanner::on_write::add_compress_right(
+void Scan::add_compress_right(
   uint32_t left, exmp_cit right) {
   ceph_assert(right != extent_map->extent_map.end());
+  dout(29) << "add_compress_right x" << std::hex << left
+           << " .. x(include)" << right->logical_offset << std::dec << dendl;
   ceph_assert(!right->blob->get_blob().is_shared());
   for (auto i = extent_map->seek_lextent(left);;) {
     ceph_assert(i != extent_map->extent_map.end());
     if (!i->blob->get_blob().is_shared()) {
       // we only process not shared blobs
-      mark_recompress(&(*i));
+      estimator->mark_recompress(&(*i));
     }
     if (i == right)
       break; // stop once right is processed
@@ -405,7 +467,8 @@ void recompression_scanner::on_write::add_compress_right(
 
 // Argument `it` points to extent that has already been processed
 // Returned `it` points to extent that has been processed
-void recompression_scanner::on_write::walk_left(exmp_cit& it) {
+void Scan::walk_left(exmp_cit& it)
+{
   using P = BlueStore::printer;
   dout(29) << "wl start it=" << lo(it) << dendl;
   //ceph_assert(it != extent_map->extent_map.end());
@@ -431,8 +494,8 @@ void recompression_scanner::on_write::walk_left(exmp_cit& it) {
     }
     gain_cost gc;
     if_recompressed_extent(&(*it), gc);
-    if (gc.gain > gc.cost) {
-      mark_recompress(&(*it));
+    if (estimator->is_worth(gc.gain, gc.cost)) {
+      estimator->mark_recompress(&(*it));
       done_left = it->logical_offset;
     }
   }
@@ -443,7 +506,8 @@ void recompression_scanner::on_write::walk_left(exmp_cit& it) {
 
 // Argument `it` points to extent that is a candidate
 // Returned `it` points to extent that has been rejected
-void recompression_scanner::on_write::walk_right(exmp_cit& it) {
+void Scan::walk_right(exmp_cit& it)
+{
   using P = BlueStore::printer;
   dout(29) << "wr start it=" << lo(it) << dendl;
   for (; it != extent_map->extent_map.end() && it->logical_end() <= limit_right; ++it) {
@@ -465,8 +529,8 @@ void recompression_scanner::on_write::walk_right(exmp_cit& it) {
     }
     gain_cost gc;
     if_recompressed_extent(&(*it), gc);
-    if (gc.gain > gc.cost) {
-      mark_recompress(&(*it));
+    if (estimator->is_worth(gc.gain, gc.cost)) {
+      estimator->mark_recompress(&(*it));
       done_right = it->logical_end();
     }
   }
@@ -478,7 +542,8 @@ void recompression_scanner::on_write::walk_right(exmp_cit& it) {
 // Searches in `scanned_blobs` for a blob that causes least expansion of recompress range.
 // Never selects "rejected" blobs.
 // Uses `done_left` and `done_right` to measure expansion ratio.
-object_scan_info_t::iterator recompression_scanner::on_write::find_least_expanding() {
+object_scan_info_t::iterator Scanner::Scan::find_least_expanding()
+{
   auto expansion_size = [&](object_scan_info_t::const_iterator i) -> uint32_t {
     return done_left - std::min(i->second.leftmost_extent->logical_offset, done_left) +
            std::max(i->second.rightmost_extent->logical_end(), done_right) - done_right;
@@ -539,7 +604,7 @@ object_scan_info_t::iterator recompression_scanner::on_write::find_least_expandi
 //    try to expand on previously non-compressed extents.
 // 6. If blob on left and right are compressed, 
 //    expand scan region and goto 3
-void recompression_scanner::on_write::on_write_start(
+void Scan::on_write_start(
   uint32_t offset, uint32_t length,
   uint32_t _limit_left, uint32_t _limit_right,
   interval_set<uint32_t>& extra_rewrites)
@@ -632,7 +697,7 @@ void recompression_scanner::on_write::on_write_start(
         estimate_gain_right(done_right, b_it->second.rightmost_extent, gc);
       }
       dout(20) << "on_write #4 gain=" << gc.gain << " cost=" << gc.cost << dendl;
-      if (gc.gain > gc.cost) {
+      if (estimator->is_worth(gc.gain, gc.cost)) {
         // meld this new blob into re-write region
         if (b_it->second.leftmost_extent->logical_offset < done_left) {
           add_compress_left(b_it->second.leftmost_extent, done_left);
@@ -717,7 +782,7 @@ void recompression_scanner::on_write::on_write_start(
 // 8K  -> 3.7K -> 3.6K (bonus for larger blob)
 // 32K -> 15.5K -> 15.5K (no bonus)
 // wszystko na później
-void recompression_scanner::on_write::recompress_to_rewrites(
+void Scan::recompress_to_rewrites(
   interval_set<uint32_t>& extra_rewrites)
 {
   auto it = extra_recompress.begin();
@@ -730,8 +795,8 @@ void recompression_scanner::on_write::recompress_to_rewrites(
         //discontinue
         extra_rewrites.insert(begin, end - begin);
         begin = (*it)->logical_offset;
-        end = (*it)->logical_end();
       }
+      end = (*it)->logical_end();
       ++it;
     }
     extra_rewrites.insert(begin, end - begin);
