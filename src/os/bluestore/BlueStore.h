@@ -1192,8 +1192,6 @@ public:
     /// seek to the first lextent including or after offset
     extent_map_t::iterator seek_lextent(uint64_t offset);
     extent_map_t::const_iterator seek_lextent(uint64_t offset) const;
-    // if inside extent split it, if not return extent on right
-    extent_map_t::iterator maybe_split_at(uint32_t offset);
     /// seek to the exactly the extent, or after offset
     extent_map_t::iterator seek_nextent(uint64_t offset);
 

@@ -141,7 +141,7 @@ std::ostream& operator<<(
   out << "[";
   for (auto it = scanned_blobs.begin(); it != scanned_blobs.end(); ++it) {
     out << std::endl;
-    out << it->first->print(P::nick + P::sdisk + P::suse)
+    out << it->first->print(P::NICK + P::SDISK + P::SUSE)
         << " ==> " << it->second;
   }
   out << "]";
@@ -213,18 +213,18 @@ void recompression_scanner::on_write::scan_for_compressed_blobs(
     if (h_bblob.is_shared()) {
       // Do not analyze shared blobs, even compressed ones.
       // It seems improbable that recompressing it would yield benefits.
-      dout(29) << "sfcb " << h_Blob->print(P::nick) << " shared, rejected" << dendl;
+      dout(29) << "sfcb " << h_Blob->print(P::NICK) << " shared, rejected" << dendl;
       continue;
     }
     if (!h_bblob.is_compressed()) {
-      dout(29) << "sfcb " << h_Blob->print(P::nick)
+      dout(29) << "sfcb " << h_Blob->print(P::NICK)
                << " non-compressed, rejected" << dendl;
       continue;
     }
     auto bit = scanned_blobs.find(h_Blob);
     if (bit == scanned_blobs.end()) {
       // first time we see this blob
-      dout(29) << "sfcb " << h_Blob->print(P::nick + P::sdisk + P::suse + P::schk) 
+      dout(29) << "sfcb " << h_Blob->print(P::NICK + P::SDISK + P::SUSE + P::SCHK)
                << " seen first time, blob_left=x" << std::hex << it->blob_start()
                << " blob_right=x" << it->blob_end() << std::dec << dendl;
       scanned_blobs.emplace(
@@ -245,7 +245,7 @@ void recompression_scanner::on_write::scan_for_compressed_blobs(
       if (it->logical_offset < info.leftmost_extent->logical_offset) {
         info.leftmost_extent = it;
       }
-      dout(29) << "sfcb " << h_Blob->print(P::nick + P::sdisk + P::suse + P::schk) 
+      dout(29) << "sfcb " << h_Blob->print(P::NICK + P::SDISK + P::SUSE + P::SCHK)
                << " updated, blob_left=" << info.blob_left
                << " blob_right=" << info.blob_right << dendl;
       ceph_assert(info.blob_left == it->blob_start());
@@ -265,7 +265,7 @@ bool recompression_scanner::on_write::maybe_expand_scan_range(
   const Blob *h_Blob = &(*it->blob);
   const bluestore_blob_t &h_bblob = h_Blob->get_blob();
   // we made left_walk up to here, it must be compressed blob
-  dout(29) << "mesr " << h_Blob->print(P::nick + P::sdisk + P::suse + P::schk) << dendl;
+  dout(29) << "mesr " << h_Blob->print(P::NICK + P::SDISK + P::SUSE + P::SCHK) << dendl;
   ceph_assert(h_bblob.is_compressed());
   auto i = scanned_blobs.find(h_Blob);
   if (i == scanned_blobs.end() || i->second.rejected == false) {
@@ -292,9 +292,9 @@ void recompression_scanner::on_write::if_recompressed_extent(
   const bluestore_blob_t &h_bblob = h_Blob->get_blob();
   uint32_t gain = 0;
   uint32_t cost = 0;
-  dout(29) << "ire " << e->print(P::nick + P::suse) << dendl;
+  dout(29) << "ire " << e->print(P::NICK + P::SUSE) << dendl;
   if (h_bblob.is_shared()) {
-    dout(29) << "ire ignoring shared " << h_Blob->print(P::nick) << dendl;
+    dout(29) << "ire ignoring shared " << h_Blob->print(P::NICK) << dendl;
   } else if (h_bblob.is_compressed()) {
     auto bit = scanned_blobs.find(h_Blob);
     if (bit != scanned_blobs.end()) {
@@ -304,9 +304,9 @@ void recompression_scanner::on_write::if_recompressed_extent(
         gain = h_bblob.get_ondisk_length();
       }
       cost = e->length * h_bblob.get_compressed_payload_length() / h_bblob.get_logical_length();
-      dout(20) << "ire extent=" << e->print(P::nick) << " gain=" << gain << " cost=" << cost << dendl;
+      dout(20) << "ire extent=" << e->print(P::NICK) << " gain=" << gain << " cost=" << cost << dendl;
     } else {
-      dout(10) << "ire blob not scanned before! " << h_Blob->print(P::nick + P::suse) << dendl;
+      dout(10) << "ire blob not scanned before! " << h_Blob->print(P::NICK + P::SUSE) << dendl;
       // This blob was seen, but removed as completely consumed?
       // Is it even possible?
       ceph_assert(false);
@@ -316,7 +316,7 @@ void recompression_scanner::on_write::if_recompressed_extent(
     gain = e->length;
     // for regular blobs we extrapolate from past compression
     cost = e->length * expected_compression_factor;
-    dout(20) << "ire extent=" << e->print(P::nick) << " gain=" << gain << " cost=" << cost << dendl;
+    dout(20) << "ire extent=" << e->print(P::NICK) << " gain=" << gain << " cost=" << cost << dendl;
   }
   gc.gain += gain;
   gc.cost += cost;
@@ -411,7 +411,7 @@ void recompression_scanner::on_write::walk_left(exmp_cit& it) {
   //ceph_assert(it != extent_map->extent_map.end());
   for (; it != extent_map->extent_map.begin();) {
     --it;
-    dout(19) << "wl processing it=" << it->print(P::nick + P::sdisk + P::suse) << dendl;
+    dout(19) << "wl processing it=" << it->print(P::NICK + P::SDISK + P::SUSE) << dendl;
     if (it->logical_offset < limit_left) {
       dout(29) << "wl reached limit, stop" << dendl;
       ++it; //back out
@@ -447,7 +447,7 @@ void recompression_scanner::on_write::walk_right(exmp_cit& it) {
   using P = BlueStore::printer;
   dout(29) << "wr start it=" << lo(it) << dendl;
   for (; it != extent_map->extent_map.end() && it->logical_end() <= limit_right; ++it) {
-    dout(19) << "wr processing it=" << it->print(P::nick + P::sdisk + P::suse) << dendl;
+    dout(19) << "wr processing it=" << it->print(P::NICK + P::SDISK + P::SUSE) << dendl;
     if (it->logical_end() > limit_right) {
       dout(29) << "wr reached limit, stop" << dendl;
       break;
