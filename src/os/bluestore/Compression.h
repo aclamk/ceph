@@ -48,6 +48,7 @@ public:
   void split(uint32_t size);
   void split(uint32_t raw_size, uint32_t compr_size);
   void mark_recompress(const BlueStore::Extent* e);
+  void mark_main(uint32_t location, uint32_t length);
   void get_regions(std::vector<region_t>& regions);
 
   private:
@@ -58,7 +59,7 @@ public:
       return l->logical_offset < r->logical_offset;
     }
   };
-  std::set<const BlueStore::Extent *, is_less> extra_recompress;
+  std::map<uint32_t, uint32_t> extra_recompress;
 };
 
 class BlueStore::Scanner {

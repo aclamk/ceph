@@ -56,6 +56,13 @@ inline uint32_t Estimator::estimate(const BlueStore::Extent* e)
   return cost;
 }
 
+inline uint32_t Estimator::estimate(uint32_t new_data)
+{
+  uint32_t cost;
+  cost = new_data * expected_compression_factor;
+  return cost;
+}
+
 inline bool Estimator::is_worth(uint32_t gain, uint32_t cost)
 {
   return gain > cost;
@@ -63,9 +70,18 @@ inline bool Estimator::is_worth(uint32_t gain, uint32_t cost)
 
 inline void Estimator::mark_recompress(const BlueStore::Extent* e)
 {
-  ceph_assert(!extra_recompress.contains(e));
+  ceph_assert(!extra_recompress.contains(e->logical_offset));
   dout(25) << "recompress: " << e->print(0) << dendl;
-  extra_recompress.insert(e);
+  extra_recompress.emplace(e->logical_offset, e->length);
+}
+
+inline void Estimator::mark_main(uint32_t location, uint32_t length)
+{
+  ceph_assert(!extra_recompress.contains(location));
+  dout(25) << "main data compress: " << std::hex
+    << location << "~" << length << std::dec << dendl;
+  extra_recompress.emplace(location, length);
+
 }
 
 void Estimator::get_regions(std::vector<region_t>& regions)
@@ -76,20 +92,22 @@ void Estimator::get_regions(std::vector<region_t>& regions)
   uint32_t end = unset;
   auto i = extra_recompress.begin();
   while (i != extra_recompress.end()) {
+    dout(25) << std::hex << i->first
+      << "~" << i->second << dendl;
     if (end == unset) {
       regions.emplace_back();
       r = &regions.back();
-      r->offset = (*i)->logical_offset;
-      r->length = (*i)->length;
-      end = (*i)->logical_end();
+      r->offset = i->first;
+      r->length = i->second;
+      end = i->first + i->second;
     } else {
-      if ((*i)->logical_offset != end) {
-        r->length += (*i)->length;
-        end = (*i)->logical_end();
+      if (i->first == end) {
+        r->length += i->second;
+        end = i->first + i->second;
       }
     }
     ++i;
-    if (i == extra_recompress.end() || (*i)->logical_offset != end) {
+    if (i == extra_recompress.end() || i->first != end) {
       // close existing region, propose blob split
       uint32_t size = r->length;
       uint32_t blobs = (size + max_blob_size - 1) / max_blob_size;
@@ -100,6 +118,7 @@ void Estimator::get_regions(std::vector<region_t>& regions)
         i = std::min(size, blob_size);
         size -= i;
       }
+      end = unset;
     }
   }
 }
@@ -609,6 +628,7 @@ void Scan::on_write_start(
   uint32_t _limit_left, uint32_t _limit_right,
   interval_set<uint32_t>& extra_rewrites)
 {
+  estimator->mark_main(offset, length);
   done_left = offset;
   done_right = offset + length;
   limit_left = _limit_left;
