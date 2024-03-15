@@ -128,16 +128,17 @@ public:
   BlueStore* bluestore;
   ExtentMap* extent_map;
   Estimator* estimator;
-  Scan(BlueStore* bluestore,
-          ExtentMap* extent_map,
-          Estimator* estimator)
+  Scan(
+    BlueStore* bluestore,
+    ExtentMap* extent_map,
+    Estimator* estimator)
   : bluestore(bluestore)
   , extent_map(extent_map)
   , estimator(estimator) {}
   object_scan_info_t scanned_blobs;
-  void on_write_start(uint32_t offset, uint32_t length, uint32_t left_limit,
-                      uint32_t right_limit,
-                      interval_set<uint32_t> &extra_rewrites);
+  void on_write_start(
+    uint32_t offset, uint32_t length,
+    uint32_t left_limit, uint32_t right_limit);
   struct exmp_logical_offset {
     const Scan &ow;
     const exmp_cit &cit;
@@ -181,7 +182,6 @@ private:
   void add_compress_right(uint32_t left, exmp_cit right);
   void walk_left(exmp_cit &it);
   void walk_right(exmp_cit &it);
-  void recompress_to_rewrites(interval_set<uint32_t> &extra_rewrites);
   exmp_logical_offset lo(const exmp_cit &it) {
     return exmp_logical_offset(*this, it);
   }
@@ -191,11 +191,10 @@ void Scanner::write_lookaround(
   BlueStore::ExtentMap* extent_map,
   uint32_t offset, uint32_t length,
   uint32_t left_limit, uint32_t right_limit,
-  interval_set<uint32_t>& extra_rewrites,
   Estimator* estimator)
 {
   Scan on_write(bluestore, extent_map, estimator);
-  on_write.on_write_start(offset, length, left_limit, right_limit, extra_rewrites);
+  on_write.on_write_start(offset, length, left_limit, right_limit);
 }
 
 std::ostream& operator<<(
@@ -625,8 +624,7 @@ object_scan_info_t::iterator Scanner::Scan::find_least_expanding()
 //    expand scan region and goto 3
 void Scan::on_write_start(
   uint32_t offset, uint32_t length,
-  uint32_t _limit_left, uint32_t _limit_right,
-  interval_set<uint32_t>& extra_rewrites)
+  uint32_t _limit_left, uint32_t _limit_right)
 {
   estimator->mark_main(offset, length);
   done_left = offset;
@@ -778,49 +776,5 @@ void Scan::on_write_start(
   if (has_expanded) {
     goto step3;
   }
-  dout(15) << "on_write #7" << dendl;
-
-  // Now transform extra_recompress to extra_rewrites
-  recompress_to_rewrites(extra_rewrites);
-  dout(10);
-  *_dout << "on_write rewrite regions:" << std::hex;
-  for (auto i : extra_rewrites) {
-    *_dout << " [0x" << i.first << "~" << i.second << "]";
-  }
-  *_dout << std::dec << dendl;
   dout(10) << "on_write done" << dendl;
 }
-
-// we have to preserve sources of the data to recompress
-// so we can update prediction tables in future
-// mogę teraz zgadnąć jakie będą kategowrie? rozmiar, kompresowano, nie kompresowano?
-// powinno to być zebrane dla przedziału
-// kompresowalność
-// 4K  - nie  -> 2K
-// 8K  - nie  -> 6K
-// 20K - nie  -> 18K
-// 8K  -> 3.7K -> 3.6K (bonus for larger blob)
-// 32K -> 15.5K -> 15.5K (no bonus)
-// wszystko na później
-void Scan::recompress_to_rewrites(
-  interval_set<uint32_t>& extra_rewrites)
-{
-  auto it = extra_recompress.begin();
-  if (it != extra_recompress.end()) {
-    uint32_t begin = (*it)->logical_offset;
-    uint32_t end = (*it)->logical_end();
-    ++it;
-    while (it != extra_recompress.end()) {
-      if ((*it)->logical_offset != end) {
-        //discontinue
-        extra_rewrites.insert(begin, end - begin);
-        begin = (*it)->logical_offset;
-      }
-      end = (*it)->logical_end();
-      ++it;
-    }
-    extra_rewrites.insert(begin, end - begin);
-  }
-}
-
-
