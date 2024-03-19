@@ -50,7 +50,9 @@ public:
     virtual bufferlist read(uint32_t object_offset, uint32_t object_length) = 0;
   };
   Writer(BlueStore* bstore, TransContext* txc, WriteContext* wctx, OnodeRef o)
-    :bstore(bstore), txc(txc), wctx(wctx), onode(o) {}
+    :bstore(bstore), txc(txc), wctx(wctx), onode(o) {
+      pp_mode = debug_level_to_pp_mode(bstore->cct);
+    }
 public:
   void do_write(
     uint32_t location,

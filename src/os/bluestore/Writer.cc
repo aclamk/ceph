@@ -1293,7 +1293,6 @@ void BlueStore::Writer::do_write(
   do_deferred = false;
   disk_allocs.it = allocated.end();
   disk_allocs.pos = 0;
-  pp_mode = debug_level_to_pp_mode(bstore->cct);
   dout(20) << __func__ << " 0x" << std::hex << location << "~" << data.length() << dendl;
   dout(25) << "on: " << onode->print(pp_mode) << dendl;
   blob_vec bd;
