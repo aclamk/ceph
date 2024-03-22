@@ -21,8 +21,11 @@ std::ostream& operator<<(std::ostream& out, const BlueStore::Writer::blob_data_p
   out << std::hex;
   uint32_t lof = printer.base_position;
   for (auto q: printer.blobs) {
-    out << " " << lof << "~" << q.disk_data.length();
-    lof += q.disk_data.length();
+    out << " " << lof << "~" << q.real_length;
+    if (q.is_compressed()) {
+      out << "(" << q.compressed_length << ")";
+    }
+    lof += q.real_length;
   }
   out << std::dec;
   return out;
