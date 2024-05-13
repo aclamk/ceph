@@ -44,6 +44,12 @@ struct scan_blob_element_t {
 };
 using object_scan_info_t = std::map<const Blob*, scan_blob_element_t>;
 
+void Estimator::reset()
+{
+  gain = 0;
+  cost = 0;
+  extra_recompress.clear();
+}
 inline void Estimator::batch(const BlueStore::Extent* e, uint32_t _gain)
 {
   using P = BlueStore::printer;
@@ -131,13 +137,14 @@ void Estimator::get_regions(std::vector<region_t>& regions)
 
 void Estimator::split_and_compress(
   CompressorRef compr,
+  uint32_t max_blob_size,
   ceph::buffer::list& data_bl,
   Writer::blob_vec& bd)
 {
   uint32_t size = data_bl.length();
   ceph_assert(size > 0);
   uint32_t blobs = (size + max_blob_size - 1) / max_blob_size;
-  uint32_t blob_size = p2roundup(size / blobs, min_alloc_size);
+  uint32_t blob_size = p2roundup(size / blobs, (uint32_t)bluestore->min_alloc_size);
   std::vector<uint32_t> blob_sizes(blobs);
   for (auto& i: blob_sizes) {
     i = std::min(size, blob_size);

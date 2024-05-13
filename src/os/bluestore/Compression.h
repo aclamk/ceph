@@ -19,13 +19,11 @@
 
 class BlueStore::Estimator {
 public:
-  Estimator(BlueStore* bluestore,
-            uint32_t min_alloc_size,
-            uint32_t max_blob_size)
-  :bluestore(bluestore)
-  ,min_alloc_size(min_alloc_size)
-  ,max_blob_size(max_blob_size) {}
+  Estimator(BlueStore* bluestore)
+  :bluestore(bluestore) {}
 
+  // Prepare for new write
+  void reset();
   // return estimated size if data gets compressed
   uint32_t estimate(uint32_t new_data);
   // Inform estimator that an extent is a candidate for recompression.
@@ -52,6 +50,7 @@ public:
 
   void split_and_compress(
     CompressorRef compr,
+    uint32_t max_blob_size,
     ceph::buffer::list& data_bl,
     Writer::blob_vec& bd);
 
@@ -59,7 +58,6 @@ private:
   BlueStore* bluestore;
   double expected_compression_factor = 0.5;
   uint32_t min_alloc_size;
-  uint32_t max_blob_size;
   // gain = size on disk (after release or taken if no compression)
   // cost = size estimated on disk after compression
   uint32_t cost = 0;
