@@ -636,11 +636,14 @@ inline void BlueStore::Writer::_schedule_io_masked(
       data.splice(0, chunk_size, &ddata);
       if (chunk_is_unused) {
         bstore->bdev->aio_write(disk_position, ddata, &txc->ioc, false);
+        bstore->logger->inc(l_bluestore_write_small_unused);
       } else {
         bluestore_deferred_op_t *op = bstore->_get_deferred_op(txc, ddata.length());
         op->op = bluestore_deferred_op_t::OP_WRITE;
         op->extents.emplace_back(bluestore_pextent_t(disk_position, chunk_size));
         op->data = ddata;
+        bstore->logger->inc(l_bluestore_issued_deferred_writes);
+        bstore->logger->inc(l_bluestore_issued_deferred_write_bytes, ddata.length());
       }
       disk_position += chunk_size;
       data_left -= chunk_size;
@@ -684,6 +687,8 @@ inline void BlueStore::Writer::_schedule_io(
       op->op = bluestore_deferred_op_t::OP_WRITE;
       op->extents = disk_allocs;
       op->data = data;
+      bstore->logger->inc(l_bluestore_issued_deferred_writes);
+      bstore->logger->inc(l_bluestore_issued_deferred_write_bytes, data.length());
     } else {
       for (auto loc : disk_allocs) {
         ceph_assert(initial_offset <= loc.length);
@@ -728,8 +733,9 @@ inline bufferlist BlueStore::Writer::_read_self(
     size_t zlen = length - r;
     if (zlen) {
       result.append_zero(zlen);
-      //logger->inc(l_bluestore_write_pad_bytes, zlen);
+      bstore->logger->inc(l_bluestore_write_pad_bytes, zlen);
     }
+    bstore->logger->inc(l_bluestore_write_small_pre_read);
     return result;
   } else {
     return test_read_divertor->read(position, length);
@@ -985,6 +991,7 @@ void BlueStore::Writer::_do_put_new_blobs(
   extent_map_t& emap = onode->extent_map.extent_map;
   uint32_t blob_size = wctx->target_blob_size;
   while (bd_it != bd_end) {
+    Extent* le;
     if (!bd_it->is_compressed()) {
       // only 1st blob to write can have blob_location != logical_offset
       uint32_t blob_location = p2align(logical_offset, blob_size);
@@ -1000,7 +1007,7 @@ void BlueStore::Writer::_do_put_new_blobs(
         new_blob = _blob_create_with_data(in_blob_offset, bd_it->disk_data);
         new_blob->get_ref(onode->c, in_blob_offset, ref_end - blob_location - in_blob_offset);
       }
-      Extent *le = new Extent(
+      le = new Extent(
         logical_offset, in_blob_offset, ref_end - logical_offset, new_blob);
       dout(20) << __func__ << " new extent+blob " << le->print(pp_mode) << dendl;
       emap.insert(*le);
@@ -1009,12 +1016,14 @@ void BlueStore::Writer::_do_put_new_blobs(
       // compressed
       BlobRef new_blob = _blob_create_full_compressed(
         bd_it->disk_data, bd_it->compressed_length, bd_it->object_data);
-      Extent *le = new Extent(
+      le = new Extent(
         logical_offset, 0, bd_it->real_length, new_blob);
       dout(20) << __func__ << " new compressed extent+blob " << le->print(pp_mode) << dendl;
       emap.insert(*le);
       logical_offset += bd_it->real_length;
     }
+    bstore->logger->inc(l_bluestore_write_big);
+    bstore->logger->inc(l_bluestore_write_big_bytes, le->length);
     ++bd_it;
   }
 }
@@ -1060,6 +1069,8 @@ void BlueStore::Writer::_do_put_blobs(
       emap.insert(*le);
       logical_offset = ref_end;
       ++bd_it;
+      bstore->logger->inc(l_bluestore_write_small);
+      bstore->logger->inc(l_bluestore_write_small_bytes, le->length);
     } else {
       // it is still possible to use first bd and put it into
       // blob after punch_hole
@@ -1096,6 +1107,8 @@ void BlueStore::Writer::_do_put_blobs(
         dout(20) << __func__ << " new extent " << le->print(pp_mode) << dendl;
         emap.insert(*le);
         bd.erase(back_it); //TODO - or other way of limiting end
+        bstore->logger->inc(l_bluestore_write_small);
+        bstore->logger->inc(l_bluestore_write_small_bytes, le->length);
       }
     }
   }
@@ -1309,6 +1322,7 @@ void BlueStore::Writer::_align_to_disk_block(
         bufferlist tmp;
         if (left_do_pad) {
           tmp.append_zero(location - left_location);
+          bstore->logger->inc(l_bluestore_write_pad_bytes, location - left_location);
         } else {
           tmp = _read_self(left_location, location - left_location);
         }
@@ -1330,6 +1344,7 @@ void BlueStore::Writer::_align_to_disk_block(
         // Think if we want to fix it.
         if (right_do_pad) {
           last_blob.disk_data.append_zero(right_location - data_end);
+          bstore->logger->inc(l_bluestore_write_pad_bytes, right_location - data_end);
         } else {
           bufferlist tmp;
           tmp = _read_self(data_end, right_location - data_end);
