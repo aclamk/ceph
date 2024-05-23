@@ -8720,7 +8720,9 @@ int BlueStore::_mount()
       return r;
     }
   }
-  use_write_v2 =   cct->_conf.get_val<bool>("bluestore_write_v2");
+  use_write_v2 = cct->_conf.get_val<bool>("bluestore_write_v2");
+  srand(time(nullptr));
+  use_write_v2 = rand();
   _kv_only = false;
   if (cct->_conf->bluestore_fsck_on_mount) {
     int rc = fsck(cct->_conf->bluestore_fsck_on_mount_deep);
