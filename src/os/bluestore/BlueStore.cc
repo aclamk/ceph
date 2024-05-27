@@ -8721,6 +8721,8 @@ int BlueStore::_mount()
     }
   }
   use_write_v2 =   cct->_conf.get_val<bool>("bluestore_write_v2");
+  srand(time(nullptr));
+  bluestore_onode_segment_size = (rand()%1)? 0: 262144;
   _kv_only = false;
   if (cct->_conf->bluestore_fsck_on_mount) {
     int rc = fsck(cct->_conf->bluestore_fsck_on_mount_deep);
@@ -11614,7 +11616,7 @@ int BlueStore::set_collection_opts(
   std::unique_lock l{c->lock};
   c->pool_opts = opts;
   c->segment_size = c->pool_opts.value_or(
-    pool_opts_t::SEGMENT_SIZE, (int64_t)cct->_conf->bluestore_onode_segment_size);
+    pool_opts_t::SEGMENT_SIZE, (int64_t)bluestore_onode_segment_size);
   return 0;
 }
 

@@ -2472,6 +2472,7 @@ private:
 		"not enough bits for min_alloc_size");
   bool elastic_shared_blobs = false; ///< use smart ExtentMap::dup to reduce shared blob count
   bool use_write_v2 = false; ///< use new write path
+  uint32_t bluestore_onode_segment_size = 0;
 
   enum {
     // Please preserve the order since it's DB persistent
