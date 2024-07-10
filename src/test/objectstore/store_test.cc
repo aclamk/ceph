@@ -7303,6 +7303,7 @@ class DeferredReplayTest : public DeferredWriteTest {
 TEST_P(DeferredReplayTest, DeferredReplay) {
   const bool print = false;
   deferred_test_t t = GetParam();
+  SetVal(g_conf(), "bluestore_write_v2", "false");
   SetVal(g_conf(), "bdev_block_size", stringify(t.bdev_block_size).c_str());
   SetVal(g_conf(), "bluestore_min_alloc_size", stringify(t.min_alloc_size).c_str());
   SetVal(g_conf(), "bluestore_max_blob_size", stringify(t.max_blob_size).c_str());
@@ -7388,6 +7389,7 @@ TEST_P(DeferredReplayTest, DeferredReplay) {
 TEST_P(DeferredReplayTest, DeferredReplayInReadOnly) {
   const bool print = false;
   deferred_test_t t = GetParam();
+  SetVal(g_conf(), "bluestore_write_v2", "false");
   SetVal(g_conf(), "bdev_block_size", stringify(t.bdev_block_size).c_str());
   SetVal(g_conf(), "bluestore_min_alloc_size", stringify(t.min_alloc_size).c_str());
   SetVal(g_conf(), "bluestore_max_blob_size", stringify(t.max_blob_size).c_str());
