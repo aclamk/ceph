@@ -3778,20 +3778,46 @@ int BlueFS::truncate(FileWriter *h, uint64_t offset)/*_WF_L*/
     if (r < 0)
       return r;
   }
-  if (offset == h->file->fnode.size) {
-    return 0;  // no-op!
-  }
   if (offset > h->file->fnode.size) {
     ceph_abort_msg("truncate up not supported");
   }
-  ceph_assert(h->file->fnode.size >= offset);
+  ceph_assert(offset <= h->file->fnode.size);
   _flush_bdev(h);
+  if (offset != h->file->fnode.size) {
+    std::lock_guard ll(log.lock);
+    vselector->sub_usage(h->file->vselector_hint, h->file->fnode.size - offset);
+    h->file->fnode.size = offset;
+    h->file->is_dirty = true;
+    log.t.op_file_update_inc(h->file->fnode);
+  }
+  {
+    std::lock_guard dl(dirty.lock);
+    uint64_t x_off = 0;
+    auto p = h->file->fnode.seek(offset, &x_off);
+    uint64_t cut_off = p2roundup(x_off, alloc_size[p->bdev]);
+    uint64_t new_allocated;
+    if (0 == cut_off) {
+      // whole pextent to remove
+      new_allocated = offset;
+    } else if (cut_off < p->length) {
+      dirty.pending_release[p->bdev].insert(p->offset + cut_off, p->length - cut_off);
+      new_allocated = (offset - x_off) + cut_off;
+      p->length = cut_off;
+      ++p;
+    } else {
+      ceph_assert(cut_off >= p->length);
+      new_allocated  = (offset - x_off) + p->length;
+      // just leave it here
+      ++p;
+    }
+    h->file->fnode.allocated = new_allocated;
+    h->file->fnode.allocated_commited = new_allocated;
+    while (p != h->file->fnode.extents.end()) {
+      dirty.pending_release[p->bdev].insert(p->offset, p->length);
+      p = h->file->fnode.extents.erase(p);
+    }
 
-  std::lock_guard ll(log.lock);
-  vselector->sub_usage(h->file->vselector_hint, h->file->fnode.size - offset);
-  h->file->fnode.size = offset;
-  h->file->is_dirty = true;
-  log.t.op_file_update_inc(h->file->fnode);
+  }
   logger->tinc(l_bluefs_truncate_lat, mono_clock::now() - t0);
   return 0;
 }
