@@ -342,6 +342,7 @@ int main(int argc, char **argv)
         "free-score, "
         "free-fragmentation, "
         "bluefs-stats, "
+        "bluefs-files, "
         "reshard, "
         "show-sharding, "
 	"trim, "
@@ -1179,6 +1180,33 @@ int main(int argc, char **argv)
     ostringstream err;
     r = admin_socket->execute_command(
       { "{\"prefix\": \"bluefs stats\"}" },
+      in, err, &out);
+    if (r != 0) {
+      cerr << "failure querying bluefs stats: " << cpp_strerror(r) << std::endl;
+      exit(EXIT_FAILURE);
+    }
+    cout << std::string(out.c_str(), out.length()) << std::endl;
+     bluestore.cold_close();
+  } else  if (action == "bluefs-files") {
+    AdminSocket* admin_socket = g_ceph_context->get_admin_socket();
+    ceph_assert(admin_socket);
+    validate_path(cct.get(), path, false);
+
+    // make sure we can adjust any config settings
+    g_conf()._clear_safe_to_start_threads();
+    g_conf().set_val_or_die("bluestore_volume_selection_policy",
+                            "use_some_extra_enforced");
+    BlueStore bluestore(cct.get(), path);
+    int r = bluestore.cold_open();
+    if (r < 0) {
+      cerr << "error from cold_open: " << cpp_strerror(r) << std::endl;
+      exit(EXIT_FAILURE);
+    }
+
+    ceph::bufferlist in, out;
+    ostringstream err;
+    r = admin_socket->execute_command(
+      { "{\"prefix\": \"bluefs files list\"}" },
       in, err, &out);
     if (r != 0) {
       cerr << "failure querying bluefs stats: " << cpp_strerror(r) << std::endl;
