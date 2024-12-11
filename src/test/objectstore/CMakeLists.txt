@@ -91,12 +91,14 @@ if(WITH_BLUESTORE)
     Allocator_aging_fragmentation.cc)
   target_link_libraries(unittest_alloc_aging os global GTest::Main)
 
-  # unittest_bluefs
-  add_executable(unittest_bluefs
+  # ceph_test_bluefs (previously unittest_bluefs)
+  add_executable(ceph_test_bluefs
     test_bluefs.cc
     )
-  add_ceph_unittest(unittest_bluefs)
-  target_link_libraries(unittest_bluefs os global)
+  add_ceph_unittest(ceph_test_bluefs)
+  target_link_libraries(ceph_test_bluefs os global)
+  install(TARGETS ceph_test_bluefs
+    DESTINATION ${CMAKE_INSTALL_BINDIR})
 
   # unittest_bluestore_types
   add_executable(unittest_bluestore_types
