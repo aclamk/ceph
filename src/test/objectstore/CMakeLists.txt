@@ -48,6 +48,15 @@ add_executable(unittest_rocksdb_option
 add_ceph_unittest(unittest_rocksdb_option)
 target_link_libraries(unittest_rocksdb_option global os ${BLKID_LIBRARIES})
 
+# ceph_test_bluefs (previously unittest_bluefs)
+add_executable(ceph_test_bluefs
+  test_bluefs.cc
+  )
+add_ceph_unittest(ceph_test_bluefs)
+target_link_libraries(ceph_test_bluefs os global)
+install(TARGETS ceph_test_bluefs
+  DESTINATION ${CMAKE_INSTALL_BINDIR})
+
 if(WITH_EVENTTRACE)
   add_dependencies(os eventtrace_tp)
 endif()
@@ -90,15 +99,6 @@ if(WITH_BLUESTORE)
   add_executable(unittest_alloc_aging EXCLUDE_FROM_ALL
     Allocator_aging_fragmentation.cc)
   target_link_libraries(unittest_alloc_aging os global GTest::Main)
-
-  # ceph_test_bluefs (previously unittest_bluefs)
-  add_executable(ceph_test_bluefs
-    test_bluefs.cc
-    )
-  add_ceph_unittest(ceph_test_bluefs)
-  target_link_libraries(ceph_test_bluefs os global)
-  install(TARGETS ceph_test_bluefs
-    DESTINATION ${CMAKE_INSTALL_BINDIR})
 
   # unittest_bluestore_types
   add_executable(unittest_bluestore_types
