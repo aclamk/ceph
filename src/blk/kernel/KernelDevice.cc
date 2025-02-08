@@ -543,29 +543,17 @@ void KernelDevice::_aio_stop()
     aio_stop = true;
     
     IOContext wakeup_ctx(cct, nullptr, false);
-    aio_t aio_op(&wakeup_ctx, fd_directs[WRITE_LIFE_NOT_SET]);
-
-    aio_op.offset = 0;
-    aio_op.length = block_size;
-    char buffer[block_size];
-    iovec iov;
-    iov.iov_base = buffer;
-    iov.iov_len = block_size;
-    aio_op.iov.push_back(iov);
-    aio_op.preadv(aio_op.offset, aio_op.length);
-
-    // IO_CMD_NOOP is not implemented in the Linux kernel; using IO_CMD_PREAD with a 0-byte read as a substitute.
-    if (use_ioring && ioring_queue_t::supported())
-       aio_op.iocb.aio_lio_opcode = IO_CMD_NOOP;
-    else
-       aio_op.iocb.aio_lio_opcode = IO_CMD_PREAD;
-
-    _aio_log_start(&wakeup_ctx, aio_op.offset, aio_op.length);
-    wakeup_ctx.num_pending++;
-    wakeup_ctx.pending_aios.push_back(aio_op);
+    bufferlist bl;
+    // wakeup op, not really interested with results
+    aio_read(0, block_size, &bl, &wakeup_ctx);
     aio_submit(&wakeup_ctx);
-
     aio_thread.join();
+    // Attempt to remove from debug_queue.
+    // Only needed if conf->bdev_debug_inflight_ios == true.
+    // We need to do it manually; aio_thread might or might have not done it.
+    for (auto& i: wakeup_ctx.running_aios) {
+      debug_aio_unlink(i);
+    }
     aio_stop = false;
     io_queue->shutdown();
   }
