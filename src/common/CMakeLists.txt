@@ -106,7 +106,9 @@ set(common_srcs
   util.cc
   version.cc
   mclock_common.cc
-  tcp_info.cc)
+  tcp_info.cc
+  cputrace.cc
+  )
 
 if(WITH_CPUTRACE)
   list(APPEND common_srcs

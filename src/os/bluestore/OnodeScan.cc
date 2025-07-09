@@ -11,8 +11,10 @@
  * Foundation.  See file COPYING.
  */
 #include "BlueStore.h"
+#include "common/Formatter.h"
 #include "common/pretty_binary.h"
 #include "simple_bitmap.h"
+#include "common/cputrace.h"
 using namespace std;
 
 // kv store prefixes, copied from BlueStore.cc
@@ -76,7 +78,6 @@ class BlueStore::Decoder_AllocationsAndStatFS : public BlueStore::ExtentMap::Ext
   bool_vector_t is_local_blob_compressed;
   bool_vector_t is_spanning_blob_compressed;
   BlobRef blob = new Blob(nullptr);
-
   void _consume_new_blob(bool spanning, uint64_t extent_no, uint64_t sbid, BlobRef b);
 
 protected:
@@ -98,7 +99,9 @@ public:
     read_alloc_stats_t &_stats,
     SimpleBitmap &_sbmap,
     uint8_t _min_alloc_size_order)
-    : store(_store), stats(_stats), sbmap(_sbmap), min_alloc_size_order(_min_alloc_size_order) {}
+    : store(_store), stats(_stats), sbmap(_sbmap), min_alloc_size_order(_min_alloc_size_order) {
+      blob = new Blob(nullptr);
+    }
   const ghobject_t &get_oid() const { return oid; }
   void reset(const ghobject_t _oid, volatile_statfs *_per_pool_statfs);
   void reset_new_shard();
@@ -246,6 +249,13 @@ class BlueStore::OnodeScanMT {
       return -ENOENT;
     }
 
+    HW_profile xxxxxx("aaaa", 1, 
+        (1ULL << CPUTRACE_RESULT_SWI)
+    | (1ULL << CPUTRACE_RESULT_CYC)
+    | (1ULL << CPUTRACE_RESULT_CMISS)
+    | (1ULL << CPUTRACE_RESULT_BMISS)
+    | (1ULL << CPUTRACE_RESULT_INS));
+    uint64_t perf_vals[10];
     uint64_t kv_count = 0;
     uint64_t last_completed = 0;
     uint64_t count_interval = 100'000;
@@ -256,16 +266,21 @@ class BlueStore::OnodeScanMT {
     while (it->valid() && is_extent_shard_key(it->key())) {
       it->next();
     }
+      uint64_t p[10];
     // iterate over all onodes in requested range
-    for (; it->valid(); it->next(), kv_count++) {
+    for (; it->valid(); /*it->next(), */kv_count++) {
       if (kv_count && (kv_count % count_interval == 0)) {
         report_progress(0, kv_count - last_completed);
         last_completed = kv_count;
       }
       auto key = it->key();
       auto okey = key;
+      
+      xxxxxx.bums(p);
+      //derr << p[0] << " " << p[1] << " " << p[2] << " " << p[3] << " " << p[4] << dendl;
       dout(20) << __func__ << " decode onode " << pretty_binary_string(key) << dendl;
       ghobject_t oid;
+
       if (!is_extent_shard_key(it->key())) {
         if (it->key() >= upper_bound_key) {
           // Drag iteration after upper bound until new onode is found.
@@ -300,8 +315,19 @@ class BlueStore::OnodeScanMT {
         edecoder.decode_some(it->value(), nullptr);
         ++stats.shard_count;
       }
+      it->next();
+      uint64_t r[10];
+      xxxxxx.bums(r);
+      for(int i=0;i<5;i++) {
+        perf_vals[i] += (r[i] - p[i]);
+      }
     }
     report_progress(0, kv_count - last_completed);
+    stringstream ss;
+    cputrace_print_to_stringstream(ss);
+    derr << ss.str() << dendl;
+    derr << perf_vals[0] << " " << perf_vals[1] << " " 
+      << perf_vals[2] << " " << perf_vals[3] << " " << perf_vals[4] << dendl;
     return 0;
   }
 
@@ -368,6 +394,8 @@ public:
 int BlueStore::read_allocation_from_onodes_mt(SimpleBitmap *sbmap, read_alloc_stats_t& stats)
 {
   OnodeScanMT scaner(*this, sbmap, stats);
+  ceph::Formatter* f = ceph::Formatter::create("json-pretty");
+  cputrace_start(f);
   scaner.scan();
   return 0;
 }

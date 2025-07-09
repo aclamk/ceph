@@ -84,6 +84,7 @@ struct HW_ctx {
 class HW_profile {
 public:
     HW_profile(const char* function, uint64_t index, uint64_t flags);
+    void bums(uint64_t* p);
     ~HW_profile();
 
 private:

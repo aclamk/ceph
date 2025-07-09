@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <thread>
+#include "include/ceph_assert.h"
 
 #define PROFILE_ASSERT(x) if (!(x)) { fprintf(stderr, "Assert failed %s:%d\n", __FILE__, __LINE__); exit(1); }
 
@@ -82,6 +83,9 @@ static void setup_perf_event(struct perf_event_attr* pe, uint32_t type, uint64_t
     pe->type = type;
     pe->config = config;
     pe->disabled = 1;
+    pe->read_format = PERF_FORMAT_GROUP | PERF_FORMAT_ID;
+    pe->exclude_kernel = 0;
+    pe->exclude_hv = 1;
     if (type != PERF_TYPE_SOFTWARE) {
         pe->exclude_kernel = 1;
         pe->exclude_hv = 1;
@@ -92,7 +96,8 @@ static void setup_perf_event(struct perf_event_attr* pe, uint32_t type, uint64_t
 static void open_perf_fd(int& fd, uint64_t& id, struct perf_event_attr* pe, const char* name, int group_fd) {
     fd = perf_event_open(pe, gettid(), -1, group_fd, 0);
     if (fd != -1 && pe->type == PERF_TYPE_SOFTWARE) {
-        ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
+        ioctl(fd, PERF_EVENT_IOC_ID, &id);
+        //ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
         ioctl(fd, PERF_EVENT_IOC_RESET, 0);
     }
     else if (fd != -1) {
@@ -119,12 +124,13 @@ static void HW_init(HW_ctx* ctx, HW_conf* conf) {
 static void HW_start(HW_ctx* ctx) {
     struct perf_event_attr pe;
 
-    if (ctx->conf.capture_swi) {
-        setup_perf_event(&pe, PERF_TYPE_SOFTWARE, PERF_COUNT_SW_CONTEXT_SWITCHES);
-        open_perf_fd(ctx->fd_swi, ctx->id_swi, &pe, "SWI", -1);
-    }
+//    if (ctx->conf.capture_swi) {
+//        setup_perf_event(&pe, PERF_TYPE_SOFTWARE, PERF_COUNT_SW_CONTEXT_SWITCHES);
+//        open_perf_fd(ctx->fd_swi, ctx->id_swi, &pe, "SWI", -1);
+//    }
 
     int parent_fd = -1;
+    #if 0
     if (ctx->conf.capture_cyc) {
         setup_perf_event(&pe, PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES);
         open_perf_fd(ctx->fd_cyc, ctx->id_cyc, &pe, "CYC", -1);
@@ -142,9 +148,18 @@ static void HW_start(HW_ctx* ctx) {
         open_perf_fd(ctx->fd_ins, ctx->id_ins, &pe, "INS", -1);
         parent_fd = ctx->fd_ins;
     }
+#endif
+    //ctx->parent_fd = parent_fd;
 
+    //if (ctx->conf.capture_swi && ctx->fd_swi == -1 && parent_fd != -1) {
+        setup_perf_event(&pe, PERF_TYPE_SOFTWARE, 
+        //PERF_COUNT_SW_PAGE_FAULTS);
+        PERF_COUNT_SW_CONTEXT_SWITCHES);
+        //PERF_COUNT_SW_CPU_MIGRATIONS);
+        open_perf_fd(ctx->fd_swi, ctx->id_swi, &pe, "SWI", parent_fd);
+    //}
+    parent_fd = ctx->fd_swi;
     ctx->parent_fd = parent_fd;
-
     if (ctx->conf.capture_cyc && ctx->fd_cyc == -1 && parent_fd != -1) {
         setup_perf_event(&pe, PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES);
         open_perf_fd(ctx->fd_cyc, ctx->id_cyc, &pe, "CYC", parent_fd);
@@ -163,7 +178,7 @@ static void HW_start(HW_ctx* ctx) {
     }
 
     if (parent_fd != -1) {
-        ioctl(parent_fd, PERF_EVENT_IOC_RESET, PERF_IOC_FLAG_GROUP);
+        //ioctl(parent_fd, PERF_EVENT_IOC_RESET, PERF_IOC_FLAG_GROUP);
         ioctl(parent_fd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
     }
 }
@@ -175,6 +190,16 @@ static void HW_clean(HW_ctx* ctx) {
     close_perf_fd(ctx->fd_bmiss);
     close_perf_fd(ctx->fd_ins);
     close_perf_fd(ctx->parent_fd);
+}
+
+void read_perf_event_xxxx(HW_ctx* ctx, uint64_t* p) {
+  char buf[128];
+  struct read_format* rf = (struct read_format*)buf;
+  read(ctx->parent_fd, buf, sizeof(buf));
+  for (uint64_t i = 0; i < rf->nr; i++) {
+    p[i] = rf->values[i].value;
+    //p[i] = rf->values[i].id;
+  }
 }
 
 static void read_perf_event(HW_ctx* ctx, cputrace_anchor* anchor, uint64_t tid) {
@@ -202,7 +227,9 @@ static void read_perf_event(HW_ctx* ctx, cputrace_anchor* anchor, uint64_t tid) 
                 else if (rf->values[i].id == ctx->id_cmiss) type = CPUTRACE_RESULT_CMISS;
                 else if (rf->values[i].id == ctx->id_bmiss) type = CPUTRACE_RESULT_BMISS;
                 else if (rf->values[i].id == ctx->id_ins) type = CPUTRACE_RESULT_INS;
+                else if (rf->values[i].id == ctx->id_swi) type = CPUTRACE_RESULT_SWI;
                 else continue;
+                //ceph_assert(false);//continue;
                 auto* r = (cputrace_anchor_result*)arena_alloc(arena, sizeof(cputrace_anchor_result));
                 r->type = type;
                 r->value = rf->values[i].value;
@@ -263,6 +290,14 @@ HW_profile::HW_profile(const char* function, uint64_t index, uint64_t flags)
     pthread_mutex_lock(&g_profiler.global_lock);
     active_contexts[index][tid] = &ctx;
     pthread_mutex_unlock(&g_profiler.global_lock);
+}
+
+void HW_profile::bums(uint64_t* p) {
+  //uint64_t tid = get_thread_id();
+  //pthread_mutex_lock(&g_profiler.global_lock);
+  read_perf_event_xxxx(&ctx, p);
+  //read_perf_event(&ctx, &g_profiler.anchors[index], tid);
+  //pthread_mutex_unlock(&g_profiler.global_lock);
 }
 
 HW_profile::~HW_profile() {
