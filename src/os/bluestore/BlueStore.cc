@@ -14674,12 +14674,30 @@ bool BlueStore::_eliminate_outdated_deferred(bluestore_deferred_transaction_t* d
 // ---------------------------
 // transactions
 
+static HW_ctx* get_cputrace() {
+  thread_local HW_ctx cputrace;
+  HW_init(&cputrace, 
+    HW_PROFILE_SWI | HW_PROFILE_CYC | HW_PROFILE_CMISS | HW_PROFILE_BMISS | HW_PROFILE_INS);
+  return &cputrace;
+}
+
 int BlueStore::queue_transactions(
   CollectionHandle& ch,
   vector<Transaction>& tls,
   TrackedOpRef op,
   ThreadPool::TPHandle *handle)
 {
+  sample_t startx;
+  thread_local HW_ctx* cputrace = get_cputrace();
+  HW_read(cputrace, &startx);
+  auto _ = make_scope_guard([&]() {
+    sample_t end;
+    HW_read(cputrace, &end);
+    std::lock_guard _(cpulock);
+    ct_txc_add_transaction.sample(end - startx);
+  });
+
+
   FUNCTRACE(cct);
   list<Context *> on_applied, on_commit, on_applied_sync;
   ObjectStore::Transaction::collect_contexts(
@@ -14791,8 +14809,20 @@ void BlueStore::_txc_aio_submit(TransContext *txc)
   bdev->aio_submit(&txc->ioc);
 }
 
+
 void BlueStore::_txc_add_transaction(TransContext *txc, Transaction *t)
 {
+  #if 0
+  sample_t start;
+  thread_local HW_ctx* cputrace = get_cputrace();
+  HW_read(cputrace, &start);
+  auto _ = make_scope_guard([&]() {
+    sample_t end;
+    HW_read(cputrace, &end);
+    std::lock_guard _(cpulock);
+    ct_txc_add_transaction.sample(end - start);
+  });
+  #endif
   Transaction::iterator i = t->begin();
 
   _dump_transaction<30>(cct, t);

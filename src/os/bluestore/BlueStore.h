@@ -60,6 +60,7 @@
 #include "BlueFS.h"
 #include "common/EventTrace.h"
 #include "common/admin_socket.h"
+#include "common/cputrace.h"
 
 #ifdef WITH_BLKIN
 #include "common/zipkin_trace.h"
@@ -2177,6 +2178,9 @@ private:
                                            // perhaps could be removed when
                                            // https://tracker.ceph.com/issues/70008
                                            // is resolved.
+
+  ceph::mutex cpulock = ceph::make_mutex("cpulock");
+  measurement_t ct_txc_add_transaction;
 
   typedef std::map<uint64_t, volatile_statfs> osd_pools_map;
 
