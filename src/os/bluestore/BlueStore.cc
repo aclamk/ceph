@@ -7175,6 +7175,25 @@ int BlueStore::_open_bdev(bool create)
   // get block dev optimal io size
   optimal_io_size = bdev->get_optimal_io_size();
 
+  if (cct->_conf->bluestore_verify_ebd && !create) {
+    // For all regular opening check if it was deployed with plugin
+    string meta_plugin_id;
+    r = read_meta("ebd",&meta_plugin_id);
+    if (r == 0) {
+      string bdev_plugin_id;
+      r = bdev->get_ebd_id(bdev_plugin_id);
+      if (r != 0) {
+        derr << __func__ << " plugin " << meta_plugin_id << " not loaded" << dendl;
+        goto fail_close;
+      }
+      if (meta_plugin_id != bdev_plugin_id) {
+        derr << __func__ << " plugin '" << meta_plugin_id << "' used on mkfs, "
+          << "but now uses plugin '" << bdev_plugin_id << "'" << dendl;
+        goto fail_close;
+      }
+    }
+  }
+
   return 0;
 
  fail_close:
@@ -8608,6 +8627,20 @@ int BlueStore::mkfs()
       r = write_meta("type", "bluestore");
       if (r < 0)
         return r;
+    }
+  }
+  if (cct->_conf->bluestore_verify_ebd) {
+    // check if EBD plugin is enabled
+    string plugin_id;
+    r = bdev->get_ebd_id(plugin_id);
+    if (r == 0) {
+      // retrieved name, save plugin into bdev metadata
+      r = write_meta("ebd", plugin_id);
+      if (r < 0)
+        return r;
+    } else {
+      // Non zero result is not a problem, it just means we do not have EBD plugin.
+      r = 0;
     }
   }
 
