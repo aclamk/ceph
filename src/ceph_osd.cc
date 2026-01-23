@@ -364,6 +364,14 @@ int main(int argc, const char **argv)
     }
   }
 
+  {
+    int r = extblkdev::preload(g_ceph_context);
+    if (r < 0) {
+      derr << "Failed preloading extblkdev plugins, error code: " << r << dendl;
+      forker.exit(1);
+    }
+  }
+
   if (mkfs) {
     common_init_finish(g_ceph_context);
 
@@ -492,14 +500,6 @@ flushjournal_out:
       forker.exit(1);
     }
     forker.exit(0);
-  }
-  
-  {
-    int r = extblkdev::preload(g_ceph_context);
-    if (r < 0) {
-      derr << "Failed preloading extblkdev plugins, error code: " << r << dendl;
-      forker.exit(1);
-    }
   }
 
   string magic;
