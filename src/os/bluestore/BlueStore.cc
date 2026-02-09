@@ -62,6 +62,7 @@
 #include "Writer.h"
 #include "Compression.h"
 #include "BlueAdmin.h"
+#include "extblkdev/ExtBlkDevPlugin.h"
 
 #if defined(WITH_LTTNG)
 #define TRACEPOINT_DEFINE
@@ -7138,7 +7139,17 @@ int BlueStore::_open_bdev(bool create)
   ceph_assert(bdev == NULL);
   string p = path + "/block";
   bdev = BlockDevice::create(cct, p, aio_cb, static_cast<void*>(this), discard_cb, static_cast<void*>(this), "bluestore");
-  int r = bdev->open(p);
+  int r = 0;
+
+  if (create) {
+    //load plugins
+    r = extblkdev::preload(cct);
+    if (r < 0) {
+      derr << "Failed preloading extblkdev plugins, error code: " << r << dendl;
+    }
+  }
+
+  r = bdev->open(p);
   if (r < 0)
     goto fail;
 
@@ -7149,6 +7160,38 @@ int BlueStore::_open_bdev(bool create)
     whole_device.insert(0, bdev->get_size());
     bdev->try_discard(whole_device, false, true);
     dout(5) << __func__ << " trimmed device:" << p << dendl;
+  }
+
+  if (!create &&
+      cct->_conf->bluestore_verify_ebd) {
+    // For all regular opening check if it was deployed with plugin
+    string meta_plugin_id;
+    r = read_meta("extblkdev",&meta_plugin_id);
+    if (r == 0) {
+      // plugin selection fixed to meta, try to load plugins
+      bdev->close();
+      r = extblkdev::preload(cct);
+      if (r == 0) {
+        r = bdev->open(p);
+        if (r < 0) {
+          goto fail;
+        }
+      } else {
+        // we could derr about not loading plugins, but we will soon complain
+        // that a specific plugin did not load, which is better
+      }
+      string bdev_plugin_id;
+      r = bdev->get_ebd_id(bdev_plugin_id);
+      if (r != 0) {
+        derr << __func__ << " plugin " << meta_plugin_id << " not loaded" << dendl;
+        goto fail_close;
+      }
+      if (meta_plugin_id != bdev_plugin_id) {
+        derr << __func__ << " plugin '" << meta_plugin_id << "' used on mkfs, "
+          << "but now uses plugin '" << bdev_plugin_id << "'" << dendl;
+        goto fail_close;
+      }
+    }
   }
 
   if (bdev->supported_bdev_label()) {
@@ -7174,25 +7217,6 @@ int BlueStore::_open_bdev(bool create)
   }
   // get block dev optimal io size
   optimal_io_size = bdev->get_optimal_io_size();
-
-  if (cct->_conf->bluestore_verify_ebd && !create) {
-    // For all regular opening check if it was deployed with plugin
-    string meta_plugin_id;
-    r = read_meta("ebd",&meta_plugin_id);
-    if (r == 0) {
-      string bdev_plugin_id;
-      r = bdev->get_ebd_id(bdev_plugin_id);
-      if (r != 0) {
-        derr << __func__ << " plugin " << meta_plugin_id << " not loaded" << dendl;
-        goto fail_close;
-      }
-      if (meta_plugin_id != bdev_plugin_id) {
-        derr << __func__ << " plugin '" << meta_plugin_id << "' used on mkfs, "
-          << "but now uses plugin '" << bdev_plugin_id << "'" << dendl;
-        goto fail_close;
-      }
-    }
-  }
 
   return 0;
 

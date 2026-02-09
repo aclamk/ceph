@@ -28,7 +28,6 @@
 #include "mon/MonClient.h"
 #include "include/ceph_features.h"
 #include "common/config.h"
-#include "extblkdev/ExtBlkDevPlugin.h"
 
 #include "mon/MonMap.h"
 
@@ -361,14 +360,6 @@ int main(int argc, const char **argv)
              << dendl;
       else
 	derr << "created new key in keyring " << keyring_path << dendl;
-    }
-  }
-
-  {
-    int r = extblkdev::preload(g_ceph_context);
-    if (r < 0) {
-      derr << "Failed preloading extblkdev plugins, error code: " << r << dendl;
-      forker.exit(1);
     }
   }
 
