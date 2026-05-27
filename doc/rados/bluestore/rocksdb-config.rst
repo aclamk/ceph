@@ -2,7 +2,7 @@
  RocksDB Config Reference
 ============================
 
-.. note:: There are 2 places in ceph that use RocksDB: MON and OSD.
+.. note:: As of the Tentacle release, two Ceph services use RocksDB: Monitors and OSDs.
    This document focuses on OSD's RocksDB.
 
 .. index:: bluestore; rocksdb caching
@@ -10,24 +10,27 @@
 RocksDB caching
 ===============
 
-RocksDB caching it based on preserving parts of .sst files in `block cache`
-https://github.com/facebook/rocksdb/wiki/Block-Cache.
-Ceph implements its own flavour of block cache 
-https://github.com/ceph/ceph/tree/main/src/kv/rocksdb_cache.
-This custom implementation brings rocksdb block cache, bluestore metadata cache
-and bluestore data cache together to compete for available memory.
+RocksDB caching is based on preserving parts of ``.sst`` files in block cache.
+For more details, see the `Block-Cache wiki <https://github.com/facebook/rocksdb/wiki/Block-Cache>`_.
+Ceph implements its own flavor of block cache.
+See the `source code <https://github.com/ceph/ceph/tree/main/src/kv/rocksdb_cache>`_ for more details.
+This custom implementation brings together RocksDB block cache, BlueStore metadata cache,
+and BlueStore data cache to compete for available memory.
 
 Cache sharding
 --------------
 
-As the defult RockDB block cache, ceph block cache is sharded.
+As the default RocksDB block cache, Ceph block cache is sharded.
 Sharding is controlled by configuration. The purpose of sharding is to
-steamline multi threaded access.
+streamline multi-threaded access.
+
+.. confval:: rocksdb_cache_shard_bits
+
 
 ``rocksdb_cache_shard_bits``
 
-:Description: Defines how many bits of key hash define shard.
-              4 bit -> 16 shards
+:Description: Specifies the number of shards by designating the number of significant bits in hash keys.
+              4 bits -> 16 shards
 :Type: Unsigned 32-bit Integer
 :Default: 4
 
