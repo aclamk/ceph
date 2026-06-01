@@ -31,6 +31,7 @@
 #include "common/errno.h"
 #include "include/stringify.h"
 #include <gtest/gtest.h>
+#include <fmt/format.h>
 
 using namespace std;
 

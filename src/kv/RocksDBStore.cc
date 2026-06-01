@@ -3736,11 +3736,13 @@ void RocksDBStore::util_divide_key_range(
   struct probe_t {
     string key;
     int64_t size;
-    static bool operator()(const probe_t& l, const probe_t& r) {
-      return l.key < r.key;
-    }
+    struct compare {
+      bool operator()(const probe_t& l, const probe_t& r) const {
+        return l.key < r.key;
+      }
+    };
   };
-  set<probe_t, probe_t> db_samples;
+  set<probe_t, probe_t::compare> db_samples;
   int64_t full_size = estimate_range_size(prefix, key_from, key_to);
   db_samples.emplace(key_from, 0);
   db_samples.emplace(key_to, full_size);
