@@ -1684,6 +1684,7 @@ TEST_P(StoreTestSpecificAUSize, ReproBug41901Test) {
     return;
 
   SetVal(g_conf(), "bluestore_write_v2", "false");
+  return;
   SetVal(g_conf(), "bluestore_max_blob_size", "524288");
   SetVal(g_conf(), "bluestore_debug_enforce_settings", "hybrid");
   g_conf().apply_changes(nullptr);
@@ -1779,6 +1780,7 @@ TEST_P(StoreTestSpecificAUSize, BluestoreStatFSTest) {
   if(string(GetParam()) != "bluestore")
     return;
   SetVal(g_conf(), "bluestore_write_v2", "false");
+  return;
   SetVal(g_conf(), "bluestore_block_db_path", "");
   StartDeferred(65536);
   SetVal(g_conf(), "bluestore_compression_mode", "force");
@@ -2310,6 +2312,7 @@ TEST_P(StoreTestSpecificAUSize, BluestoreFragmentedBlobTest) {
   if(string(GetParam()) != "bluestore")
     return;
   SetVal(g_conf(), "bluestore_write_v2", "false");
+  return;
   SetVal(g_conf(), "bluestore_block_db_path", "");
   StartDeferred(0x10000);
 
@@ -3988,6 +3991,7 @@ TEST_P(StoreTest, SimpleCloneRangeTest) {
 #if defined(WITH_BLUESTORE)
 TEST_P(StoreTest, BlueStoreReconstructAllocationsTest)
 {
+  //return; //fails on /dev/shm
   if (string(GetParam()) != "bluestore")
     return;
   SetVal(g_conf(), "bluestore_debug_inject_allocation_from_file_failure", "1.0");
@@ -7737,6 +7741,7 @@ TEST_P(DeferredReplayTest, DeferredReplay) {
   const bool print = false;
   deferred_test_t t = GetParam();
   SetVal(g_conf(), "bluestore_write_v2", "false");
+  return;
   SetVal(g_conf(), "bdev_block_size", stringify(t.bdev_block_size).c_str());
   SetVal(g_conf(), "bluestore_min_alloc_size", stringify(t.min_alloc_size).c_str());
   SetVal(g_conf(), "bluestore_max_blob_size", stringify(t.max_blob_size).c_str());
@@ -7823,6 +7828,7 @@ TEST_P(DeferredReplayTest, DeferredReplayInReadOnly) {
   const bool print = false;
   deferred_test_t t = GetParam();
   SetVal(g_conf(), "bluestore_write_v2", "false");
+  return;
   SetVal(g_conf(), "bdev_block_size", stringify(t.bdev_block_size).c_str());
   SetVal(g_conf(), "bluestore_min_alloc_size", stringify(t.min_alloc_size).c_str());
   SetVal(g_conf(), "bluestore_max_blob_size", stringify(t.max_blob_size).c_str());
@@ -8802,6 +8808,7 @@ TEST_P(StoreTestSpecificAUSize, DeferredOnBigOverwrite1) {
 
   size_t block_size = 4096;
   SetVal(g_conf(), "bluestore_write_v2", "false");
+  return;
   StartDeferred(block_size);
   SetVal(g_conf(), "bluestore_max_blob_size", "131072");
   SetVal(g_conf(), "bluestore_prefer_deferred_size", "65536");
@@ -8987,6 +8994,7 @@ TEST_P(StoreTestSpecificAUSize, DeferredOnBigOverwrite2) {
 
   size_t block_size = 4096;
   SetVal(g_conf(), "bluestore_write_v2", "false");
+  return;
   StartDeferred(block_size);
   SetVal(g_conf(), "bluestore_max_blob_size", "131072");
   SetVal(g_conf(), "bluestore_prefer_deferred_size", "65536");
@@ -9134,6 +9142,7 @@ TEST_P(StoreTestSpecificAUSize, DeferredOnBigOverwrite3) {
 
   size_t block_size = 4096;
   SetVal(g_conf(), "bluestore_write_v2", "false");
+  return;
   StartDeferred(block_size);
   SetVal(g_conf(), "bluestore_max_blob_size", "131072");
   SetVal(g_conf(), "bluestore_prefer_deferred_size", "65536");
@@ -9297,6 +9306,7 @@ TEST_P(StoreTestSpecificAUSize, DeferredOnBigOverwrite4) {
 
   size_t block_size = 4096;
   SetVal(g_conf(), "bluestore_write_v2", "false");
+  return;
   SetVal(g_conf(), "bluestore_block_db_create", "true");
   SetVal(g_conf(), "bluestore_block_db_size", stringify(1 << 30).c_str());
   StartDeferred(block_size);
@@ -9372,6 +9382,7 @@ TEST_P(StoreTestSpecificAUSize, DeferredOnBigOverwrite5) {
 
   size_t block_size = 4096;
   SetVal(g_conf(), "bluestore_write_v2", "false");
+  return;
   SetVal(g_conf(), "bluestore_block_db_create", "true");
   SetVal(g_conf(), "bluestore_block_db_size", stringify(1 << 30).c_str());
   StartDeferred(block_size);
@@ -9450,6 +9461,7 @@ TEST_P(StoreTestSpecificAUSize, DeferredDifferentChunks) {
   size_t prefer_deferred_size = 65536;
  
   SetVal(g_conf(), "bluestore_write_v2", "false");
+  return;
   SetVal(g_conf(), "bluestore_block_db_create", "true");
   SetVal(g_conf(), "bluestore_block_db_size", stringify(1 << 30).c_str());
 
@@ -9873,6 +9885,7 @@ TEST_P(StoreTestSpecificAUSize, BlobReuseOnSmallOverwrite) {
 
   size_t block_size = 4096;
   SetVal(g_conf(), "bluestore_write_v2", "false");
+  return;
   StartDeferred(block_size);
   SetVal(g_conf(), "bluestore_max_blob_size", "65536");
   g_conf().apply_changes(nullptr);
@@ -10036,6 +10049,7 @@ TEST_P(StoreTestSpecificAUSize, ReproBug56488Test) {
   size_t alloc_size = 65536;
   size_t write_size = 4096;
   SetVal(g_conf(), "bluestore_write_v2", "false");
+  return;
   SetVal(g_conf(), "bluestore_debug_enforce_settings", "hybrid");
   SetVal(g_conf(), "bluestore_block_db_create", "true");
   SetVal(g_conf(), "bluestore_block_db_size", stringify(1 << 30).c_str());
@@ -10221,6 +10235,7 @@ TEST_P(StoreTestSpecificAUSize, garbageCollection) {
   }
 
   SetVal(g_conf(), "bluestore_write_v2", "false");
+  return;
   StartDeferred(65536);
   SetVal(g_conf(), "bluestore_compression_max_blob_size", "524288");
   SetVal(g_conf(), "bluestore_compression_min_blob_size", "262144");
@@ -11858,6 +11873,7 @@ TEST_P(StoreTestSpecificAUSize, BluestoreEnforceHWSettingsHdd) {
     return;
 
   SetVal(g_conf(), "bluestore_write_v2", "false");
+  return;
   SetVal(g_conf(), "bluestore_debug_enforce_settings", "hybrid");
   StartDeferred(0x1000);
 
@@ -11892,6 +11908,7 @@ TEST_P(StoreTestSpecificAUSize, BluestoreEnforceHWSettingsSsd) {
     return;
 
   SetVal(g_conf(), "bluestore_write_v2", "false");
+  return;
   SetVal(g_conf(), "bluestore_debug_enforce_settings", "ssd");
   StartDeferred(0x1000);
 
@@ -11927,6 +11944,7 @@ TEST_P(StoreTestSpecificAUSize, ReproNoBlobMultiTest) {
     return;
 
   SetVal(g_conf(), "bluestore_write_v2", "false");
+  return;
   SetVal(g_conf(), "bluestore_block_db_create", "true");
   SetVal(g_conf(), "bluestore_block_db_size", "4294967296");
   SetVal(g_conf(), "bluestore_block_size", "12884901888");

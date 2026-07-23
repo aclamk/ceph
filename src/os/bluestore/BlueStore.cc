@@ -18161,7 +18161,8 @@ int BlueStore::_write(TransContext *txc,
     r = -E2BIG;
   } else {
     _assign_nid(txc, o);
-    if (use_write_v2) {
+    if (rand() % 2) {
+    //if (use_write_v2) {
       r = _do_write_v2(txc, c, o, offset, length, bl, fadvise_flags);
     } else {
       r = _do_write(txc, c, o, offset, length, bl, fadvise_flags);
