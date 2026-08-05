@@ -2298,18 +2298,14 @@ public:
 
     void flush() {
       std::unique_lock l(qlock);
+      ++kv_submitted_waiters;
       while (true) {
-	// std::set flag before the check because the condition
-	// may become true outside qlock, and we need to make
-	// sure those threads see waiters and signal qcond.
-	++kv_submitted_waiters;
-	if (q.empty() || _is_all_kv_submitted()) {
-	  --kv_submitted_waiters;
-	  return;
-	}
-	qcond.wait(l);
-	--kv_submitted_waiters;
+        if (q.empty() || _is_all_kv_submitted()) {
+          break;
+        }
+        qcond.wait_for(l, std::chrono::seconds(1));
       }
+      --kv_submitted_waiters;
     }
 
     void flush_all_but_last() {
