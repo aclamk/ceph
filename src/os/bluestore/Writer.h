@@ -59,6 +59,7 @@ public:
   };
   Writer(BlueStore* bstore, TransContext* txc, WriteContext* wctx, OnodeRef o)
     :left_shard_bound(0), right_shard_bound(OBJECT_MAX_SIZE)
+    , left_affected_range(OBJECT_MAX_SIZE), right_affected_range(0)
     , bstore(bstore), txc(txc), wctx(wctx), onode(o) {
       pp_mode = debug_level_to_pp_mode(bstore->cct);
     }
@@ -85,8 +86,8 @@ public:
   volatile_statfs statfs_delta;
   uint32_t left_shard_bound;  // if sharding is in effect,
   uint32_t right_shard_bound; // do not cross this line
-  uint32_t left_affected_range;
-  uint32_t right_affected_range;
+  uint32_t left_affected_range; // set before: range of transfered data
+  uint32_t right_affected_range; // get after: range of affected blobs
 private:
   BlueStore* bstore;
   TransContext* txc;
