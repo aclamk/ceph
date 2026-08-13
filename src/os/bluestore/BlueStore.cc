@@ -13479,7 +13479,8 @@ int BlueStore::_fiemap(
     dout(20) << __func__ << " 0x" << std::hex << offset << "~" << length
 	     << " size 0x" << o->onode.size << std::dec << dendl;
 
-    boost::intrusive::set<Extent>::iterator ep, eend;
+    //boost::intrusive::set<Extent>
+    extent_map_t::iterator ep, eend;
     if (offset >= o->onode.size)
       goto out;
 

@@ -933,8 +933,80 @@ public:
       return blob_start() < o || blob_end() > o + l;
     }
   };
-  typedef boost::intrusive::set<Extent> extent_map_t;
+  typedef boost::intrusive::set<Extent> real_extent_map_t;
 
+
+
+  #if 1
+  struct extent_map_t {
+    typedef boost::intrusive::set<ExtentBase> base_extent_map_t;
+    base_extent_map_t base_map;
+
+    //extent_base_map_t::iterator p;
+    //extent_map_t::iterator q;
+
+    struct const_iterator {
+      //inline const Extent* operator->();
+      inline const Extent* operator->() const;
+      inline const Extent& operator*() const;
+      
+      base_extent_map_t::iterator base_iterator;
+      bool operator!=(const const_iterator& other) const;
+      bool operator==(const const_iterator& other) const;
+      const_iterator& operator++();
+      const_iterator& operator++(int);
+      const_iterator& operator--();
+      const_iterator& operator--(int);
+    };
+
+    struct iterator {
+      inline Extent* operator->();
+      //inline Extent* operator->() const;
+      inline Extent& operator*();
+      //inline const Extent& operator*() const;
+      base_extent_map_t::iterator base_iterator;
+      bool operator!=(const iterator& other) const;
+      bool operator==(const iterator& other) const;
+      bool operator!=(const const_iterator& other) const;
+      bool operator==(const const_iterator& other) const;
+      iterator& operator++();
+      iterator& operator++(int);
+      iterator& operator--();
+      iterator& operator--(int);
+      operator const const_iterator () const;
+    };
+
+    struct reverse_iterator {
+      inline Extent* operator->();
+      //inline Extent* operator->() const;
+      inline Extent& operator*();
+      //inline const Extent& operator*() const;
+      base_extent_map_t::reverse_iterator base_iterator;
+      bool operator!=(const reverse_iterator& other) const;
+      iterator& operator++();
+      iterator& operator++(int);
+      iterator& operator--();
+      iterator& operator--(int);
+    };
+    
+    size_t size();
+    bool empty();
+    iterator begin();
+    reverse_iterator rbegin();
+    iterator end();
+    const_iterator begin() const ;
+    const_iterator end() const;
+    iterator upper_bound(const Extent&);
+    iterator lower_bound(const Extent&);
+    const_iterator upper_bound(const Extent&) const;
+    const_iterator lower_bound(const Extent&) const;
+    iterator find(const Extent&);
+    iterator insert(Extent& e);
+    iterator erase(iterator p);
+    void clear_and_dispose();
+    void erase_and_dispose(iterator p);
+  };
+  #endif
 
   friend std::ostream& operator<<(std::ostream& out, const Extent& e);
 
@@ -1024,11 +1096,11 @@ public:
 
     ExtentMap(Onode *o, size_t inline_shard_prealloc_size);
     ~ExtentMap() {
-      extent_map.clear_and_dispose(DeleteDisposer());
+      extent_map.clear_and_dispose(/*DeleteDisposer()*/);
     }
 
     void clear() {
-      extent_map.clear_and_dispose(DeleteDisposer());
+      extent_map.clear_and_dispose(/*DeleteDisposer()*/);
       shards.clear();
       inline_bl.clear();
       clear_needs_reshard();
@@ -1221,7 +1293,7 @@ public:
 
     /// remove (and delete) an Extent
     void rm(extent_map_t::iterator p) {
-      extent_map.erase_and_dispose(p, DeleteDisposer());
+      extent_map.erase_and_dispose(p/*, DeleteDisposer()*/);
     }
 
     bool has_any_lextents(uint64_t offset, uint64_t length);
