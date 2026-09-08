@@ -3474,9 +3474,11 @@ private:
     size_t len,
     ceph::buffer::list& bl,
     uint32_t op_flags = 0,
-    uint64_t retry_count = 0);
+    uint64_t retry_count = 0,
+    span_stat_t* span_stat = nullptr
+  );
 
-  int _do_read(
+  int _do_read_stats_along(
     Collection *c,
     OnodeRef& o,
     uint64_t offset,

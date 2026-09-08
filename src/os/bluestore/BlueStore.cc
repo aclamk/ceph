@@ -12997,9 +12997,15 @@ int BlueStore::read(
     if (c->exists && o && o->exists) {
       if (offset == length && offset == 0)
 	length = o->onode.size;
-
-      r = _do_read(c, o, offset, length, bl, op_flags, 0,
-	reformat_ctx.is_enabled() ? &reformat_ctx.access_span_stats() : nullptr);
+      if (rand() % 2) {
+        r = _do_read_stats_along(c, o, offset, length, bl, op_flags, 0,
+          &reformat_ctx.access_span_stats());
+          //reformat_ctx.is_enabled() ? &reformat_ctx.access_span_stats() : nullptr);
+      } else {
+        r = _do_read(c, o, offset, length, bl, op_flags, 0,
+          &reformat_ctx.access_span_stats());
+          //reformat_ctx.is_enabled() ? &reformat_ctx.access_span_stats() : nullptr);
+      }
       if (r == -EIO) {
 	logger->inc(l_bluestore_read_eio);
       }
@@ -13629,9 +13635,11 @@ int BlueStore::_do_read(
   size_t length,
   bufferlist& bl,
   uint32_t op_flags,
-  uint64_t retry_count)
+  uint64_t retry_count,
+  span_stat_t* span_stat)
 {
   FUNCTRACE(cct);
+  BLUE_SCOPE(_do_read);
   int r = 0;
   int read_cache_policy = 0; // do not bypass clean or dirty cache
 
@@ -13682,7 +13690,9 @@ int BlueStore::_do_read(
   blobs2read_t blobs2read;
   _read_cache(o, offset, length, read_cache_policy, ready_regions, blobs2read);
 
-
+  if (span_stat) {
+    _reformat_scan(o, offset, length, blobs2read, *span_stat);
+  }
   // read raw blob data.
   start = mono_clock::now(); // for the sake of simplicity
                              // measure the whole block below.
@@ -13767,7 +13777,7 @@ int BlueStore::_do_read(
   return r;
 }
 
-int BlueStore::_do_read(
+int BlueStore::_do_read_stats_along(
   Collection *c,
   OnodeRef& o,
   uint64_t offset,
@@ -13778,6 +13788,7 @@ int BlueStore::_do_read(
   span_stat_t* span_stat)
 {
   FUNCTRACE(cct);
+  BLUE_SCOPE(_do_read_stats_along);
   int r = 0;
   int read_cache_policy = 0; // do not bypass clean or dirty cache
 
