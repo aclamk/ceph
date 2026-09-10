@@ -65,8 +65,8 @@ namespace bluestore {
 ostream& operator<<(ostream& out, const bluestore::Extent& e)
 {
   return out << std::hex << "0x" << e.logical_offset << "~" << e.length
-	     << ": 0x" << e.blob_offset << "~" << e.length << std::dec
-	     << " " << *e.blob;
+             << ": 0x" << e.blob_offset << "~" << e.length << std::dec
+             << " " << *e.blob;
 }
 }
 
