@@ -102,9 +102,9 @@ namespace bluestore {
     }
 
     bool can_reuse_blob(uint32_t min_alloc_size,
-			uint32_t target_blob_size,
-			uint32_t b_offset,
-			uint32_t *length0);
+                        uint32_t target_blob_size,
+                        uint32_t b_offset,
+                        uint32_t *length0);
 
     void dup(Blob& o) {
       o.set_shared_blob(shared_blob);
@@ -113,9 +113,9 @@ namespace bluestore {
     void add_tail(uint32_t new_blob_size, uint32_t min_release_size);
     void dup(const Blob& from, bool copy_used_in_blob);
     void copy_from(CephContext* cct, const Blob& from,
-		   uint32_t min_release_size, uint32_t start, uint32_t len);
+                   uint32_t min_release_size, uint32_t start, uint32_t len);
     void copy_extents(CephContext* cct, const Blob& from, uint32_t start,
-		      uint32_t pre_len, uint32_t main_len, uint32_t post_len);
+                      uint32_t pre_len, uint32_t main_len, uint32_t post_len);
     void copy_extents_over_empty(CephContext* cct, const Blob& from, uint32_t start, uint32_t len);
 
     inline const bluestore_blob_t& get_blob() const {
@@ -129,7 +129,7 @@ namespace bluestore {
     void get_ref(BlueStore::Collection *coll, uint32_t offset, uint32_t length);
     /// put logical references, and get back any released extents
     bool put_ref(BlueStore::Collection *coll, uint32_t offset, uint32_t length,
-		 PExtentVector *r);
+                 PExtentVector *r);
     uint32_t put_ref_accumulate(
       BlueStore::Collection *coll,
       uint32_t offset,
@@ -149,7 +149,7 @@ namespace bluestore {
         return;
       }
       if (--nref == 0)
-	delete this;
+        delete this;
     }
     bool is_shared_loaded() const;
     BlueStore::BufferCacheShard* get_cache();
@@ -170,7 +170,7 @@ namespace bluestore {
         denc(sbid, p);
       }
       if (include_ref_map) {
-	used_in_blob.bound_encode(p);
+        used_in_blob.bound_encode(p);
       }
     }
     void encode(
@@ -183,7 +183,7 @@ namespace bluestore {
         denc(sbid, p);
       }
       if (include_ref_map) {
-	used_in_blob.encode(p);
+        used_in_blob.encode(p);
       }
     }
     template <bool decode_csum = true>

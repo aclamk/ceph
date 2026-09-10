@@ -159,9 +159,9 @@ bool bluestore::Blob::put_ref(
 }
 
 bool bluestore::Blob::can_reuse_blob(uint32_t min_alloc_size,
-                		     uint32_t target_blob_size,
-		                     uint32_t b_offset,
-		                     uint32_t *length0) {
+                                     uint32_t target_blob_size,
+                                     uint32_t b_offset,
+                                     uint32_t *length0) {
   ceph_assert(min_alloc_size);
   ceph_assert(target_blob_size);
   if (!get_blob().is_mutable()) {
@@ -262,8 +262,8 @@ void bluestore::Blob::copy_from(
   CephContext* cct, const Blob& from, uint32_t min_release_size, uint32_t start, uint32_t len)
 {
   dout(20) << __func__ << " to=" << *this << " from=" << from
-	   << " [" << std::hex << start << "~" << len
-	   << "] min_release=" << min_release_size << std::dec << dendl;
+           << " [" << std::hex << start << "~" << len
+           << "] min_release=" << min_release_size << std::dec << dendl;
 
   auto& bto = blob;
   auto& bfrom = from.blob;
@@ -281,8 +281,8 @@ void bluestore::Blob::copy_from(
   uint32_t end_aligned = p2align(start + len, min_release_size);
   uint32_t end_roundup = p2roundup(start + len, min_release_size);
   dout(25) << __func__ << " extent split:"
-	   << std::hex << start_aligned << "~" << start_roundup << "~"
-	   << end_aligned << "~" << end_roundup << std::dec << dendl;
+           << std::hex << start_aligned << "~" << start_roundup << "~"
+           << end_aligned << "~" << end_roundup << std::dec << dendl;
 
   if (bto.get_logical_length() == 0) {
     // this is initialization
@@ -297,14 +297,14 @@ void bluestore::Blob::copy_from(
 
   if (end_aligned >= start_roundup) {
     copy_extents(cct, from, start_aligned,
-		 start_roundup - start_aligned,/*pre_len*/
-		 end_aligned - start_roundup,/*main_len*/
-		 end_roundup - end_aligned/*post_len*/);
+                 start_roundup - start_aligned,/*pre_len*/
+                 end_aligned - start_roundup,/*main_len*/
+                 end_roundup - end_aligned/*post_len*/);
   } else {
     // it is uncommon case that <start, start + len) in single allocation unit
     copy_extents(cct, from, start_aligned,
-		 start_roundup - start_aligned,/*pre_len*/
-		 0 /*main_len*/, 0/*post_len*/);
+                 start_roundup - start_aligned,/*pre_len*/
+                 0 /*main_len*/, 0/*post_len*/);
   }
   // copy relevant csum items
   if (bto.has_csum()) {
@@ -314,8 +314,8 @@ void bluestore::Blob::copy_from(
     ceph_assert(bto.  csum_data.length() >= csd_item_end * csd_value_size);
     ceph_assert(bfrom.csum_data.length() >= csd_item_end * csd_value_size);
     memcpy(bto.  csum_data.c_str() + csd_item_start * csd_value_size,
-	   bfrom.csum_data.c_str() + csd_item_start * csd_value_size,
-	   (csd_item_end - csd_item_start) * csd_value_size);
+           bfrom.csum_data.c_str() + csd_item_start * csd_value_size,
+           (csd_item_end - csd_item_start) * csd_value_size);
   }
   used_in_blob.get(start, len);
   dout(20) << __func__ << " result=" << *this << dendl;
@@ -383,7 +383,7 @@ void bluestore::Blob::copy_extents(
   const PExtentVector& exfrom = from.blob.get_extents();
   PExtentVector& exto = blob.dirty_extents();
   dout(20) << __func__ << " 0x" << std::hex << start << " "
-	   << pre_len << "/" << main_len << "/" << post_len << std::dec << dendl;
+           << pre_len << "/" << main_len << "/" << post_len << std::dec << dendl;
 
   // the extents that cover same area must be the same
   if (pre_len > 0) {
@@ -411,7 +411,7 @@ void bluestore::Blob::copy_extents_over_empty(
   CephContext* cct, const Blob& from, uint32_t start, uint32_t len)
 {
   dout(20) << __func__ << " to=" << *this << " from=" << from
-	   << "[0x" << std::hex << start << "~" << len << std::dec << "]" << dendl;
+           << "[0x" << std::hex << start << "~" << len << std::dec << "]" << dendl;
   uint32_t padding;
   auto& exto = blob.dirty_extents();
   auto ito = exto.begin();
@@ -421,11 +421,11 @@ void bluestore::Blob::copy_extents_over_empty(
   auto try_append = [&](PExtentVector::iterator& it, uint64_t disk_offset, uint32_t disk_len) {
     if (prev != exto.end()) {
       if (prev->is_valid()) {
-	if (prev->offset + prev->length == disk_offset) {
-	  get_dirty_shared_blob()->get_ref(disk_offset, disk_len);
-	  prev->length += disk_len;
-	  return;
-	}
+        if (prev->offset + prev->length == disk_offset) {
+          get_dirty_shared_blob()->get_ref(disk_offset, disk_len);
+          prev->length += disk_len;
+          return;
+        }
       }
     }
     it = exto.insert(it, bluestore_pextent_t(disk_offset, disk_len));
@@ -539,18 +539,18 @@ bool bluestore::Blob::can_merge_blob(const Blob* other, uint32_t& blob_width) co
   while (xi != xe.end() && yi != ye.end()) {
     if (xp <= yp) {
       if (yp < xp + xi->length) {
-	// collision
-	can_merge = false;
-	break;
+        // collision
+        can_merge = false;
+        break;
       }
       xp += xi->length;
       ++xi;
       skip_empty(xe, xi, xp);
     } else {
       if (xp < yp + yi->length) {
-	// collision
-	can_merge = false;
-	break;
+        // collision
+        can_merge = false;
+        break;
       }
       yp += yi->length;
       ++yi;
@@ -611,7 +611,7 @@ uint32_t bluestore::Blob::merge_blob(CephContext* cct, Blob* blob_to_dissolve)
   auto skip_empty = [&](const PExtentVector& list, PExtentVector::const_iterator& it, uint32_t& pos) {
     while (it != list.end()) {
       if (it->is_valid()) {
-	return;
+        return;
       }
       pos += it->length;
       ++it;
@@ -631,8 +631,8 @@ uint32_t bluestore::Blob::merge_blob(CephContext* cct, Blob* blob_to_dissolve)
       uint32_t item_cnt = (end - start) >> csum_chunk_order;
       ceph_assert(dst_blob.csum_data.length() >= (item_no + item_cnt) * csum_value_size);
       memcpy(dst_csum_ptr + item_no * csum_value_size,
-	     src_csum_ptr + item_no * csum_value_size,
-	     item_cnt * csum_value_size);
+             src_csum_ptr + item_no * csum_value_size,
+             item_cnt * csum_value_size);
     }
     uint32_t start = p2align(pos, tracker_au_size) / tracker_au_size;
     uint32_t end = p2roundup(pos + len, tracker_au_size) / tracker_au_size;
@@ -658,20 +658,20 @@ uint32_t bluestore::Blob::merge_blob(CephContext* cct, Blob* blob_to_dissolve)
   while (src_it != src_extents.end() || dst_it != dst_extents.end()) {
     if (src_pos > pos) {
       if (dst_pos > pos) {
-	// empty space
-	uint32_t m = std::min(src_pos - pos, dst_pos - pos);
-	// emit empty
-	tmp_extents.emplace_back(bluestore_pextent_t::INVALID_OFFSET, m);
-	pos += m;
+        // empty space
+        uint32_t m = std::min(src_pos - pos, dst_pos - pos);
+        // emit empty
+        tmp_extents.emplace_back(bluestore_pextent_t::INVALID_OFFSET, m);
+        pos += m;
       } else {
-	// copy from dst, src must not have conflicting extent
-	ceph_assert(src_pos >= dst_pos + dst_it->length);
-	// use extent from destination
-	tmp_extents.push_back(*dst_it);
-	dst_pos += dst_it->length;
-	pos = dst_pos;
-	++dst_it;
-	skip_empty(dst_extents, dst_it, dst_pos);
+        // copy from dst, src must not have conflicting extent
+        ceph_assert(src_pos >= dst_pos + dst_it->length);
+        // use extent from destination
+        tmp_extents.push_back(*dst_it);
+        dst_pos += dst_it->length;
+        pos = dst_pos;
+        ++dst_it;
+        skip_empty(dst_extents, dst_it, dst_pos);
       }
     } else {
       // copy from src, dst must not have conflicting extent
@@ -704,7 +704,7 @@ uint32_t bluestore::Blob::merge_blob(CephContext* cct, Blob* blob_to_dissolve)
 void bluestore::Blob::split(BlueStore::Collection *coll, uint32_t blob_offset, Blob *r)
 {
   dout(10) << __func__ << " 0x" << std::hex << blob_offset << std::dec
-	   << " start " << *this << dendl;
+           << " start " << *this << dendl;
   ceph_assert(r);
   ceph_assert(blob.can_split());
   ceph_assert(used_in_blob.can_split());
@@ -722,9 +722,9 @@ void bluestore::Blob::split(BlueStore::Collection *coll, uint32_t blob_offset, B
                          // but let it be
 
   dout(10) << __func__ << " 0x" << std::hex << blob_offset << std::dec
-	   << " finish " << *this << dendl;
+           << " finish " << *this << dendl;
   dout(10) << __func__ << " 0x" << std::hex << blob_offset << std::dec
-	   << "    and " << *r << dendl;
+           << "    and " << *r << dendl;
 }
 
 void bluestore::Blob::maybe_prune_tail() {
