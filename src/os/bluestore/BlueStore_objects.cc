@@ -2980,18 +2980,18 @@ void bluestore::SharedBlob::put()
 {
   if (--nref == 0) {
     dout(20) << __func__ << " " << this
-	     << " removing self from set " << get_parent()
-	     << dendl;
+             << " removing self from set " << get_parent()
+             << dendl;
   again:
     auto coll_snap = collection;
     if (coll_snap) {
       std::lock_guard l(coll_snap->cache->lock);
       if (coll_snap != collection) {
-	goto again;
+        goto again;
       }
       if (!coll_snap->shared_blob_set.remove(this, true)) {
-	// race with lookup
-	return;
+        // race with lookup
+        return;
       }
     }
     delete this;
@@ -3005,8 +3005,8 @@ void bluestore::SharedBlob::get_ref(uint64_t offset, uint32_t length)
 }
 
 void bluestore::SharedBlob::put_ref(uint64_t offset, uint32_t length,
-				    PExtentVector *r,
-				    bool *unshare)
+                                    PExtentVector *r,
+                                    bool *unshare)
 {
   ceph_assert(persistent);
   persistent->ref_map.put(offset, length, r,
