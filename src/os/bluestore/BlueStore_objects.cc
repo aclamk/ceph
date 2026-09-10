@@ -1176,9 +1176,9 @@ void bluestore::ExtentMap::scan_shared_blobs(
           // Fsck cannot handle case when one shared blob contains refs to
           // both shared and non-shared blobs.
 
-	  // todo consider change to emplace_hint
-	  candidates.emplace(ep->blob_start(), ep->blob.get());
-	}
+          // todo consider change to emplace_hint
+          candidates.emplace(ep->blob_start(), ep->blob.get());
+        }
       }
       // mark as processed
       ep->blob->last_encoded_id = 0;
@@ -1206,7 +1206,7 @@ bluestore::Blob* bluestore::ExtentMap::find_mergable_companion(
 }
 
 void bluestore::ExtentMap::reblob_extents(uint32_t blob_start, uint32_t blob_end,
-					  BlueStore::BlobRef from_blob, BlueStore::BlobRef to_blob)
+                                          BlueStore::BlobRef from_blob, BlueStore::BlobRef to_blob)
 {
   if (from_blob->is_spanning()) {
     // Mark spanning blobs no longer spanning.
@@ -1224,14 +1224,14 @@ void bluestore::ExtentMap::reblob_extents(uint32_t blob_start, uint32_t blob_end
     }
     if (prev != extent_map.end()) {
       if (prev->blob == e->blob &&
-	  prev->blob_offset + prev->length == e->blob_offset &&
-	  prev->logical_offset + prev->length == e->logical_offset) {
-	prev->length += e->length;
-	ep = extent_map.erase(ep);
-	// we have to manually delete Extent, otherwise memory leak
-	delete e;
-	// prev still the same
-	continue;
+          prev->blob_offset + prev->length == e->blob_offset &&
+          prev->logical_offset + prev->length == e->logical_offset) {
+        prev->length += e->length;
+        ep = extent_map.erase(ep);
+        // we have to manually delete Extent, otherwise memory leak
+        delete e;
+        // prev still the same
+        continue;
       }
     }
     prev = ep;
@@ -1284,7 +1284,7 @@ void bluestore::ExtentMap::make_range_shared_maybe_merge(
         dirty_range_end = std::max<uint32_t>(dirty_range_end, e.blob_start() + b_logical_length);
         uint32_t goto_logical_offset = e.logical_offset + e.length;
         reblob_extents(e.blob_start(), e.blob_start() + blob_width,
-		       e.blob, b);
+                       e.blob, b);
         ep = seek_lextent(goto_logical_offset);
         dout(20) << __func__ << " merged: " << *b << dendl;
       } else {
@@ -1348,10 +1348,10 @@ void bluestore::ExtentMap::dup(BlueStore* b, BlueStore::TransContext* txc,
       // make sure it is shared
       if (!blob.is_shared()) {
         c->make_blob_shared(b->_assign_blobid(txc), e.blob);
-	if (!src_dirty) {
+        if (!src_dirty) {
           src_dirty = true;
           dirty_range_begin = e.logical_offset;
-	}
+        }
         ceph_assert(e.logical_end() > 0);
         // -1 to exclude next potential shard
         dirty_range_end = e.logical_end() - 1;
@@ -1474,16 +1474,16 @@ void bluestore::ExtentMap::dup_esb(BlueStore* b, BlueStore::TransContext* txc,
       ceph_assert(ep->blob_start() < end);
       // dup entire blob or dup parts only
       if (blob.is_compressed()) {
-	// copy whole blob, but without used_in_blob
-	cb->dup(*e.blob, false);
+        // copy whole blob, but without used_in_blob
+        cb->dup(*e.blob, false);
       } else if (e.blob_start() >= srcoff && e.blob_end() <= end) {
-	// copy whole blob, including used_in_blob
-	cb->dup(*e.blob, true);
+        // copy whole blob, including used_in_blob
+        cb->dup(*e.blob, true);
       } else {
-	// we must copy source blob diligently region-by-region
-	// initialize shared_blob
-	cb->dirty_blob().set_flag(bluestore_blob_t::FLAG_SHARED);
-	cb->set_shared_blob(e.blob->get_shared_blob());
+        // we must copy source blob diligently region-by-region
+        // initialize shared_blob
+        cb->dirty_blob().set_flag(bluestore_blob_t::FLAG_SHARED);
+        cb->set_shared_blob(e.blob->get_shared_blob());
       }
 
       txc->write_shared_blob(e.blob->get_shared_blob());
@@ -1515,7 +1515,7 @@ void bluestore::ExtentMap::dup_esb(BlueStore* b, BlueStore::TransContext* txc,
       // copy part
       uint32_t min_release_size = e.blob->get_blob().get_release_size(c->store->min_alloc_size);
       cb->copy_from(b->cct, *e.blob, min_release_size,
-		    e.blob_offset + skip_front, e.length - skip_front - skip_back);
+                    e.blob_offset + skip_front, e.length - skip_front - skip_back);
     }
 
     // fixme: we may leave parts of new blob unreferenced that could
@@ -1570,10 +1570,10 @@ void bluestore::ExtentMap::update(KeyValueDB::Transaction t,
       ceph_assert(!never_happen);
       size_t len = inline_bl.length();
       dout(20) << __func__ << "  inline shard " << len << " bytes from " << n
-	       << " extents" << dendl;
+               << " extents" << dendl;
       if (!just_after_reshard && len > cct->_conf->bluestore_extent_map_shard_max_size) {
-	request_reshard(0, BlueStore::OBJECT_MAX_SIZE);
-	return;
+        request_reshard(0, BlueStore::OBJECT_MAX_SIZE);
+        return;
       }
     }
     // will persist in the onode key.
@@ -1657,13 +1657,13 @@ void bluestore::ExtentMap::update(KeyValueDB::Transaction t,
     string key;
     for (auto& it : encoded_shards) {
       dout(20) << __func__ << "  encoding key for shard 0x" << std::hex
-	       << it.shard->shard_info->offset << std::dec << dendl;
+               << it.shard->shard_info->offset << std::dec << dendl;
       it.shard->dirty = false;
       it.shard->shard_info->bytes = it.bl.length();
       generate_extent_shard_key_and_apply(
-	onode->key,
-	it.shard->shard_info->offset,
-	&key,
+        onode->key,
+        it.shard->shard_info->offset,
+        &key,
         [&](const string& final_key) {
           t->set(PREFIX_OBJ, final_key, it.bl);
         }
@@ -1702,38 +1702,38 @@ bluestore::ExtentMap::reshard_decision(uint32_t segment_size) {
   auto cct = onode->c->store->cct; // used by dout
 
   dout(10) << __func__ << " 0x[" << std::hex << needs_reshard_begin << ","
-	   << needs_reshard_end << ") segment 0x" << segment_size << std::dec
-	   << " of " << onode->onode.extent_map_shards.size()
-	   << " shards on " << onode->oid << dendl;
+           << needs_reshard_end << ") segment 0x" << segment_size << std::dec
+           << " of " << onode->onode.extent_map_shards.size()
+           << " shards on " << onode->oid << dendl;
   const int span_blob_log_level = 20;
   if (cct->_conf->subsys.should_gather<ceph_subsys_bluestore, span_blob_log_level>()) {
     for (auto& p : spanning_blob_map) {
       dout(span_blob_log_level) << __func__
                                 << "   spanning blob "
                                 << p.first << " " << *p.second
-	                        << dendl;
+                                << dendl;
     }
   }
   // determine shard index range
   unsigned shard_index_begin = 0, shard_index_end = 0;
   if (!shards.empty()) {
     while (shard_index_begin + 1 < shards.size() &&
-	   shards[shard_index_begin + 1].shard_info->offset <= needs_reshard_begin) {
+           shards[shard_index_begin + 1].shard_info->offset <= needs_reshard_begin) {
       ++shard_index_begin;
     }
     needs_reshard_begin = shards[shard_index_begin].shard_info->offset;
     for (shard_index_end = shard_index_begin; shard_index_end < shards.size(); ++shard_index_end) {
       if (shards[shard_index_end].shard_info->offset >= needs_reshard_end) {
-	needs_reshard_end = shards[shard_index_end].shard_info->offset;
-	break;
+        needs_reshard_end = shards[shard_index_end].shard_info->offset;
+        break;
       }
     }
     if (shard_index_end == shards.size()) {
       needs_reshard_end = BlueStore::OBJECT_MAX_SIZE;
     }
     dout(20) << __func__ << "   shards [" << shard_index_begin << "," << shard_index_end << ")"
-	     << " over 0x[" << std::hex << needs_reshard_begin << ","
-	     << needs_reshard_end << ")" << std::dec << dendl;
+             << " over 0x[" << std::hex << needs_reshard_begin << ","
+             << needs_reshard_end << ")" << std::dec << dendl;
   } else {
     // When sharding is not applied yet, it is an error to request reshard on range.
     // The problem is that reshard() function will not touch any extent outside the range.
@@ -1770,7 +1770,7 @@ bluestore::ExtentMap::reshard_decision(uint32_t segment_size) {
     cct->_conf->bluestore_extent_map_shard_target_size_slop;
   unsigned extent_avg = bytes / std::max(1u, extents);
   dout(20) << __func__ << "  extent_avg " << extent_avg << ", target " << target
-	   << ", slop " << slop << dendl;
+           << ", slop " << slop << dendl;
 
   uint32_t next_boundary = segment_size;
   uint32_t encoded_segment_estimate = 0;
@@ -1805,32 +1805,32 @@ bluestore::ExtentMap::reshard_decision(uint32_t segment_size) {
         // beginning of the extent is a place that might be a shard boundary
         // we want to decide whether to continue streaming to the current shard
         // or move to the next one
-	if (estimate + encoded_segment_estimate/2 >= target /*it is better to go undersize*/) {
-	  make_shard_here = true;
-	}
-	next_boundary = p2roundup(extent->blob_end(), segment_size);
+        if (estimate + encoded_segment_estimate/2 >= target /*it is better to go undersize*/) {
+          make_shard_here = true;
+        }
+        next_boundary = p2roundup(extent->blob_end(), segment_size);
       }
     } else {
       // disfavor shard boundaries that span a blob
       bool would_span = (extent->logical_offset < max_blob_end) || (extent->blob_offset != 0);
       if ((estimate > 0)
           && (estimate + extent_avg > target + (would_span ? slop : 0))) {
-	make_shard_here = true;
+        make_shard_here = true;
       }
     }
     if (make_shard_here) {
       // new shard
       if (offset == needs_reshard_begin) {
-	new_shard_info.emplace_back(bluestore_onode_t::shard_info());
-	new_shard_info.back().offset = offset;
-	dout(20) << __func__ << "  new shard 0x" << std::hex << offset
+        new_shard_info.emplace_back(bluestore_onode_t::shard_info());
+        new_shard_info.back().offset = offset;
+        dout(20) << __func__ << "  new shard 0x" << std::hex << offset
                  << std::dec << dendl;
       }
       offset = extent->logical_offset;
       new_shard_info.emplace_back(bluestore_onode_t::shard_info());
       new_shard_info.back().offset = offset;
       dout(20) << __func__ << "  new shard 0x" << std::hex << offset
-	       << std::dec << dendl;
+               << std::dec << dendl;
       estimate = 0;
     }
     estimate += extent_avg;
@@ -1847,13 +1847,13 @@ bluestore::ExtentMap::reshard_decision(uint32_t segment_size) {
     }
   }
   if (new_shard_info.empty() && (shard_index_begin > 0 ||
-				 shard_index_end < shards.size())) {
+                                 shard_index_end < shards.size())) {
     // we resharded a partial range; we must produce at least one output
     // shard
     new_shard_info.emplace_back(bluestore_onode_t::shard_info());
     new_shard_info.back().offset = needs_reshard_begin;
     dout(20) << __func__ << "  new shard 0x" << std::hex << needs_reshard_begin
-	     << std::dec << " (singleton degenerate case)" << dendl;
+             << std::dec << " (singleton degenerate case)" << dendl;
   }
 
   auto& extent_map_shards = onode->onode.extent_map_shards;
@@ -1895,7 +1895,7 @@ void bluestore::ExtentMap::reshard_action(
     generate_extent_shard_key_and_apply(
       onode->key, shards[i].shard_info->offset, &key,
       [&](const string& final_key) {
-	t->rmkey(PREFIX_OBJ, final_key);
+        t->rmkey(PREFIX_OBJ, final_key);
       }
       );
   }
@@ -1945,15 +1945,15 @@ void bluestore::ExtentMap::reshard_action(
   } else {
     // identify new spanning blobs
     dout(20) << __func__ << " checking spanning blobs 0x[" << std::hex
-	     << spanning_scan_begin << "," << spanning_scan_end << ")" << dendl;
+             << spanning_scan_begin << "," << spanning_scan_end << ")" << dendl;
     if (db) {
       if (spanning_scan_begin < needs_reshard_begin) {
         fault_range(db, spanning_scan_begin,
-		    needs_reshard_begin - spanning_scan_begin);
+                    needs_reshard_begin - spanning_scan_begin);
       }
       if (spanning_scan_end > needs_reshard_end) {
         fault_range(db, needs_reshard_end,
-		       spanning_scan_end - needs_reshard_end);
+                       spanning_scan_end - needs_reshard_end);
       }
     }
     auto current_shard = extent_map_shards.begin() + shard_index_begin;
@@ -1976,127 +1976,127 @@ void bluestore::ExtentMap::reshard_action(
 
     for (auto extent = extent_map.lower_bound(Extent(needs_reshard_begin)); extent != extent_map.end(); ++extent) {
       if (extent->logical_offset >= needs_reshard_end) {
-	break;
+        break;
       }
       dout(30) << __func__ << " extent " << *extent << dendl;
       while (extent->logical_offset >= shard_end) {
-	shard_start = shard_end;
-	ceph_assert(current_shard != end_shard);
-	++current_shard;
-	if (current_shard == end_shard) {
-	  shard_end = BlueStore::OBJECT_MAX_SIZE;
-	} else {
-	  shard_end = current_shard->offset;
-	}
-	dout(30) << __func__ << "  shard 0x" << std::hex << shard_start
-		 << " to 0x" << shard_end << std::dec << dendl;
+        shard_start = shard_end;
+        ceph_assert(current_shard != end_shard);
+        ++current_shard;
+        if (current_shard == end_shard) {
+          shard_end = BlueStore::OBJECT_MAX_SIZE;
+        } else {
+          shard_end = current_shard->offset;
+        }
+        dout(30) << __func__ << "  shard 0x" << std::hex << shard_start
+                 << " to 0x" << shard_end << std::dec << dendl;
       }
 
       if (extent->blob_escapes_range(shard_start, shard_end - shard_start)) {
-	BlueStore::BlobRef b = extent->blob;
-	uint32_t bstart = extent->blob_start();
-	uint32_t bend = extent->blob_end();
-	if (!b->is_spanning()) {
-	  // We have two options: (1) split the blob into pieces at the
-	  // shard boundaries (and adjust extents accordingly), or (2)
-	  // mark it spanning.  We prefer to cut the blob if we can.  Note that
-	  // we may have to split it multiple times--potentially at every
-	  // shard boundary.
-	  auto _make_spanning = [&](BlueStore::BlobRef& b) {
-	    auto bid = allocate_spanning_blob_id();
-	    b->id = bid;
-	    spanning_blob_map[b->id] = b;
-	    dout(20) << __func__ << "    adding spanning " << *b << dendl;
-	    if (!was_too_many_blobs_check &&
-	      too_many_blobs_threshold &&
-	      spanning_blob_map.size() >= size_t(too_many_blobs_threshold)) {
+        BlueStore::BlobRef b = extent->blob;
+        uint32_t bstart = extent->blob_start();
+        uint32_t bend = extent->blob_end();
+        if (!b->is_spanning()) {
+          // We have two options: (1) split the blob into pieces at the
+          // shard boundaries (and adjust extents accordingly), or (2)
+          // mark it spanning.  We prefer to cut the blob if we can.  Note that
+          // we may have to split it multiple times--potentially at every
+          // shard boundary.
+          auto _make_spanning = [&](BlueStore::BlobRef& b) {
+            auto bid = allocate_spanning_blob_id();
+            b->id = bid;
+            spanning_blob_map[b->id] = b;
+            dout(20) << __func__ << "    adding spanning " << *b << dendl;
+            if (!was_too_many_blobs_check &&
+              too_many_blobs_threshold &&
+              spanning_blob_map.size() >= size_t(too_many_blobs_threshold)) {
 
-	      was_too_many_blobs_check = true;
-	      for (size_t i = 0; i < dumped_onodes.size(); ++i) {
-		if (dumped_onodes[i].first == onode->oid) {
-		  oid_slot = &dumped_onodes[i];
-		  break;
-		}
-		if (!oldest_slot || (oldest_slot &&
-		  dumped_onodes[i].second < oldest_slot->second)) {
-		  oldest_slot = &dumped_onodes[i];
-		}
-	      }
-	    }
-	  };
-	  if (b->can_split()) {
-	    auto bstart1 = bstart;
-	    for (const auto& sh : shards) {
-	      if (bstart1 < sh.shard_info->offset &&
-		  bend > sh.shard_info->offset) {
-		uint32_t blob_offset = sh.shard_info->offset - bstart1;
-		if (b->can_split_at(blob_offset)) {
-		  dout(20) << __func__ << "    splitting blob, bstart 0x"
-			   << std::hex << bstart1 << " blob_offset 0x"
-			   << blob_offset << std::dec << " " << *b << dendl;
-		  b = split_blob(b, blob_offset, sh.shard_info->offset);
+              was_too_many_blobs_check = true;
+              for (size_t i = 0; i < dumped_onodes.size(); ++i) {
+                if (dumped_onodes[i].first == onode->oid) {
+                  oid_slot = &dumped_onodes[i];
+                  break;
+                }
+                if (!oldest_slot || (oldest_slot &&
+                  dumped_onodes[i].second < oldest_slot->second)) {
+                  oldest_slot = &dumped_onodes[i];
+                }
+              }
+            }
+          };
+          if (b->can_split()) {
+            auto bstart1 = bstart;
+            for (const auto& sh : shards) {
+              if (bstart1 < sh.shard_info->offset &&
+                  bend > sh.shard_info->offset) {
+                uint32_t blob_offset = sh.shard_info->offset - bstart1;
+                if (b->can_split_at(blob_offset)) {
+                  dout(20) << __func__ << "    splitting blob, bstart 0x"
+                           << std::hex << bstart1 << " blob_offset 0x"
+                           << blob_offset << std::dec << " " << *b << dendl;
+                  b = split_blob(b, blob_offset, sh.shard_info->offset);
                   if (b->get_blob().get_ondisk_size() == 0) {
                     // The blob b is empty; there are no extents that can reference it.
                     // It will be deleted as soon as it gets out of scope.
                     break;
                   }
-		  // switch b to the new right-hand side, in case it
-		  // *also* has to get split.
-		  bstart1 = sh.shard_info->offset;
-		  onode->c->store->logger->inc(l_bluestore_blob_split);
-		} else {
-		  _make_spanning(b);
-		  break;
-		}
-	      }
-	    }
-	  } else {
-	    _make_spanning(b);
-	  }
-	} // if (!extent->blob->is_spanning())
-	// Make sure extent with a spanning blob doesn't span over shard boundary
-	if (extent->blob->is_spanning()) {
-	  BlueStore::BlobRef b = extent->blob;
-	  uint32_t bstart = extent->blob_start();
-	  for (const auto& sh : shards) {
-	    if (bstart < sh.shard_info->offset && bend > sh.shard_info->offset) {
-	      uint32_t blob_offset = sh.shard_info->offset - bstart;
-	      auto pos = sh.shard_info->offset;
-	      if (extent->logical_offset < pos && extent->logical_end() > pos) {
-		// split extent
-		size_t left = pos - extent->logical_offset;
-		Extent* ne = new Extent(pos, blob_offset, extent->length - left, b);
-		extent_map.insert(*ne);
-		extent->length = left;
-		dout(20) << __func__ << "  split " << *extent << dendl;
-		dout(20) << __func__ << "     to " << *ne << dendl;
-	      }
-	    }
-	  }
-	}
+                  // switch b to the new right-hand side, in case it
+                  // *also* has to get split.
+                  bstart1 = sh.shard_info->offset;
+                  onode->c->store->logger->inc(l_bluestore_blob_split);
+                } else {
+                  _make_spanning(b);
+                  break;
+                }
+              }
+            }
+          } else {
+            _make_spanning(b);
+          }
+        } // if (!extent->blob->is_spanning())
+        // Make sure extent with a spanning blob doesn't span over shard boundary
+        if (extent->blob->is_spanning()) {
+          BlueStore::BlobRef b = extent->blob;
+          uint32_t bstart = extent->blob_start();
+          for (const auto& sh : shards) {
+            if (bstart < sh.shard_info->offset && bend > sh.shard_info->offset) {
+              uint32_t blob_offset = sh.shard_info->offset - bstart;
+              auto pos = sh.shard_info->offset;
+              if (extent->logical_offset < pos && extent->logical_end() > pos) {
+                // split extent
+                size_t left = pos - extent->logical_offset;
+                Extent* ne = new Extent(pos, blob_offset, extent->length - left, b);
+                extent_map.insert(*ne);
+                extent->length = left;
+                dout(20) << __func__ << "  split " << *extent << dendl;
+                dout(20) << __func__ << "     to " << *ne << dendl;
+              }
+            }
+          }
+        }
       } else {
-	if (extent->blob->is_spanning()) {
-	  spanning_blob_map.erase(extent->blob->id);
-	  extent->blob->id = -1;
-	  dout(20) << __func__ << "    un-spanning " << *extent->blob << dendl;
-	}
+        if (extent->blob->is_spanning()) {
+          spanning_blob_map.erase(extent->blob->id);
+          extent->blob->id = -1;
+          dout(20) << __func__ << "    un-spanning " << *extent->blob << dendl;
+        }
       }
     }
     bool do_dump = (!oid_slot && was_too_many_blobs_check) ||
       (oid_slot &&
-	(mono_clock::now() - oid_slot->second >= make_timespan(5 * 60)));
+        (mono_clock::now() - oid_slot->second >= make_timespan(5 * 60)));
     if (do_dump) {
       dout(0) << __func__
-	      << " spanning blob count exceeds threshold, "
-	      << spanning_blob_map.size() << " spanning blobs"
-	      << dendl;
+              << " spanning blob count exceeds threshold, "
+              << spanning_blob_map.size() << " spanning blobs"
+              << dendl;
       _dump_onode<0>(cct, *onode);
       if (oid_slot) {
-	oid_slot->second = mono_clock::now();
+        oid_slot->second = mono_clock::now();
       } else {
-	ceph_assert(oldest_slot);
-	oldest_slot->first = onode->oid;
-	oldest_slot->second = mono_clock::now();
+        ceph_assert(oldest_slot);
+        oldest_slot->first = onode->oid;
+        oldest_slot->second = mono_clock::now();
       }
     }
   }
@@ -2144,14 +2144,14 @@ bool bluestore::ExtentMap::encode_some(
                  << std::dec << std::endl
                  << onode->print(P::NICK + P::SDISK + P::SUSE + P::SBUF)
                  << dendl;
-	ceph_abort_msg("extents overlaps");
+        ceph_abort_msg("extents overlaps");
       }
       prev_offset_end = p->logical_end();
     }
     p->blob->last_encoded_id = -1;
     if (!p->blob->is_spanning() && p->blob_escapes_range(offset, length)) {
       dout(20) << __func__ << " 0x" << std::hex << offset << "~" << length
-	       << std::dec << " hit new spanning blob " << *p << dendl;
+               << std::dec << " hit new spanning blob " << *p << dendl;
       request_reshard(p->blob_start(), p->blob_end());
       return true;
     } else if (p->blob->is_spanning() && p->logical_end() > end) {
@@ -2188,8 +2188,8 @@ bool bluestore::ExtentMap::encode_some(
     uint64_t pos = 0;
     uint64_t prev_len = 0;
     for (auto p = start;
-	 p != extent_map.end() && p->logical_offset < end;
-	 ++p, ++n) {
+         p != extent_map.end() && p->logical_offset < end;
+         ++p, ++n) {
       unsigned blobid;
       if (complain_shard_spanning) {
         if (p->logical_end() > end) {
@@ -2201,39 +2201,39 @@ bool bluestore::ExtentMap::encode_some(
       }
       bool include_blob = false;
       if (p->blob->is_spanning()) {
-	blobid = p->blob->id << BLOBID_SHIFT_BITS;
-	blobid |= BLOBID_FLAG_SPANNING;
+        blobid = p->blob->id << BLOBID_SHIFT_BITS;
+        blobid |= BLOBID_FLAG_SPANNING;
       } else if (p->blob->last_encoded_id < 0) {
-	p->blob->last_encoded_id = n + 1;  // so it is always non-zero
-	include_blob = true;
-	blobid = 0;  // the decoder will infer the id from n
+        p->blob->last_encoded_id = n + 1;  // so it is always non-zero
+        include_blob = true;
+        blobid = 0;  // the decoder will infer the id from n
       } else {
-	blobid = p->blob->last_encoded_id << BLOBID_SHIFT_BITS;
+        blobid = p->blob->last_encoded_id << BLOBID_SHIFT_BITS;
       }
       if (p->logical_offset == pos) {
-	blobid |= BLOBID_FLAG_CONTIGUOUS;
+        blobid |= BLOBID_FLAG_CONTIGUOUS;
       }
       if (p->blob_offset == 0) {
-	blobid |= BLOBID_FLAG_ZEROOFFSET;
+        blobid |= BLOBID_FLAG_ZEROOFFSET;
       }
       if (p->length == prev_len) {
-	blobid |= BLOBID_FLAG_SAMELENGTH;
+        blobid |= BLOBID_FLAG_SAMELENGTH;
       } else {
-	prev_len = p->length;
+        prev_len = p->length;
       }
       denc_varint(blobid, app);
       if ((blobid & BLOBID_FLAG_CONTIGUOUS) == 0) {
-	denc_varint_lowz(p->logical_offset - pos, app);
+        denc_varint_lowz(p->logical_offset - pos, app);
       }
       if ((blobid & BLOBID_FLAG_ZEROOFFSET) == 0) {
-	denc_varint_lowz(p->blob_offset, app);
+        denc_varint_lowz(p->blob_offset, app);
       }
       if ((blobid & BLOBID_FLAG_SAMELENGTH) == 0) {
-	denc_varint_lowz(p->length, app);
+        denc_varint_lowz(p->length, app);
       }
       pos = p->logical_end();
       if (include_blob) {
-	p->blob->encode(app, struct_v, p->blob->get_sbid(), false);
+        p->blob->encode(app, struct_v, p->blob->get_sbid(), false);
       }
     }
   }
@@ -2452,7 +2452,7 @@ std::pair<uint32_t, uint32_t> bluestore::ExtentMap::fault_range_ex(
   uint32_t length)
 {
   dout(30) << __func__ << " 0x" << std::hex << offset << "~" << length
-	   << std::dec << dendl;
+           << std::dec << dendl;
   if (shards.size() == 0) {
     // no sharding yet; everyting is loaded
     return {0, BlueStore::OBJECT_MAX_SIZE};
@@ -2475,7 +2475,7 @@ void bluestore::ExtentMap::fault_range(
   uint32_t length)
 {
   dout(30) << __func__ << " 0x" << std::hex << offset << "~" << length
-	   << std::dec << dendl;
+           << std::dec << dendl;
   if (shards.size() == 0) {
     // no sharding yet; everyting is loaded
     return;
@@ -2500,17 +2500,17 @@ void bluestore::ExtentMap::maybe_load_shard(
     if (!p->loaded) {
       BLUE_SCOPE(maybe_load_shard);
       dout(30) << __func__ << " opening shard 0x" << std::hex
-	       << p->shard_info->offset << std::dec << dendl;
+               << p->shard_info->offset << std::dec << dendl;
       bufferlist v;
       generate_extent_shard_key_and_apply(
-	onode->key, p->shard_info->offset, &key,
+        onode->key, p->shard_info->offset, &key,
         [&](const string& final_key) {
           int r = db->get(PREFIX_OBJ, final_key, &v);
           if (r < 0) {
-	    derr << __func__ << " missing shard 0x" << std::hex
-		 << p->shard_info->offset << std::dec << " for " << onode->oid
-		 << dendl;
-	    ceph_assert(r >= 0);
+            derr << __func__ << " missing shard 0x" << std::hex
+                 << p->shard_info->offset << std::dec << " for " << onode->oid
+                 << dendl;
+            ceph_assert(r >= 0);
           }
         }
       );
@@ -2520,7 +2520,7 @@ void bluestore::ExtentMap::maybe_load_shard(
         (size_t)start + 1 < shards.size() ? (p + 1)->shard_info->offset : BlueStore::OBJECT_MAX_SIZE;
       dout(20) << __func__ << " open shard for range 0x"
                << std::hex << p->shard_info->offset << "~" << shard_end << std::dec
-	       << " (" << v.length() << " bytes)" << dendl;
+               << " (" << v.length() << " bytes)" << dendl;
       ceph_assert(p->dirty == false);
       ceph_assert(v.length() == p->shard_info->bytes);
       onode->c->store->logger->inc(l_bluestore_onode_shard_misses);
@@ -2536,7 +2536,7 @@ void bluestore::ExtentMap::dirty_range(
   uint32_t length)
 {
   dout(20) << __func__ << " 0x" << std::hex << offset << "~" << length
-	   << std::dec << dendl;
+           << std::dec << dendl;
   if (shards.empty()) {
     dout(20) << __func__ << " mark inline shard dirty" << dendl;
     inline_bl.clear();
@@ -2556,13 +2556,13 @@ void bluestore::ExtentMap::dirty_range(
     auto p = &shards[start];
     if (!p->loaded) {
       derr << __func__ << "on write 0x" << std::hex << offset
-	   << "~" << length << " shard 0x" << p->shard_info->offset
-	   << std::dec << " is not loaded, can't mark dirty" << dendl;
+           << "~" << length << " shard 0x" << p->shard_info->offset
+           << std::dec << " is not loaded, can't mark dirty" << dendl;
       ceph_abort_msg("can't mark unloaded shard dirty");
     }
     if (!p->dirty) {
       dout(20) << __func__ << " mark shard 0x" << std::hex
-	       << p->shard_info->offset << std::dec << " dirty" << dendl;
+               << p->shard_info->offset << std::dec << " dirty" << dendl;
       p->dirty = true;
     }
     ++start;
@@ -2676,7 +2676,7 @@ int bluestore::ExtentMap::compress_extent_map(
   // identify the *next* shard
   auto pshard = shards.begin();
   while (pshard != shards.end() &&
-	 p->logical_offset >= pshard->shard_info->offset) {
+         p->logical_offset >= pshard->shard_info->offset) {
     ++pshard;
   }
   uint64_t shard_end;
@@ -2692,13 +2692,13 @@ int bluestore::ExtentMap::compress_extent_map(
       break;  // stop after end
     }
     while (n != extent_map.end() &&
-	   p->logical_end() == n->logical_offset &&
-	   p->blob == n->blob &&
-	   p->blob_offset + p->length == n->blob_offset &&
-	   n->logical_offset < shard_end) {
+           p->logical_end() == n->logical_offset &&
+           p->blob == n->blob &&
+           p->blob_offset + p->length == n->blob_offset &&
+           n->logical_offset < shard_end) {
       dout(20) << __func__ << " 0x" << std::hex << offset << "~" << length
-	       << " next shard 0x" << shard_end << std::dec
-	       << " merging " << *p << " and " << *n << dendl;
+               << " next shard 0x" << shard_end << std::dec
+               << " merging " << *p << " and " << *n << dendl;
       p->length += n->length;
       rm(n++);
       ++removed;
@@ -2710,9 +2710,9 @@ int bluestore::ExtentMap::compress_extent_map(
       ceph_assert(pshard != shards.end());
       ++pshard;
       if (pshard != shards.end()) {
-	shard_end = pshard->shard_info->offset;
+        shard_end = pshard->shard_info->offset;
       } else {
-	shard_end = BlueStore::OBJECT_MAX_SIZE;
+        shard_end = BlueStore::OBJECT_MAX_SIZE;
       }
     }
   }
@@ -2736,33 +2736,33 @@ void bluestore::ExtentMap::punch_hole(
     }
     if (p->logical_offset < offset) {
       if (p->logical_end() > end) {
-	// split and deref middle
-	uint64_t front = offset - p->logical_offset;
-	BlueStore::OldExtent* oe = BlueStore::OldExtent::create(c, offset, p->blob_offset + front,
-					  length, p->blob);
-	old_extents->push_back(*oe);
-	add(end,
-	    p->blob_offset + front + length,
-	    p->length - front - length,
-	    p->blob);
-	p->length = front;
-	break;
+        // split and deref middle
+        uint64_t front = offset - p->logical_offset;
+        BlueStore::OldExtent* oe = BlueStore::OldExtent::create(c, offset, p->blob_offset + front,
+                                          length, p->blob);
+        old_extents->push_back(*oe);
+        add(end,
+            p->blob_offset + front + length,
+            p->length - front - length,
+            p->blob);
+        p->length = front;
+        break;
       } else {
-	// deref tail
-	ceph_assert(p->logical_end() > offset); // else seek_lextent bug
-	uint64_t keep = offset - p->logical_offset;
-	BlueStore::OldExtent* oe = BlueStore::OldExtent::create(c, offset, p->blob_offset + keep,
-					  p->length - keep, p->blob);
-	old_extents->push_back(*oe);
-	p->length = keep;
-	++p;
-	continue;
+        // deref tail
+        ceph_assert(p->logical_end() > offset); // else seek_lextent bug
+        uint64_t keep = offset - p->logical_offset;
+        BlueStore::OldExtent* oe = BlueStore::OldExtent::create(c, offset, p->blob_offset + keep,
+                                          p->length - keep, p->blob);
+        old_extents->push_back(*oe);
+        p->length = keep;
+        ++p;
+        continue;
       }
     }
     if (p->logical_offset + p->length <= end) {
       // deref whole lextent
       BlueStore::OldExtent* oe = BlueStore::OldExtent::create(c, p->logical_offset, p->blob_offset,
-				        p->length, p->blob);
+                                        p->length, p->blob);
       old_extents->push_back(*oe);
       rm(p++);
       continue;
@@ -2771,7 +2771,7 @@ void bluestore::ExtentMap::punch_hole(
     uint64_t keep = p->logical_end() - end;
     BlueStore::BlobRef b = p->blob;
     BlueStore::OldExtent* oe = BlueStore::OldExtent::create(c, p->logical_offset, p->blob_offset,
-				      p->length - keep, b);
+                                      p->length - keep, b);
     old_extents->push_back(*oe);
 
     add(end, p->blob_offset + p->length - keep, keep, p->blob);
@@ -2811,8 +2811,8 @@ BlueStore::BlobRef bluestore::ExtentMap::split_blob(
 {
   uint32_t end_pos = pos + lb->get_blob().get_logical_length() - blob_offset;
   dout(20) << __func__ << " 0x" << std::hex << pos << " end 0x" << end_pos
-	   << " blob_offset 0x" << blob_offset << std::dec << " " << *lb
-	   << dendl;
+           << " blob_offset 0x" << blob_offset << std::dec << " " << *lb
+           << dendl;
   BlueStore::BlobRef rb = onode->c->new_blob();
   lb->split(onode->c, blob_offset, rb.get());
 
@@ -2876,7 +2876,7 @@ bluestore::ExtentMap::debug_list_disk_layout()
       length = p2align(ep->blob_offset + csum_chunk_size, csum_chunk_size) - ep->blob_offset;
       length = std::min<uint32_t>(length_left, length);
       if (csum_chunk_size < chunk_size) {
-	chunk_size = csum_chunk_size;
+        chunk_size = csum_chunk_size;
       }
     } else {
       length = p2align(ep->blob_offset + chunk_size, chunk_size) - ep->blob_offset;
@@ -2887,19 +2887,19 @@ bluestore::ExtentMap::debug_list_disk_layout()
     while (length_left > 0) {
       uint64_t csum_val = 0;
       if (bblob.has_csum()) {
-	ceph_assert(csum_cnt > csum_i);
-	csum_val = bblob.get_csum_item(csum_i);
-	++csum_i;
+        ceph_assert(csum_cnt > csum_i);
+        csum_val = bblob.get_csum_item(csum_i);
+        ++csum_i;
       }
       //extract AU from extents
       uint64_t disk_extent_left; // length till the end of disk extent
       uint64_t disk_offset = bblob.calc_offset(bo, &disk_extent_left);
       bluestore_extent_ref_map_t::debug_len_cnt l_c = {0, std::numeric_limits<uint32_t>::max()};
       if (bblob.is_shared()) {
-	l_c = ref_map->debug_peek(disk_offset);
-	if (l_c.len < length) {
-	  length = l_c.len;
-	}
+        l_c = ref_map->debug_peek(disk_offset);
+        if (l_c.len < length) {
+          length = l_c.len;
+        }
       }
       res.emplace_back(disk_offset, length, csum_val, l_c.cnt);
       bo += length;
@@ -2921,8 +2921,8 @@ std::ostream& operator<<(std::ostream& out, const bluestore::ExtentMap::debug_au
     out << "0x" << std::hex;
     if (auv[i].disk_offset != -1ULL) {
       out << auv[i].disk_offset << "~" << auv[i].disk_length
-	  << "(" << std::dec << int32_t(auv[i].ref_cnts)
-	  << "):" << std::hex << auv[i].chksum;
+          << "(" << std::dec << int32_t(auv[i].ref_cnts)
+          << "):" << std::hex << auv[i].chksum;
     } else {
       out << "~" << auv[i].disk_length << std::dec;
     }

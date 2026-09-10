@@ -228,13 +228,13 @@ namespace bluestore {
     uint32_t needs_reshard_end = 0;
 
     void scan_shared_blobs(uint64_t start, uint64_t length,
-			   std::multimap<uint64_t /*blob_start*/, Blob*>& candidates);
+                           std::multimap<uint64_t /*blob_start*/, Blob*>& candidates);
     Blob* find_mergable_companion(Blob* blob_to_dissolve, uint32_t blob_start, uint32_t& blob_width,
-				  std::multimap<uint64_t /*blob_start*/, Blob*>& candidates);
+                                  std::multimap<uint64_t /*blob_start*/, Blob*>& candidates);
     void reblob_extents(uint32_t blob_start, uint32_t blob_end,
-			BlueStore::BlobRef from_blob, BlueStore::BlobRef to_blob);
+                        BlueStore::BlobRef from_blob, BlueStore::BlobRef to_blob);
     void make_range_shared_maybe_merge(BlueStore::TransContext* txc, BlueStore::OnodeRef& onode,
-				       uint64_t srcoff, uint64_t length);
+                                       uint64_t srcoff, uint64_t length);
 
     void dup(BlueStore* b, BlueStore::TransContext*, BlueStore::CollectionRef&, BlueStore::OnodeRef&, BlueStore::OnodeRef&,
       uint64_t&, uint64_t&, uint64_t&);
@@ -249,10 +249,10 @@ namespace bluestore {
     }
     void request_reshard(uint32_t begin, uint32_t end) {
       if (begin < needs_reshard_begin) {
-	needs_reshard_begin = begin;
+        needs_reshard_begin = begin;
       }
       if (end > needs_reshard_end) {
-	needs_reshard_end = end;
+        needs_reshard_end = end;
       }
     }
     // signals that there was a modification on range <begin, end)
@@ -260,7 +260,7 @@ namespace bluestore {
     // can be encoded separately, and reshard run is needed
     void maybe_reshard(uint32_t begin, uint32_t end) {
       if (spans_shard(begin, end - begin)) {
-	request_reshard(begin, end);
+        request_reshard(begin, end);
       }
     }
 
@@ -420,22 +420,22 @@ namespace bluestore {
     /// check if a range spans a shard
     bool spans_shard(uint32_t offset, uint32_t length) {
       if (shards.empty()) {
-	return false;
+        return false;
       }
       int s = seek_shard(offset);
       ceph_assert(s >= 0);
       if (s == (int)shards.size() - 1) {
-	return false; // last shard
+        return false; // last shard
       }
       if (offset + length <= shards[s+1].shard_info->offset) {
-	return false;
+        return false;
       }
       return true;
     }
 
     /// ensure that a range of the map is loaded
     void fault_range(KeyValueDB *db,
-		     uint32_t offset, uint32_t length);
+                     uint32_t offset, uint32_t length);
     /// ensure that a range of the map is loaded
     /// return range that is encompassed by affected shards
     std::pair<uint32_t, uint32_t> fault_range_ex(
@@ -480,16 +480,16 @@ namespace bluestore {
 
     /// punch a logical hole.  add lextents to deref to target list.
     void punch_hole(BlueStore::CollectionRef &c,
-		    uint64_t offset, uint64_t length,
-		    BlueStore::old_extent_map_t *old_extents);
+                    uint64_t offset, uint64_t length,
+                    BlueStore::old_extent_map_t *old_extents);
 
     /// put new lextent into lextent_map overwriting existing ones if
     /// any and update references accordingly
     Extent *set_lextent(BlueStore::CollectionRef &c,
-			uint64_t logical_offset,
-			uint64_t offset, uint64_t length,
+                        uint64_t logical_offset,
+                        uint64_t offset, uint64_t length,
                         BlueStore::BlobRef b,
-			BlueStore::old_extent_map_t *old_extents);
+                        BlueStore::old_extent_map_t *old_extents);
 
     /// split a blob (and referring extents)
     BlueStore::BlobRef split_blob(BlueStore::BlobRef lb, uint32_t blob_offset, uint32_t pos);
@@ -502,12 +502,12 @@ namespace bluestore {
       uint32_t chksum;      //< checksum of the AU
       uint32_t ref_cnts;    //< how many times AU is shared
       debug_au_state_t(
-	uint64_t disk_offset, uint32_t disk_length,
-	uint32_t chksum, uint32_t ref_cnts)
-	: disk_offset(disk_offset)
-	, disk_length(disk_length)
-	, chksum(chksum)
-	, ref_cnts(ref_cnts) {}
+        uint64_t disk_offset, uint32_t disk_length,
+        uint32_t chksum, uint32_t ref_cnts)
+        : disk_offset(disk_offset)
+        , disk_length(disk_length)
+        , chksum(chksum)
+        , ref_cnts(ref_cnts) {}
     };
     using debug_au_vector_t = std::vector<debug_au_state_t>;
     /// Produces a sequence of allocation units representing logical offsets.
@@ -550,7 +550,7 @@ namespace bluestore {
     std::shared_ptr<int64_t> cache_age_bin;  ///< cache age bin
 
     Onode(BlueStore::Collection *c, const ghobject_t& o,
-	    const mempool::bluestore_cache_meta::string& k);
+            const mempool::bluestore_cache_meta::string& k);
     Onode(CephContext* cct);
 
     ~Onode();
