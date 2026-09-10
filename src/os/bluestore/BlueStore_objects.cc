@@ -821,11 +821,11 @@ void bluestore::Blob::decode(
 bluestore::Onode::Onode(BlueStore::Collection *c, const ghobject_t& o,
   const mempool::bluestore_cache_meta::string& k) 
   : c(c),
-	  oid(o),
-	  key(k),
-	  exists(false),
+          oid(o),
+          key(k),
+          exists(false),
     cached(false),
-	  extent_map(this,
+          extent_map(this,
       c->store->cct->_conf->
       bluestore_extent_map_inline_shard_prealloc_size),
     bc(*this) {
@@ -883,9 +883,9 @@ void bluestore::Onode::calc_omap_header(
 }
 
 void bluestore::Onode::calc_omap_key(uint8_t flags,
-				    const Onode* o,
-				    const std::string& key,
-				    std::string* out)
+                                    const Onode* o,
+                                    const std::string& key,
+                                    std::string* out)
 {
   if (!bluestore_onode_t::is_pgmeta_omap(flags)) {
     if (bluestore_onode_t::is_perpg_omap(flags)) {
@@ -1057,9 +1057,9 @@ void bluestore::Onode::finish_write(BlueStore::TransContext* txc, uint32_t offse
     std::lock_guard l(cache->lock);
     if (cache != c->cache) {
       ldout(cache->cct, 20) << __func__
-	       << " raced with sb cache update, was " << cache
-	       << ", now " << c->cache << ", retrying"
-	       << dendl;
+               << " raced with sb cache update, was " << cache
+               << ", now " << c->cache << ", retrying"
+               << dendl;
       continue;
     }
     ldout(c->store->cct, 10) << __func__ << " txc " << txc << std::hex
