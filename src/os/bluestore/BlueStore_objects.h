@@ -77,7 +77,7 @@ namespace bluestore {
 
     /// put logical references, and get back any released extents
     void put_ref(uint64_t offset, uint32_t length,
-		 PExtentVector *r, bool *unshare);
+                 PExtentVector *r, bool *unshare);
     friend bool operator==(const SharedBlob &l, const SharedBlob &r) {
       return l.get_sbid() == r.get_sbid();
     }
@@ -320,9 +320,9 @@ namespace bluestore {
     Blob* find_mergable_companion(Blob* blob_to_dissolve, uint32_t blob_start, uint32_t& blob_width,
                                   std::multimap<uint64_t /*blob_start*/, Blob*>& candidates);
     void reblob_extents(uint32_t blob_start, uint32_t blob_end,
-			BlobRef from_blob, BlobRef to_blob);
+                        BlobRef from_blob, BlobRef to_blob);
     void make_range_shared_maybe_merge(BlueStore::TransContext* txc, OnodeRef& onode,
-				       uint64_t srcoff, uint64_t length);
+                                       uint64_t srcoff, uint64_t length);
 
     void dup(BlueStore* b, BlueStore::TransContext*, BlueStore::CollectionRef&, OnodeRef&, OnodeRef&,
       uint64_t&, uint64_t&, uint64_t&);
@@ -573,10 +573,10 @@ namespace bluestore {
     /// put new lextent into lextent_map overwriting existing ones if
     /// any and update references accordingly
     Extent *set_lextent(BlueStore::CollectionRef &c,
-			uint64_t logical_offset,
-			uint64_t offset, uint64_t length,
+                        uint64_t logical_offset,
+                        uint64_t offset, uint64_t length,
                         BlobRef b,
-			BlueStore::old_extent_map_t *old_extents);
+                        BlueStore::old_extent_map_t *old_extents);
 
     /// split a blob (and referring extents)
     BlobRef split_blob(BlobRef lb, uint32_t blob_offset, uint32_t pos);
@@ -637,25 +637,25 @@ namespace bluestore {
     std::shared_ptr<int64_t> cache_age_bin;  ///< cache age bin
 
     Onode(BlueStore::Collection *c, const ghobject_t& o,
-	  const mempool::bluestore_cache_meta::string& k)
+          const mempool::bluestore_cache_meta::string& k)
       : c(c),
-	oid(o),
-	key(k),
-	exists(false),
+        oid(o),
+        key(k),
+        exists(false),
         cached(false),
-	extent_map(this,
-	  c->store->cct->_conf->
-	    bluestore_extent_map_inline_shard_prealloc_size),
-	bc(*this) {
+        extent_map(this,
+          c->store->cct->_conf->
+            bluestore_extent_map_inline_shard_prealloc_size),
+        bc(*this) {
     }
     Onode(CephContext* cct)
       : c(nullptr),
         exists(false),
         cached(false),
         extent_map(this,
-	  cct->_conf->
-	    bluestore_extent_map_inline_shard_prealloc_size),
-	bc(*this) {
+          cct->_conf->
+            bluestore_extent_map_inline_shard_prealloc_size),
+        bc(*this) {
     }
 
     ~Onode() {

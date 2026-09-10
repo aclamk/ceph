@@ -1110,7 +1110,7 @@ bluestore::Blob* bluestore::ExtentMap::find_mergable_companion(
 }
 
 void bluestore::ExtentMap::reblob_extents(uint32_t blob_start, uint32_t blob_end,
-					  BlobRef from_blob, BlobRef to_blob)
+                                          BlobRef from_blob, BlobRef to_blob)
 {
   if (from_blob->is_spanning()) {
     // Mark spanning blobs no longer spanning.
@@ -1897,23 +1897,23 @@ void bluestore::ExtentMap::reshard_action(
       }
 
       if (extent->blob_escapes_range(shard_start, shard_end - shard_start)) {
-	BlobRef b = extent->blob;
-	uint32_t bstart = extent->blob_start();
-	uint32_t bend = extent->blob_end();
-	if (!b->is_spanning()) {
-	  // We have two options: (1) split the blob into pieces at the
-	  // shard boundaries (and adjust extents accordingly), or (2)
-	  // mark it spanning.  We prefer to cut the blob if we can.  Note that
-	  // we may have to split it multiple times--potentially at every
-	  // shard boundary.
-	  auto _make_spanning = [&](BlobRef& b) {
-	    auto bid = allocate_spanning_blob_id();
-	    b->id = bid;
-	    spanning_blob_map[b->id] = b;
-	    dout(20) << __func__ << "    adding spanning " << *b << dendl;
-	    if (!was_too_many_blobs_check &&
-	      too_many_blobs_threshold &&
-	      spanning_blob_map.size() >= size_t(too_many_blobs_threshold)) {
+        BlobRef b = extent->blob;
+        uint32_t bstart = extent->blob_start();
+        uint32_t bend = extent->blob_end();
+        if (!b->is_spanning()) {
+          // We have two options: (1) split the blob into pieces at the
+          // shard boundaries (and adjust extents accordingly), or (2)
+          // mark it spanning.  We prefer to cut the blob if we can.  Note that
+          // we may have to split it multiple times--potentially at every
+          // shard boundary.
+          auto _make_spanning = [&](BlobRef& b) {
+            auto bid = allocate_spanning_blob_id();
+            b->id = bid;
+            spanning_blob_map[b->id] = b;
+            dout(20) << __func__ << "    adding spanning " << *b << dendl;
+            if (!was_too_many_blobs_check &&
+              too_many_blobs_threshold &&
+              spanning_blob_map.size() >= size_t(too_many_blobs_threshold)) {
 
               was_too_many_blobs_check = true;
               for (size_t i = 0; i < dumped_onodes.size(); ++i) {
@@ -1944,40 +1944,40 @@ void bluestore::ExtentMap::reshard_action(
                     // It will be deleted as soon as it gets out of scope.
                     break;
                   }
-		  // switch b to the new right-hand side, in case it
-		  // *also* has to get split.
-		  bstart1 = sh.shard_info->offset;
-		  onode->c->store->logger->inc(l_bluestore_blob_split);
-		} else {
-		  _make_spanning(b);
-		  break;
-		}
-	      }
-	    }
-	  } else {
-	    _make_spanning(b);
-	  }
-	} // if (!extent->blob->is_spanning())
-	// Make sure extent with a spanning blob doesn't span over shard boundary
-	if (extent->blob->is_spanning()) {
-	  BlobRef b = extent->blob;
-	  uint32_t bstart = extent->blob_start();
-	  for (const auto& sh : shards) {
-	    if (bstart < sh.shard_info->offset && bend > sh.shard_info->offset) {
-	      uint32_t blob_offset = sh.shard_info->offset - bstart;
-	      auto pos = sh.shard_info->offset;
-	      if (extent->logical_offset < pos && extent->logical_end() > pos) {
-		// split extent
-		size_t left = pos - extent->logical_offset;
-		Extent* ne = new Extent(pos, blob_offset, extent->length - left, b);
-		extent_map.insert(*ne);
-		extent->length = left;
-		dout(20) << __func__ << "  split " << *extent << dendl;
-		dout(20) << __func__ << "     to " << *ne << dendl;
-	      }
-	    }
-	  }
-	}
+                  // switch b to the new right-hand side, in case it
+                  // *also* has to get split.
+                  bstart1 = sh.shard_info->offset;
+                  onode->c->store->logger->inc(l_bluestore_blob_split);
+                } else {
+                  _make_spanning(b);
+                  break;
+                }
+              }
+            }
+          } else {
+            _make_spanning(b);
+          }
+        } // if (!extent->blob->is_spanning())
+        // Make sure extent with a spanning blob doesn't span over shard boundary
+        if (extent->blob->is_spanning()) {
+          BlobRef b = extent->blob;
+          uint32_t bstart = extent->blob_start();
+          for (const auto& sh : shards) {
+            if (bstart < sh.shard_info->offset && bend > sh.shard_info->offset) {
+              uint32_t blob_offset = sh.shard_info->offset - bstart;
+              auto pos = sh.shard_info->offset;
+              if (extent->logical_offset < pos && extent->logical_end() > pos) {
+                // split extent
+                size_t left = pos - extent->logical_offset;
+                Extent* ne = new Extent(pos, blob_offset, extent->length - left, b);
+                extent_map.insert(*ne);
+                extent->length = left;
+                dout(20) << __func__ << "  split " << *extent << dendl;
+                dout(20) << __func__ << "     to " << *ne << dendl;
+              }
+            }
+          }
+        }
       } else {
         if (extent->blob->is_spanning()) {
           spanning_blob_map.erase(extent->blob->id);
@@ -2715,8 +2715,8 @@ bluestore::BlobRef bluestore::ExtentMap::split_blob(
 {
   uint32_t end_pos = pos + lb->get_blob().get_logical_length() - blob_offset;
   dout(20) << __func__ << " 0x" << std::hex << pos << " end 0x" << end_pos
-	   << " blob_offset 0x" << blob_offset << std::dec << " " << *lb
-	   << dendl;
+           << " blob_offset 0x" << blob_offset << std::dec << " " << *lb
+           << dendl;
   BlobRef rb = onode->c->new_blob();
   lb->split(onode->c, blob_offset, rb.get());
 
