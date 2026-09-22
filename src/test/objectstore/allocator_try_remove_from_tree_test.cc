@@ -46,13 +46,13 @@ std::ostream& operator<<(std::ostream& os, const cb_rec_t& r) {
   return os << (r.found ? " found" : " missing") << "}";
 }
 
-struct extent_t {
+struct l_extent_t {
   uint64_t offset;
   uint64_t length;
-  bool operator==(const extent_t&) const = default;
+  bool operator==(const l_extent_t&) const = default;
 };
 
-std::ostream& operator<<(std::ostream& os, const extent_t& e) {
+std::ostream& operator<<(std::ostream& os, const l_extent_t& e) {
   print_range(os, e.offset, e.length);
   return os;
 }
@@ -99,15 +99,15 @@ std::vector<cb_rec_t> collect(Alloc& a, uint64_t start, uint64_t size)
     a._try_remove_from_tree(start, size, cb);
   } catch (const bad_callback_t&) {
     ADD_FAILURE() << "callback " << recs.back() << " is outside query "
-                  << extent_t{start, size};
+                  << l_extent_t{start, size};
   }
   return recs;
 }
 
 template <class Alloc>
-std::vector<extent_t> extents(Alloc& a)
+std::vector<l_extent_t> extents(Alloc& a)
 {
-  std::vector<extent_t> out;
+  std::vector<l_extent_t> out;
   a.foreach([&](uint64_t o, uint64_t l) { out.push_back({o, l}); });
   return out;
 }
@@ -147,7 +147,7 @@ TEST(AvlAllocator, try_remove_spanning_disjoint_runs)
     {40 * _64k, 5 * _64k, true},    // C head [40, 45)
   }), recs);
   EXPECT_EQ(20u * _64k, freed);
-  EXPECT_EQ((std::vector<extent_t>{
+  EXPECT_EQ((std::vector<l_extent_t>{
     {0, 5 * _64k}, {45 * _64k, 5 * _64k},
   }), extents(a));
 }
@@ -162,7 +162,7 @@ TEST(AvlAllocator, try_remove_inside_single_run)
 
   auto recs = collect(a, 2 * _64k, 5 * _64k);   // [2, 7) inside [0, 10)
   EXPECT_EQ((std::vector<cb_rec_t>{{2 * _64k, 5 * _64k, true}}), recs);
-  EXPECT_EQ((std::vector<extent_t>{
+  EXPECT_EQ((std::vector<l_extent_t>{
     {0, 2 * _64k}, {7 * _64k, 3 * _64k}, {20 * _64k, 10 * _64k},
   }), extents(a));
 }
@@ -190,7 +190,7 @@ TEST(BtreeAllocator, try_remove_run_starting_before_query)
 
   EXPECT_EQ((std::vector<cb_rec_t>{{150 * _64k, 30 * _64k, true}}), recs);
   EXPECT_EQ(30u * _64k, freed);
-  EXPECT_EQ((std::vector<extent_t>{
+  EXPECT_EQ((std::vector<l_extent_t>{
     {100 * _64k, 50 * _64k}, {180 * _64k, 20 * _64k}, {300 * _64k, 50 * _64k},
   }), extents(a));
 }
@@ -229,7 +229,7 @@ TEST(BtreeAllocator, try_remove_iterator_stays_valid_across_removal)
     {40 * _64k, 5 * _64k, true},    // [40, 45)
   }), recs);
   EXPECT_EQ(25u * _64k, freed);
-  EXPECT_EQ((std::vector<extent_t>{
+  EXPECT_EQ((std::vector<l_extent_t>{
     {45 * _64k, 5 * _64k},
   }), extents(a));
 }
@@ -243,7 +243,7 @@ TEST(BtreeAllocator, try_remove_entirely_past_free_runs)
 
   auto recs = collect(a, 30 * _64k, 10 * _64k);   // [30, 40): nothing free
   EXPECT_EQ((std::vector<cb_rec_t>{{30 * _64k, 10 * _64k, false}}), recs);
-  EXPECT_EQ((std::vector<extent_t>{
+  EXPECT_EQ((std::vector<l_extent_t>{
     {0, 10 * _64k}, {20 * _64k, 10 * _64k},
   }), extents(a));
 }
@@ -273,7 +273,7 @@ TEST(Btree2Allocator, try_remove_predecessor_not_overlapping)
     {20 * _64k, 10 * _64k, false},  // gap [20, 30)
   }), recs);
   EXPECT_EQ(0u, freed);
-  EXPECT_EQ((std::vector<extent_t>{
+  EXPECT_EQ((std::vector<l_extent_t>{
     {0, 10 * _64k}, {40 * _64k, 10 * _64k},
   }), extents(a));
 }
@@ -308,7 +308,7 @@ TEST(Btree2Allocator, try_remove_leftover_split_makes_progress)
     {160 * _64k, 40 * _64k, false},  // gap [160, 200)
   }), recs);
   EXPECT_EQ(60u * _64k, freed);
-  EXPECT_EQ((std::vector<extent_t>{
+  EXPECT_EQ((std::vector<l_extent_t>{
     {0, 50 * _64k},
   }), extents(a));
 }
